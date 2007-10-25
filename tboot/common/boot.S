@@ -1,0 +1,465 @@
+/*
+ * boot.S: assembly bootstrapping code for tboot module
+ *
+ * Copyright (c) 2006-2007, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+#include <multiboot.h>
+#include <config.h>
+#include <msr.h>
+#include <page.h>
+#include <processor.h>
+
+#define BSP_STACK_SIZE		4096
+#define AP_STACK_SIZE		128
+#define NR_IDT_ENTRIES		256
+
+#define cs_sel      1<<3
+#define ds_sel      2<<3
+#define cs16_sel    4<<3
+#define ds16_sel    5<<3
+
+	.text
+
+ENTRY(start)
+ENTRY(_start)
+ENTRY(_stext)
+        jmp __copy_self
+
+        .align 4
+
+/* multiboot header */
+#define MULTIBOOT_HEADER_FLAGS (MULTIBOOT_HEADER_MODS_ALIGNED | \
+                                MULTIBOOT_HEADER_WANT_MEMORY)
+        /* magic number for multiboot header */
+        .long MULTIBOOT_HEADER_MAGIC
+        /* flags for bootloader */
+        .long MULTIBOOT_HEADER_FLAGS
+        /* checksum: negated sum of above */
+        .long -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+
+
+__copy_self:
+	/* copy ourselves to lower memory first */
+	mov	$_stext,%ecx
+	mov	$0x100000,%edi
+1:	mov	(%edi),%eax
+	mov	%eax,(%ecx)
+	add	$0x04,%ecx
+	add	$0x04,%edi
+	cmp	$_end,%ecx
+	jle	1b
+	lea	__start,%eax
+	jmp	*%eax
+
+ENTRY(__start)
+        /* Set up a few descriptors: on entry only CS is guaranteed good. */
+        lgdt    %cs:gdt_descr
+        mov     $(ds_sel),%ecx
+        mov     %ecx,%ds
+        mov     %ecx,%es
+        mov     %ecx,%fs
+        mov     %ecx,%gs
+        mov     %ecx,%ss
+        ljmp    $(cs_sel),$(1f)
+1:	leal	bsp_stack,%esp
+
+        /* Reset EFLAGS (subsumes CLI and CLD). */
+        pushl   $0
+        popf
+
+#if 0
+        /* Initialize BSS (no nasty surprises!) */
+        mov     $__bss_start,%edi
+        mov     $_end,%ecx
+        sub     %edi,%ecx
+        xor     %eax,%eax
+        rep     stosb
+#endif
+
+        /* Load IDT */
+        lidt    idt_descr
+
+        /* pass multiboot info struct and call measured launch code */
+        push    %ebx
+        call    begin_launch
+        ud2
+
+/*
+ * vmexit handler
+ */
+ENTRY(vmx_asm_vmexit_handler)
+        call vmx_vmexit_handler
+
+ENTRY(_mini_guest)
+1:      hlt
+        jmp 1b
+
+compat_mode_entry:
+	/* Disable paging and therefore leave 64 bit mode. */
+        movl %cr0, %eax
+        andl $~X86_CR0_PG, %eax
+        movl %eax, %cr0
+
+        /* Clear MSR_EFER[LME], disabling long mode */
+        movl    $MSR_EFER,%ecx
+        rdmsr
+        btcl    $_EFER_LME,%eax
+        wrmsr
+
+        jmp 1f
+1:      /* fall through to shutdown_entry32 */
+
+ENTRY(shutdown_entry32)
+	/* restore tboot context */
+        cli
+        lgdt    %cs:gdt_descr
+        mov     $(ds_sel),%ecx
+        mov     %ecx,%ds
+        mov     %ecx,%es
+        mov     %ecx,%fs
+        mov     %ecx,%gs
+        mov     %ecx,%ss
+
+#if 0
+/* set the tr? */
+        mov     $0x18, %eax
+        ltr     %ax
+#endif
+
+        ljmp    $(cs_sel),$(1f)
+1:      leal	bsp_stack,%esp
+
+        /* Reset EFLAGS (subsumes CLI and CLD). */
+        pushl   $0x0
+        popf
+
+        /* Load IDT */
+        lidt    idt_descr
+
+        /* disable paging */
+        mov %cr0, %eax
+        and $~X86_CR0_PG, %eax
+        mov %eax, %cr0
+        jmp 1f
+
+1:      /* restore cr4 */
+        mov     $0x4000, %eax
+        mov     %eax, %cr4
+
+        /* true shutdown work for tboot */
+        call shutdown
+        ud2
+
+/*
+ * entry point for GETSEC[WAKEUP]
+ */
+ENTRY(_txt_wakeup)
+	# prepare this thread for C code
+        /* Set up a few descriptors: on entry only CS is guaranteed good. */
+        lgdt    %cs:gdt_descr
+        mov     $0x10,%ecx
+        mov     %ecx,%ds
+        mov     %ecx,%es
+        mov     %ecx,%fs
+        mov     %ecx,%gs
+        mov     %ecx,%ss
+        ljmp    $(cs_sel),$(1f)
+	# this really needs to use cpuid offset from ap_stacks to allow simult
+1:	leal	ap_stacks,%esp
+
+        /* Load IDT */
+        lidt    idt_descr
+
+	# get initial APIC ID for this processor
+	mov	$0x01,%eax
+	xor	%ebx,%ebx
+	cpuid
+	shr	$24,%ebx
+	and	$0xff,%ebx
+
+	push	%ebx
+	call	txt_cpu_wakeup
+
+
+/*
+ * entry point for switch to real mode and jump
+ * entry point in %ebx
+ */
+ENTRY(_prot_to_real)
+    /* disable interrupts */
+    cli
+    mov     0x4(%esp), %ebx
+
+    /* deal with parameter, real mode program entry point */
+	mov     %ebx, %eax
+	and     $0xffff0, %eax
+	shr     $4, %eax
+	mov     %ax, _real_mode_entry_point + 4
+	and     $0xf, %ebx
+	mov     %ebx, _real_mode_entry_point
+
+    /* load proper segments for real mode */
+    mov     $(ds16_sel), %ax
+    mov     %ax, %ds
+    mov     %ax, %es
+    mov     %ax, %fs
+    mov     %ax, %gs
+    mov     %ax, %ss
+    lidt    real_idt_desc
+	xor     %eax, %eax
+	ljmp    $(cs16_sel), $(1f)
+    .code16
+1:	mov     %eax, %cr0
+    mov     $0x0, %ax
+    mov     %ax, %ds
+    mov     %ax, %es
+    mov     %ax, %fs
+    mov     %ax, %gs
+    mov     %ax, %ss
+    .code32
+
+	.byte   0x66
+	.byte   0x67
+	ljmp    *_real_mode_entry_point
+
+/*
+ * 64b entry point
+ */
+ENTRY(shutdown_entry64)
+#ifdef TARGET_ARCH_x86_64
+	.code64
+	cli
+	lgdt    gdt_descr(%rip)
+        mov     $(ds_sel),%ecx
+        mov     %ecx,%ds
+        mov     %ecx,%es
+        mov     %ecx,%fs
+        mov     %ecx,%gs
+        mov     %ecx,%ss
+	
+1:      /* Jump to low identity mapping in compatibility mode. */
+        ljmp *compatibility_mode_far(%rip)
+        ud2
+
+compatibility_mode_far:
+        .long     compat_mode_entry
+        .word     cs_sel
+
+	.code32
+#endif
+
+/*
+ * interrupt handler
+ */
+
+int_handler:
+    call handle_exception
+    ud2
+
+/*
+ * descriptors and descriptor tables
+ */
+
+	.align 8
+
+/* GDT */
+gdt_descr:
+	.word	gdt_table_end - gdt_table - 1
+	.long	gdt_table
+	.word	0
+
+        .align PAGE_SIZE, 0
+
+ENTRY(gdt_table)
+		/* unused */
+        .quad	0x0000000000000000
+cs_descr:	/* cs */
+	.word	0xffff		/* limit = 4GB */
+	.word	0x00		/* base = 0 */
+	.word	0x9b00		/* read + exec + accessed */
+	.word	0x00cf		/* granularity = 4096 */
+ds_descr:	/* ds */
+	.word	0xffff		/* limit = 4GB */
+	.word	0x00		/* base = 0 */
+	.word	0x9300		/* read + write + accessed */
+	.word	0x00cf		/* granularity = 4096 */
+tss_descr:	/* tss */
+	.word	0xffff		/* limit = 4GB */
+	.word	0x00		/* base = 0 */
+	.word	0x8900		/* system segment, 32b available TSS */
+	.word	0x008f		/* granularity = 4096 TBD: need set D/B? */
+cs16_desc:	/* cs16 */
+	.word	0xffff		/* limit = 4GB */
+    .word   0x0000      /* base = 0 */
+    .word   0x9b00      /* read + exec + accessed */
+	.word	0x008f      /* granularity = 4096, D = 0 */
+ds16_desc:  /* ds16 */
+    .word   0xffff      /* limit = 4GB */
+    .word   0x0000      /* base = 0 */
+    .word   0x9300      /* read + exec + accessed */
+    .word   0x008f      /* granularity = 4096, D = 0 */
+		/* end (unused) */
+        .quad	0x0000000000000000
+gdt_table_end:
+
+/* IDT */
+idt_descr:
+	.word	idt_table_end - idt_table - 1
+	.long	idt_table
+	.word	0
+idt_table:
+	.rept NR_IDT_ENTRIES
+		.word	int_handler - _start
+		.word	cs_sel
+		.word	0x8e00   /* present, DPL=0, 32b, interrupt */
+		.word	(int_handler - _start + TBOOT_BASE_ADDR) >> 16
+	.endr
+idt_table_end:
+
+/* Real Mode IDT */
+real_idt_desc:
+    .word   0x00ff
+    .long   0
+    .word   0
+
+/*
+ * s3 resume entry called from BIOS
+ */
+        .code16
+        .align PAGE_SIZE, 0
+
+ENTRY(s3_wakeup_16)
+	cli
+	cld
+	mov     %cs, %ax
+	mov     %ax, %ds
+	lgdtl   real_gdt_desc - s3_wakeup_16
+	mov     $1, %eax
+	mov     %eax, %cr0
+	ljmpl   $(cs_sel), $(s3_wakeup_32)
+
+	.align 8
+/*
+ * descriptors and descriptor tables
+ */
+real_gdt_desc:
+	.word	real_gdt_table_end - real_gdt_table - 1
+	.long	TBOOT_S3_WAKEUP_ADDR + real_gdt_table - s3_wakeup_16
+	.word	0
+
+        .align PAGE_SIZE, 0
+
+real_gdt_table:
+		/* unused */
+        .quad	0x0000000000000000
+real_cs_desc:	/* cs */
+	.word	0xffff		/* limit = 4GB */
+	.word	0x00		/* base = 0 */
+	.word	0x9a00		/* read + exec */
+	.word	0x00cf		/* granularity = 4096 */
+real_ds_desc:	/* ds */
+	.word	0xffff		/* limit = 4GB */
+	.word	0x00		/* base = 0 */
+	.word	0x9200		/* read + write */
+	.word	0x00cf		/* granularity = 4096 */
+		/* end (unused) */
+        .quad	0x0000000000000000
+real_gdt_table_end:
+ENTRY(s3_wakeup_end)
+
+        .code32
+
+s3_wakeup_32:
+	mov     $(ds_sel), %ecx
+	mov     %ecx, %ds
+	mov     $1, %eax
+	mov     %eax, s3_flag
+	jmp     __start
+
+/*
+ * stacks
+ */
+
+.section ".bss.stack_aligned","w"
+
+bsp_stack_end:
+        .fill BSP_STACK_SIZE, 1, 0
+bsp_stack:
+
+ap_stacks_end:
+        .fill AP_STACK_SIZE * NR_CPUS, 1, 0
+ap_stacks:
+
+
+/*
+ * page table and VMCS data for AP bringup
+ */
+
+        .align PAGE_SIZE, 0
+.section ".bss.page_aligned","w"
+ENTRY(idle_pg_table)
+        .fill 1*PAGE_SIZE,1,0
+
+        .align PAGE_SIZE, 0
+ENTRY(host_vmcs)
+        .fill 1*PAGE_SIZE,1,0
+
+        .align PAGE_SIZE, 0
+/* the input info when os/vmm kerneltrap into tboot */
+ENTRY(ap_vmcs)
+        .fill 1*PAGE_SIZE,1,0
+ENTRY(vmcs_end)
+
+
+/*
+ * misc. bss data
+ */
+.section ".bss"
+_real_mode_entry_point:
+    .long   0
+    .word   0
+ENTRY(s3_flag)
+	.long 0
+
+/*
+ * shared data page with kernel (i.e. Xen)
+ * (put at end so that not split e820 region for tboot)
+ */
+.section ".tboot_shared","w"
+        .align PAGE_SIZE, 0
+
+ENTRY(_tboot_shared)
+	.fill	PAGE_SIZE,1,0
+        .align PAGE_SIZE, 0
+
+ENTRY(_end)

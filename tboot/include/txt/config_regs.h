@@ -1,0 +1,204 @@
+/*
+ * config_regs.h: Intel(r) TXT configuration register -related definitions
+ *
+ * Copyright (c) 2003-2007, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+#ifndef __TXT_CONFIG_REGS_H__
+#define __TXT_CONFIG_REGS_H__
+
+/*
+ * TXT configuration registers (offsets from TXT_{PUB, PRIV}_CONFIG_REGS_BASE)
+ */
+
+#define TXT_PUB_CONFIG_REGS_BASE       0xfed30000
+#define TXT_PRIV_CONFIG_REGS_BASE      0xfed20000
+
+/* # pages for each config regs space - used by fixmap */
+#define NR_TXT_CONFIG_PAGES            ((TXT_PUB_CONFIG_REGS_BASE - \
+                                        TXT_PRIV_CONFIG_REGS_BASE) >>    \
+                                        PAGE_SHIFT)
+
+/* offsets to config regs (from either public or private _BASE) */
+#define TXTCR_STS                   0x0000
+#define TXTCR_ESTS                  0x0008
+#define TXTCR_ERRORCODE             0x0030
+#define TXTCR_CMD_SYS_RESET         0x0038
+#define TXTCR_CMD_OPEN_PRIVATE      0x0040
+#define TXTCR_CMD_CLOSE_PRIVATE     0x0048
+#define TXTCR_DIDVID                0x0110   /* TBD: need to publish */
+#define TXTCR_CMD_FLUSH_WB          0x0258
+#define TXTCR_SINIT_BASE            0x0270
+#define TXTCR_SINIT_SIZE            0x0278
+#define TXTCR_MLE_JOIN              0x0290
+#define TXTCR_HEAP_BASE             0x0300
+#define TXTCR_HEAP_SIZE             0x0308
+#define TXTCR_CMD_OPEN_LOCALITY1    0x0380   /* TBD: need to publish */
+#define TXTCR_CMD_CLOSE_LOCALITY1   0x0388   /* TBD: need to publish */
+#define TXTCR_CMD_OPEN_LOCALITY2    0x0390   /* TBD: need to publish */
+#define TXTCR_CMD_CLOSE_LOCALITY2   0x0398   /* TBD: need to publish */
+#define TXTCR_CMD_SECRETS           0x08e0
+#define TXTCR_CMD_NO_SECRETS        0x08e8
+#define TXTCR_E2STS                 0x08f0
+
+/*
+ * format of ERRORCODE register
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint64_t   type       : 30;    /* external-specific error code */
+        uint64_t   external   : 1;     /* 0=from proc, 1=from external SW */
+        uint64_t   valid      : 1;     /* 1=valid */
+    };
+} txt_errorcode_t;
+
+/*
+ * format of ESTS register
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint64_t   reserved1          : 1;
+        uint64_t   txt_rogue_sts      : 1;
+        uint64_t   bm_write_attack    : 1;
+        uint64_t   bm_read_attack     : 1;
+        uint64_t   fsb_write_attack   : 1;
+        uint64_t   fsb_read_attack    : 1;
+        uint64_t   txt_wake_error_sts : 1;
+        uint64_t   reserved2          : 1;
+    };
+} txt_ests_t;
+
+/*
+ * format of E2STS register
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint64_t   slp_entry_error_sts  : 1;
+        uint64_t   secrets_sts          : 1;
+        uint64_t   block_mem_sts        : 1;
+        uint64_t   reset_sts            : 1;
+    };
+} txt_e2sts_t;
+
+/*
+ * format of STS register
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint64_t   senter_done_sts         : 1;
+        uint64_t   sexit_done_sts          : 1;
+        uint64_t   reserved1               : 2;
+        uint64_t   mem_unlock_sts          : 1;
+        uint64_t   reserved2               : 1;
+        uint64_t   mem_config_lock_sts     : 1;
+        uint64_t   private_open_sts        : 1;
+        uint64_t   reserved3               : 3;
+        uint64_t   mem_config_ok_sts       : 1;
+    };
+} txt_sts_t;
+
+/*
+ * format of DIDVID register
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint16_t  vendor_id;
+        uint16_t  device_id;
+        uint16_t  revision_id;
+        uint16_t  reserved;
+    };
+} txt_didvid_t;
+
+/*
+ * RLP JOIN structure for GETSEC[WAKEUP] and MLE_JOIN register
+ */
+typedef struct {
+    uint32_t	gdt_limit;
+    uint32_t	gdt_base;
+    uint32_t	seg_sel;               /* cs (ds, es, ss are seg_sel+8) */
+    uint32_t	entry_point;           /* phys addr */
+} mle_join_t;
+
+
+/*
+ * fns to read/write TXT config regs
+ */
+
+static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg)
+{
+    /* these are MMIO so make sure compiler doesn't optimize */
+    return *(volatile uint64_t *)(unsigned long)(config_regs_base + reg);
+}
+
+static inline void write_config_reg(uint32_t config_regs_base, uint32_t reg,
+                                    uint64_t val)
+{
+    /* these are MMIO so make sure compiler doesn't optimize */
+    *(volatile uint64_t *)(unsigned long)(config_regs_base + reg) = val;
+}
+
+static inline uint64_t read_pub_config_reg(uint32_t reg)
+{
+    return read_config_reg(TXT_PUB_CONFIG_REGS_BASE, reg);
+}
+
+static inline void write_pub_config_reg(uint32_t reg, uint64_t val)
+{
+    write_config_reg(TXT_PUB_CONFIG_REGS_BASE, reg, val);
+}
+
+static inline uint64_t read_priv_config_reg(uint32_t reg)
+{
+    return read_config_reg(TXT_PRIV_CONFIG_REGS_BASE, reg);
+}
+
+static inline void write_priv_config_reg(uint32_t reg, uint64_t val)
+{
+    write_config_reg(TXT_PRIV_CONFIG_REGS_BASE, reg, val);
+}
+
+#endif /* __TXT_CONFIG_REGS_H__ */
+
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */
