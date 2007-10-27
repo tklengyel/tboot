@@ -1,0 +1,41 @@
+These are some example instructions for creating and provisioning both an
+Intel(R) TXT Launch Control Policy (LCP) and a Verified Launch policy.
+
+These steps assume that all referenced binaries have already been built and
+paths are relative to the tboot/ directory:
+
+Create LCP policy:
+-----------------
+1.  lcptools/lcp_mlehash /boot/tboot.gz > mle_hash
+2.  lcptools/lcp_crtpol -t hashonly -m mle_hash -o lcp.pol
+
+
+Create Verified Launch policy:
+-----------------------------
+1.  tb_polgen/tb_polgen --create --policy_type nonfatal --uuid vmm --hash_type
+    hash --file tcb.pol --cmdline "the command line for xen from grub.conf"
+    /boot/xen.gz
+2.  tb_polgen/tb_polgen --create --uuid dom0 --hash_type hash --file tcb.pol
+    --cmdline "the command line for dom0 from grub.conf"
+    /boot/vmlinuz-2.6.18-xen /boot/initrd-2.6.18-xen.img
+
+
+Take ownership of the TPM:
+-------------------------
+1.  modprobe tpm_tis   (you may need 'force=1 interrupts=0')
+2.  tcsd
+3.  tpm_takeownership
+    -  choose password for TPM and for SRK, confirming each
+
+
+Define policy TPM NV indices:
+----------------------------
+1.  lcptools/tpmnv_defindex -i owner -p TPM-password-from-taking-ownership
+2.  lcptools/tpmnv_defindex -i 0x20000001 -s 638 -pv 0x02 -p TPM-password
+
+
+Write LCP and Verified Launch policies to TPM:
+---------------------------------------------
+(modprobe tpm_tis; tcsd;)
+1.  lcptools/lcp_writepol -i owner -f lcp.pol -p TPM-password
+2.  lcptools/lcp_writepol -i 0x20000001 -f tcb.pol -p TPM-password
