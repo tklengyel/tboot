@@ -48,7 +48,7 @@
 #include <tboot.h>
 #include <txt/config_regs.h>
 
-#define TB_LAUNCH_ERR_IDX     0x20000000      /* launch error index */
+#define TB_LAUNCH_ERR_IDX     0x20000002      /* launch error index */
 
 /*
  * print_tb_error_msg

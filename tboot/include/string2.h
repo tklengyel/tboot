@@ -8,10 +8,14 @@
  */
 #include <string.h>
 
-extern size_t strnlen(const char *,size_t);
+extern size_t strnlen(const char *, size_t);
 
 extern size_t strlen(const char * s);
 
-extern void * memmove(void *,const void *,size_t);
+extern size_t strlcpy(char *, const char *, size_t);
+
+extern size_t strlcat(char *, const char *, size_t);
+
+extern void * memmove(void *, const void *, size_t);
 
 #endif /* _LINUX_STRING_H_ */

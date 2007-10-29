@@ -71,9 +71,6 @@ extern char s3_wakeup_end[];
 /* multiboot struct saved so that post_launch() can use it */
 static multiboot_info_t *g_mbi;
 
-/* entry point for next module, i.e. Xen */
-static void *g_kernel_entry_point;
-
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
@@ -106,6 +103,7 @@ static void post_launch(void)
 {
     uint64_t base, size;
     tb_error_t err;
+    bool is_measured_launch = false;
     extern tboot_log_t *g_log;
     extern void shutdown_entry32(void);
     extern void shutdown_entry64(void);
@@ -194,11 +192,13 @@ static void post_launch(void)
     print_tboot_shared(&_tboot_shared);
     print_log();
 
+    is_measured_launch = true;
+
     /* bring RLPs into environment */
     txt_wakeup_cpus();
 
 launch_xen:
-    launch_xen(g_mbi, &g_kernel_entry_point);
+    launch_xen(g_mbi, is_measured_launch);
 }
 
 #define __STR(...)   #__VA_ARGS__
@@ -282,7 +282,7 @@ multiboot_info_t* begin_launch(multiboot_info_t *mbi)
     return mbi;
 
  failed:
-    launch_xen(mbi, &g_kernel_entry_point);
+    launch_xen(mbi, false);
     return mbi;
 }
 

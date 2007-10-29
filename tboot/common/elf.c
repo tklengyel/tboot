@@ -44,6 +44,13 @@
 #include <uuid.h>
 #include <elf.h>
 #include <e820.h>
+#include <tboot.h>
+
+/* copy of kernel/VMM command line so that can append 'tboot=0x1234' */
+static char new_cmdline[512];
+
+/* MLE/kernel shared data page (in boot.S) */
+extern tboot_shared_t _tboot_shared;
 
 #if 0
 static void print_mbi(multiboot_info_t *mbi)
@@ -281,20 +288,42 @@ static bool expand_elf_image(const elf_header_t *elf, void **entry_point)
     return true;
 }
 
-int launch_xen(multiboot_info_t *mbi, void **kernel_entry_point)
+static bool adjust_xen_cmdline(multiboot_info_t *mbi,
+                               const void *tboot_shared_addr)
+{
+    static char tboot_cmdline_option[32];
+
+    /* assumes mbi is valid */
+
+    /* this is the command line option that will be added (leading space is */
+    /* intentional to separate this option from existing ones) */
+    snprintf(tboot_cmdline_option, sizeof(tboot_cmdline_option),
+             " tboot=0x%p", tboot_shared_addr);
+    tboot_cmdline_option[sizeof(tboot_cmdline_option)-1] = '\0';
+
+    if ( mbi->flags & MBI_CMDLINE && mbi->cmdline != 0 )
+        strlcpy(new_cmdline, (char *)mbi->cmdline,
+                sizeof(new_cmdline) - strlen(tboot_cmdline_option) - 1);
+    else
+        new_cmdline[0] = '\0';
+
+    strlcat(new_cmdline, tboot_cmdline_option, sizeof(new_cmdline));
+
+    mbi->cmdline = (u32)new_cmdline;
+    mbi->flags |= MBI_CMDLINE;
+
+    return true;
+}
+
+bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
 {
     module_t *m;
     void *xen_base, *xen_expanded_start, *xen_expanded_end, *xen_entry_point;
     elf_header_t *xen_as_elf;
     size_t xen_size;
 
-    if (mbi == NULL) {
-        printk("Error: Mbi pointer is zero.\n");
-        return -1;
-    }
-
     if (!is_mods_valid(mbi))
-        return -1;
+        return false;
 
     m = (module_t *)mbi->mods_addr;
 
@@ -302,37 +331,39 @@ int launch_xen(multiboot_info_t *mbi, void **kernel_entry_point)
     xen_size = m->mod_end - m->mod_start;
 
     if (!is_elf_image(xen_base, xen_size))
-        return -1;
+        return false;
 
     xen_as_elf = (elf_header_t *)xen_base;
 
     if (!get_elf_image_range(xen_as_elf, &xen_expanded_start,
                              &xen_expanded_end))
-        return -1;
+        return false;
 
     xen_expanded_end = (void *)(((uint32_t)xen_expanded_end + PAGE_SIZE) &
                                 PAGE_MASK);
 
     if (!move_modules_backward(mbi, xen_expanded_end))
-        return -1;
+        return false;
 
     xen_base = remove_module(mbi, NULL);
     if (xen_base == NULL)
-        return -1;
+        return false;
 
     xen_as_elf = (elf_header_t *)xen_base;
 
     if (!expand_elf_image(xen_as_elf, &xen_entry_point))
-        return -1;
+        return false;
 
-    *kernel_entry_point = xen_entry_point;
+    if ( is_measured_launch )
+        adjust_xen_cmdline(mbi, &_tboot_shared);
+
     /* jump to xen start entry */
     __asm__ __volatile__ (
       "    jmp *%%ecx;    "
       "    ud2;           "
       :: "a" (MB_MAGIC), "b" (mbi), "c" (xen_entry_point));
 
-    return 0;
+    return true;
 }
 
 module_t *get_module(multiboot_info_t *mbi, int i)
@@ -429,11 +460,6 @@ void *remove_module(multiboot_info_t *mbi, void *mod_start)
 {
     module_t *m = NULL;
     int i;
-
-    if ( mbi == NULL ) {
-        printk("invalid param to remove_module\n");
-        return NULL;
-    }
 
     if (!is_mods_valid(mbi))
         return NULL;

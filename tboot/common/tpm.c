@@ -44,6 +44,9 @@
 #include <tpm.h>
 #include <sha1.h>
 
+/* un-comment to enable detailed command tracing */
+//#define TPM_TRACE
+
 #define TPM_TAG_RQU_COMMAND         0x00C1
 #define TPM_TAG_RQU_AUTH1_COMMAND   0x00C2
 #define TPM_TAG_RQU_AUTH2_COMMAND   0x00C3
@@ -321,7 +324,8 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     ret = tpm_wait_cmd_ready(locality);
     if ( ret != TPM_SUCCESS )
         return ret;
-    
+
+#ifdef TPM_TRACE
     {
         printk("TPM: cmd size = %d\nTPM: cmd content: ", in_size);
         for ( uint32_t i = 0; i < in_size; i++ ) {
@@ -331,6 +335,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
         }
         printk("\n");
     }
+#endif
     
     /* write the command to the TPM FIFO */
     offset = 0;
@@ -417,6 +422,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     /* out buffer contains the complete outgoing data, get return code */
     reverse_copy(&ret, &out[RSP_RST_OFFSET], sizeof(ret));
 
+#ifdef TPM_TRACE
     {
         printk("TPM: response size = %d\n", *out_size);
         printk("TPM: response content: ");
@@ -427,6 +433,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
         }
         printk("\n");
     }
+#endif
     
 RelinquishControl:
     /* deactivate current locality */
@@ -564,12 +571,14 @@ uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, tpm_pcr_value_t *out)
         out_size = sizeof(*out);
     memcpy((void *)out, WRAPPER_OUT_BUF, out_size);
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)out->digest[i]);
         printk("\n");
     }
+#endif
 
     return ret;
 }
@@ -605,12 +614,14 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
        memcpy((void *)out, WRAPPER_OUT_BUF, out_size);
     }
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)out->digest[i]);
         printk("\n");
     }
+#endif
 
     return ret;
 }
@@ -674,12 +685,14 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
     if ( ret != TPM_SUCCESS )
         return ret;
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
         printk("\n");
     }
+#endif
 
     if ( out_size <= sizeof(*data_size) ) {
         *data_size = 0;
@@ -796,12 +809,14 @@ uint32_t tpm_get_version(uint8_t *major, uint8_t *minor)
     if ( ret != TPM_SUCCESS )
         return ret;
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
         printk("\n");
     }
+#endif
 
     reverse_copy(&resp_size, WRAPPER_OUT_BUF, sizeof(resp_size));
     cap_version = (tpm_cap_version_info_t *) (WRAPPER_OUT_BUF + sizeof(resp_size));
@@ -1010,12 +1025,14 @@ static uint32_t tpm_oiap(uint32_t locality, tpm_authhandle_t *hauth,
     if ( ret != TPM_SUCCESS )
         return ret;
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
         printk("\n");
     }
+#endif
 
     offset = 0;
     LOAD_INTEGER(WRAPPER_OUT_BUF, offset, *hauth);
@@ -1047,12 +1064,14 @@ static uint32_t tpm_osap(uint32_t locality, tpm_entity_type_t ent_type,
     if ( ret != TPM_SUCCESS )
         return ret;
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
         printk("\n");
     }
+#endif
 
     offset = 0;
     LOAD_INTEGER(WRAPPER_OUT_BUF, offset, *hauth);
@@ -1100,12 +1119,14 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
     if ( ret != TPM_SUCCESS )
         return ret;
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
         printk("\n");
     }
+#endif
 
     if ( *sealed_data_size < 
             out_size - sizeof(*nonce_even) - sizeof(*cont_session)
@@ -1163,12 +1184,14 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
     if ( ret != TPM_SUCCESS )
         return ret;
     
+#ifdef TPM_TRACE
     {
         printk("TPM: ");
         for ( uint32_t i = 0; i < out_size; i++ )
             printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
         printk("\n");
     }
+#endif
 
     if ( *secret_size <
             out_size - sizeof(*secret_size) - sizeof(*nonce_even)

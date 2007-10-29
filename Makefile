@@ -13,9 +13,8 @@ export ROOTDIR=$(CURDIR)
 include Config.mk
 
 # (txt-test is not included because it requires pathing to Linux src)
-# (build_tools will be built as a dep from tboot)
 # (trousers is a dep of lcptools)
-SUBDIRS := tboot trousers lcptools tb_polgen
+SUBDIRS := build_tools tboot trousers lcptools tb_polgen
 
 #
 # build rules
@@ -39,7 +38,7 @@ install :
 		$(MAKE) install-$$i; \
 	done
 
-install-tboot : install-build_tools
+install-tboot :
 install-% :
 	$(MAKE) -C $* install
 
@@ -63,10 +62,8 @@ build-% :
 .PHONY: dist
 dist : DESTDIR=$(DISTDIR)/install
 dist : $(patsubst %,dist-%,$(SUBDIRS))
-	$(INSTALL_DIR) $(DISTDIR)/check
 	$(INSTALL_DATA) ./COPYING $(DISTDIR)
 	$(INSTALL_DATA) ./README $(DISTDIR)
-	$(INSTALL_PROG) ./install.sh $(DISTDIR)
 
 dist-% : DESTDIR=$(DISTDIR)/install
 dist-% : install-%

@@ -394,7 +394,7 @@ bool txt_launch_environment(multiboot_info_t *mbi)
             sinit = NULL;
         }
         /* remove it from module list so that VMM/kernel doesn't see an */
-        /* file */
+        /* extra file */
         if ( remove_module(mbi, sinit) == NULL ) {
             printk("failed to remove SINIT module from module list\n");
             return false;

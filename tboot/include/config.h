@@ -21,7 +21,7 @@
 #define TBOOT_BASE_ADDR         0x60000
 
 /* address that tboot will do s3 resume at */
-#define TBOOT_S3_WAKEUP_ADDR    0x7a000
+#define TBOOT_S3_WAKEUP_ADDR    0x8a000
 
 #ifdef MAX_PHYS_CPUS
 #define NR_CPUS MAX_PHYS_CPUS
@@ -45,9 +45,9 @@
 #define EXPORT_SYMBOL(var)
 
 #define COMPILE_TIME_ASSERT( e )   \
-    do { \
-        int compile_time_assert_failed[ (e) ? 1 : -1];  \
-        compile_time_assert_failed[0] = 0;              \
-    } while(0)
+    {                                                            \
+        volatile int compile_time_assert_failed[ (e) ? 1 : -1];  \
+        compile_time_assert_failed[0] = 0;                       \
+    }
 
 #endif /* __CONFIG_H__ */

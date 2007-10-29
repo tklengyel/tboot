@@ -87,7 +87,6 @@ $(DESTIR)/boot/$(TARGET).gz : $(TARGET).gz
 clean :
 	rm -f $(TARGET)* $(TARGET_LDS) *~ include/*~ include/txt/*~ *.o common/*~ txt/*~ common/*.o txt/*.o
 	rm -f tags TAGS cscope.files cscope.in.out cscope.out cscope.po.out
-	$(MAKE) -C $(ROOTDIR)/build_tools clean
 
 
 #
