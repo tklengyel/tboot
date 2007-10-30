@@ -1,0 +1,10 @@
+20071026:
+	Initial version.
+
+20071029:
+	Moved build_tools target into top-level Makefile
+	Put 'tboot=0x1234' (where 1234 is the addr of the tboot_shared data)
+	    on VMM/kernel command line, per latest Xen feedback
+	Changed TB_LAUNCH_ERR_IDX to 0x20000002
+	Made TPM detailed debug ouput conditional
+	Changes TBOOT_S3_WAKEUP_ADDR to 0x8a000 to ensure no conflicts
