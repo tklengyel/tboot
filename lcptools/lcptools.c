@@ -930,8 +930,32 @@ lcp_get_tpmcap(uint32_t caparea,
                uint32_t *outlen,
                unsigned char *resp_data)
 {
+    return lcp_get_tpmcap_auth(NULL, 0, caparea, subcaplen, subcap, outlen,
+			       resp_data);
+}
+
+/* get the tpm capibilities
+ * Parameters:
+ *     password: ownerauth
+ *     psswd_length: length of ownerauth
+ *     caparea: the capability to get
+ *     subcaplen: the length of the sub capablity value
+ *     subcap: the sub capolibity to get
+ *     outlen: the length of return value
+ *     resp_data: the response data
+ */
+lcp_result_t
+lcp_get_tpmcap_auth(const char *password,
+		    uint32_t passwd_length,
+		    uint32_t caparea,
+		    uint32_t subcaplen,
+		    const unsigned char *subcap,
+		    uint32_t *outlen,
+		    unsigned char *resp_data)
+{
     TSS_HCONTEXT hcontext       = NULL_HCONTEXT;
     TSS_HTPM htpm               = NULL_HTPM;
+    TSS_HPOLICY hpolicy         = NULL_HPOLICY;
 
     TSS_RESULT result;
     uint32_t i                  = 0;
@@ -941,15 +965,21 @@ lcp_get_tpmcap(uint32_t caparea,
     result = init_tss_context(&hcontext);
     CHECK_TSS_RETURN_VALUE("init_tss_context", result, ret);
 
-    /*
-     * Get the TPM object.
-     */
-    result = Tspi_Context_GetTpmObject(hcontext, &htpm);
-    CHECK_TSS_RETURN_VALUE("Tspi_Context_GetTpmObject", result, ret);
 
-    result = Tspi_TPM_GetCapability(htpm,
-                 caparea, subcaplen, (unsigned char *)subcap,
-                 outlen, &resp);
+    if ( password != NULL ) {
+        set_tpm_secret(hcontext, &htpm, &hpolicy, password, passwd_length);
+        CHECK_TSS_RETURN_VALUE("set_tpm_secret", result, ret);
+    }
+    else {
+        /*
+	 * Get the TPM object.
+	 */
+        result = Tspi_Context_GetTpmObject(hcontext, &htpm);
+	CHECK_TSS_RETURN_VALUE("Tspi_Context_GetTpmObject", result, ret);
+    }
+
+    result = Tspi_TPM_GetCapability(htpm, caparea, subcaplen,
+				    (unsigned char *)subcap, outlen, &resp);
     CHECK_TSS_RETURN_VALUE("Tspi_TPM_GetCapability", result, ret);
 
     log_debug("The response data is:\n" );

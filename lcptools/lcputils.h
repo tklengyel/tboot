@@ -54,8 +54,9 @@
 
 #define CHECK_TSS_RETURN_VALUE(api_name, result, ret) \
                  do { if ((result) != TSS_SUCCESS) { \
-                         log_error("%s failed: %s\n", (api_name), \
-                                    Trspi_Error_String((result))); \
+                         log_error("%s failed: %s (0x08%x)\n", (api_name), \
+				   Trspi_Error_String((result)),	\
+				   (result));				\
                          (ret) = LCP_E_TSS_ERROR; \
                          goto exit; \
                       } \
@@ -67,10 +68,9 @@ typedef struct {
 } param_option_t;
 
 uint32_t parse_input_option(param_option_t *table, const char *arg);
-int strtonum(const char *in_para,
-             unsigned int *num_out);
-void print_help(const char *usage_str,
-                const char *option_string[]);
+int strtonum(const char *in_para, unsigned int *num_out);
+const char *bool_to_str(int b);
+void print_help(const char *usage_str, const char *option_string[]);
 void print_error(lcp_result_t ret_value);
 lcp_result_t convert_error(TSS_RESULT result);
 

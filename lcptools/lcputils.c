@@ -140,6 +140,12 @@ strtonum(const char *in_para,  unsigned int *num_out)
     return ret_value;
 }
 
+const char *
+bool_to_str(int b)
+{
+    return b ? "TRUE" : "FALSE";
+}
+
 void
 print_help(const char *usage_str, const char * option_string[])
 {

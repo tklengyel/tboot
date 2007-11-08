@@ -56,15 +56,19 @@
 
 static unsigned int index_value = 0;
 static int help_input = 0;
+static int perm_flags = 0;
+static char *password = NULL;
+static uint32_t passwd_length = 0;
 
-static const char *short_option = "hi:";
-static char *usage_string = "tpmnv_getcap [-i index] [-h]";
+static const char *short_option = "hi:f:";
+static char *usage_string = "tpmnv_getcap [-i index] [-f password] [-h]";
 
 static const char * option_strings[] ={
     "-i index value: uint32/string. To get the public data of this index.\n"\
     "\tINDEX_LCP_DEF:0x50000001 or \"default\",\n"\
     "\tINDEX_LCP_OWN:0x40000001 or \"owner\",\n"\
     "\tINDEX_AUX:0x50000002 or \"aux\"\n",
+    "-f password: string  displays TPM_PERMANENT_FLAGS.\n",
     "-h help. Will print out this help message.\n",
     0
 };
@@ -80,8 +84,7 @@ static param_option_t index_option_table[] = {
  * function: parse_cmdline
  * description: parse the input of commandline
  */
-static int
-parse_cmdline(int argc, const char * argv[])
+static int parse_cmdline(int argc, const char * argv[])
 {
     int c;
     while (((c = getopt(argc, (char ** const)argv, short_option)) != -1))
@@ -99,6 +102,12 @@ parse_cmdline(int argc, const char * argv[])
                         return LCP_E_INVALID_PARAMETER;
                 break;
 
+	    case 'f':
+	        perm_flags = 1;
+                password = optarg;
+                passwd_length = strlen(password);
+		break;
+
             case 'h':
                 help_input = 1;
                 break;
@@ -113,8 +122,8 @@ parse_cmdline(int argc, const char * argv[])
 }
 
 /* print the message return by getcap command */
-static void
-print_nv_caps_msg(int datasize, const unsigned char *data, const char *msg)
+static void print_nv_caps_msg(int datasize, const unsigned char *data,
+                              const char *msg)
 {
     uint16_t i = 0;
     uint32_t ibyte;
@@ -134,6 +143,106 @@ print_nv_caps_msg(int datasize, const unsigned char *data, const char *msg)
     log_info("\n");
 }
 
+typedef struct {
+    uint32_t disable                         : 1;
+    uint32_t ownership                       : 1;
+    uint32_t deactivated                     : 1;
+    uint32_t readPubek                       : 1;
+    uint32_t disableOwnerClear               : 1;
+    uint32_t allowMaintenance                : 1;
+    uint32_t physicalPresenceLifetimeLock    : 1;
+    uint32_t physicalPresenceHWEnable        : 1;
+    uint32_t physicalPresenceCMDEnable       : 1;
+    uint32_t CEKPUsed                        : 1;
+    uint32_t TPMpost                         : 1;
+    uint32_t TPMpostLock                     : 1;
+    uint32_t FIPS                            : 1;
+    uint32_t Operator                        : 1;
+    uint32_t enableRevokeEK                  : 1;
+    uint32_t nvLocked                        : 1;
+    uint32_t readSRKPub                      : 1;
+    uint32_t tpmEstablished                  : 1;
+    uint32_t maintenanceDone                 : 1;
+} tpm_perm_flags_t;
+
+typedef struct {
+    uint32_t deactivated             : 1;
+    uint32_t disableForceClear       : 1;
+    uint32_t physicalPresence        : 1;
+    uint32_t physicalPresenceLock    : 1;
+    uint32_t bGlobalLock             : 1;
+} tpm_stclear_flags_t;
+
+static lcp_result_t display_flags(void)
+{
+    uint32_t subcap = 0;
+    unsigned char buffer[BUFFER_SIZE], *pbuf;
+    uint32_t datasize = 0;
+    lcp_result_t result = LCP_E_COMD_INTERNAL_ERR;
+    tpm_perm_flags_t perm_flags;
+    tpm_stclear_flags_t stclear_flags;
+
+    subcap = TPM_CAP_FLAG_PERMANENT;
+    result = lcp_get_tpmcap_auth(password, passwd_length, TSS_TPMCAP_FLAG,
+				 4, (unsigned char *)&subcap, &datasize,
+				 buffer);
+
+    if ( result != LCP_SUCCESS ) {
+        log_error("Error getting TPM_PERMANENT_FLAGS.\n");
+        return result;
+    }
+    else if ( datasize != 2*sizeof(uint32_t) ) {
+        log_error("Error getting TPM_PERMANENT_FLAGS.\n");
+        return LCP_E_GETCAP_REP_ERROR;
+    }
+
+    pbuf = buffer;
+    lcp_unloaddata_uint32((uint32_t *)&perm_flags, &pbuf, 1);
+    lcp_unloaddata_uint32((uint32_t *)&stclear_flags, &pbuf, 1);
+
+    log_info("TPM_PERMANENT_FLAGS:\n");
+    log_info("\t disable: %s\n", bool_to_str(perm_flags.disable));
+    log_info("\t ownership: %s\n", bool_to_str(perm_flags.ownership));
+    log_info("\t deactivated: %s\n", bool_to_str(perm_flags.deactivated));
+    log_info("\t readPubek: %s\n", bool_to_str(perm_flags.readPubek));
+    log_info("\t disableOwnerClear: %s\n",
+	     bool_to_str(perm_flags.disableOwnerClear));
+    log_info("\t allowMaintenance: %s\n",
+	     bool_to_str(perm_flags.allowMaintenance));
+    log_info("\t physicalPresenceLifetimeLock: %s\n",
+	     bool_to_str(perm_flags.physicalPresenceLifetimeLock));
+    log_info("\t physicalPresenceHWEnable: %s\n",
+	     bool_to_str(perm_flags.physicalPresenceHWEnable));
+    log_info("\t physicalPresenceCMDEnable: %s\n",
+	     bool_to_str(perm_flags.physicalPresenceCMDEnable));
+    log_info("\t CEKPUsed: %s\n", bool_to_str(perm_flags.CEKPUsed));
+    log_info("\t TPMpost: %s\n", bool_to_str(perm_flags.TPMpost));
+    log_info("\t TPMpostLock: %s\n", bool_to_str(perm_flags.TPMpostLock));
+    log_info("\t FIPS: %s\n", bool_to_str(perm_flags.FIPS));
+    log_info("\t Operator: %s\n", bool_to_str(perm_flags.Operator));
+    log_info("\t enableRevokeEK: %s\n",
+	     bool_to_str(perm_flags.enableRevokeEK));
+    log_info("\t nvLocked: %s\n", bool_to_str(perm_flags.nvLocked));
+    log_info("\t readSRKPub: %s\n", bool_to_str(perm_flags.readSRKPub));
+    log_info("\t tpmEstablished: %s\n",
+	     bool_to_str(perm_flags.tpmEstablished));
+    log_info("\t maintenanceDone: %s\n",
+	     bool_to_str(perm_flags.maintenanceDone));
+
+    log_info("\nTPM_STCLEAR_FLAGS:\n");
+    log_info("\t deactivated: %s\n", bool_to_str(stclear_flags.deactivated));
+    log_info("\t disableForceClear: %s\n",
+             bool_to_str(stclear_flags.disableForceClear));
+    log_info("\t physicalPresence: %s\n",
+             bool_to_str(stclear_flags.physicalPresence));
+    log_info("\t physicalPresenceLock: %s\n",
+             bool_to_str(stclear_flags.physicalPresenceLock));
+    log_info("\t bGlobalLock: %s\n", bool_to_str(stclear_flags.bGlobalLock));
+
+    return LCP_SUCCESS;
+}
+
+
 /* function: get_pubdata
  *
  * get public data of the index
@@ -150,11 +259,8 @@ print_nv_caps_msg(int datasize, const unsigned char *data, const char *msg)
  *     UINT32 dataSize;
  * }
  */
-static lcp_result_t
-get_pubdata(uint32_t index)
+static lcp_result_t get_pubdata(uint32_t index)
 {
-    uint32_t cap_area = TSS_TPMCAP_NV_INDEX;
-    uint32_t subcaplen = 4;
     uint32_t index_retrieve = 0;
     uint16_t pcrread_sizeofselect = 0;
     uint16_t pcrwrite_sizeofselect = 0;
@@ -164,15 +270,13 @@ get_pubdata(uint32_t index)
     unsigned char *pbuffer;
     lcp_result_t ret_value = LCP_E_COMD_INTERNAL_ERR;
 
-    ret_value = lcp_get_tpmcap(cap_area,
-                    subcaplen,
+    ret_value = lcp_get_tpmcap(TSS_TPMCAP_NV_INDEX, 4,
                     (unsigned char *)&index_value,
-                    &datasize,
-                    buffer);
+                    &datasize, buffer);
 
-    if ( ret_value != LCP_SUCCESS ) {
+    if ( ret_value != LCP_SUCCESS )
         return ret_value;
-    }
+
     if ( datasize != 0 ) {
         /* start to parse public data of the index */
         pbuffer = buffer + sizeof(TPM_STRUCTURE_TAG);
@@ -222,57 +326,28 @@ get_pubdata(uint32_t index)
                      + sizeof(unsigned char);
             lcp_unloaddata_uint32(&datasize, &pbuffer, 1);
             log_info("\n\tData size is %d.\n", datasize);
-        } else
+        }
+	else
             return LCP_E_NV_AREA_NOT_EXIST;
-    } else
+    }
+    else
         return LCP_E_NV_AREA_NOT_EXIST;
 
     return LCP_SUCCESS;
 }
 
 /* get the pcr number and nv index list of the TPM device */
-static lcp_result_t
-get_common(void)
+static lcp_result_t get_common(void)
 {
-    uint32_t subcap = 0;
-    uint32_t cap_area = 0;
-    uint32_t subcaplen = 0;
     uint16_t tmplen = 0;
     unsigned char buffer[BUFFER_SIZE];
     uint32_t datasize = 0;
     lcp_result_t result = LCP_E_COMD_INTERNAL_ERR;
 
     /*
-     * Get the PCR number.
-     */
-    cap_area = TSS_TPMCAP_PROPERTY;
-    subcap = TSS_TPMCAP_PROP_PCR;
-
-    subcaplen = 4;
-
-    log_debug("parameter is cap_area = 0x%lx; subcaplen = 0x%lx; "
-                    "subCap = 0x%lx.\n", cap_area, subcaplen, subcap);
-    result = lcp_get_tpmcap(cap_area,
-        subcaplen, (unsigned char *)&subcap, &datasize, buffer);
-
-    if ( result != LCP_SUCCESS ) {
-        log_error("Error get PCR number. \n");
-        return result;
-    } else {
-        if ( datasize != 4 ) {
-            log_error("Error get PCR number. \n");
-            return LCP_E_GETCAP_REP_ERROR;
-        } else
-            log_info("\nPCR number is %d. \n", *((uint32_t *)buffer));
-    }
-
-    /*
      * Get the NV list.
      */
-    cap_area = TSS_TPMCAP_NV_LIST;
-    subcaplen = 0;
-
-    result = lcp_get_tpmcap(cap_area, 0, NULL, &datasize, buffer);
+    result = lcp_get_tpmcap(TSS_TPMCAP_NV_LIST, 0, NULL, &datasize, buffer);
 
     if ( result != LCP_SUCCESS ) {
         log_error("Error get NV index list. \n");
@@ -289,8 +364,7 @@ get_common(void)
     return LCP_SUCCESS;
 }
 
-int
-main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
     lcp_result_t ret_value = LCP_E_COMD_INTERNAL_ERR;
 
@@ -307,10 +381,24 @@ main (int argc, char *argv[])
         return LCP_SUCCESS;
     }
 
+    if ( perm_flags ) {
+        if ( password == NULL ) {
+            ret_value = LCP_E_AUTH_FAIL;
+            log_error("No password input! Password is needed to "
+                      "display flags.\n");
+            goto _error_end;
+        }
+        ret_value = display_flags();
+        if ( ret_value != LCP_SUCCESS )
+            goto _error_end;
+        return LCP_SUCCESS;
+    }
+
     if ( index_value != 0 ) {
         if ( (ret_value = get_pubdata(index_value)) != LCP_SUCCESS )
             goto _error_end;
-    } else if ( (ret_value = get_common()) != LCP_SUCCESS )
+    }
+    else if ( (ret_value = get_common()) != LCP_SUCCESS )
         goto _error_end;
 
     return LCP_SUCCESS;
@@ -323,3 +411,13 @@ _error_end:
     print_error(ret_value);
     return ret_value;
 }
+
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

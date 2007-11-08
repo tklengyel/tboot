@@ -149,5 +149,12 @@ lcp_result_t lcp_get_tpmcap(uint32_t caparea,
                             const unsigned char *subcap,
                             uint32_t *outlen,
                             unsigned char *respdata);
+lcp_result_t lcp_get_tpmcap_auth(const char *password,
+				 uint32_t passwd_length,
+				 uint32_t caparea,
+				 uint32_t subcaplen,
+				 const unsigned char *subcap,
+				 uint32_t *outlen,
+				 unsigned char *respdata);
 
 #endif
