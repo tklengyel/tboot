@@ -28,10 +28,15 @@ Take ownership of the TPM:
     -  choose password for TPM and for SRK, confirming each
 
 
-Define policy TPM NV indices:
-----------------------------
+Define tboot error TPM NV index:
+-------------------------------
+1.  lcptools/tpmnv_defindex -i 0x20000002 -s 8 -pv 0 -rl 0x07 -wl 0x07 -p TPM-password
+
+
+Define LCP and Verified Launch policy indices:
+---------------------------------------------
 1.  lcptools/tpmnv_defindex -i owner -p TPM-password-from-taking-ownership
-2.  lcptools/tpmnv_defindex -i 0x20000001 -s 638 -pv 0x02 -p TPM-password
+2.  lcptools/tpmnv_defindex -i 0x20000001 -s 512 -pv 0x02 -p TPM-password
 
 
 Write LCP and Verified Launch policies to TPM:
