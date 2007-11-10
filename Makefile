@@ -38,7 +38,8 @@ install :
 		$(MAKE) install-$$i; \
 	done
 
-install-tboot :
+install-tboot : install-build_tools
+
 install-% :
 	$(MAKE) -C $* install
 
@@ -51,6 +52,8 @@ build :
 	@set -e; for i in $(SUBDIRS); do \
 		$(MAKE) build-$$i; \
 	done
+
+build-tboot : build-build_tools
 
 build-% :
 	$(MAKE) -C $* build
