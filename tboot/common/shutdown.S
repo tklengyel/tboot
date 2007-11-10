@@ -1,0 +1,116 @@
+/*
+ * shutdown.S: assembly extry points for shutdown
+ *
+ * Copyright (c) 2006-2007, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+compat_mode_entry:
+	/* Disable paging and therefore leave 64 bit mode. */
+        movl %cr0, %eax
+        andl $~X86_CR0_PG, %eax
+        movl %eax, %cr0
+
+        /* Clear MSR_EFER[LME], disabling long mode */
+        movl    $MSR_EFER,%ecx
+        rdmsr
+        btcl    $_EFER_LME,%eax
+        wrmsr
+
+        jmp 1f
+1:      /* fall through to shutdown_entry32 */
+
+ENTRY(shutdown_entry32)
+	/* restore tboot context */
+        cli
+        lgdt    %cs:gdt_descr
+        mov     $(ds_sel),%ecx
+        mov     %ecx,%ds
+        mov     %ecx,%es
+        mov     %ecx,%fs
+        mov     %ecx,%gs
+        mov     %ecx,%ss
+
+#if 0
+/* set the tr? */
+        mov     $0x18, %eax
+        ltr     %ax
+#endif
+
+        ljmp    $(cs_sel),$(1f)
+1:      leal	bsp_stack,%esp
+
+        /* Reset EFLAGS (subsumes CLI and CLD). */
+        pushl   $0x0
+        popf
+
+        /* Load IDT */
+        lidt    idt_descr
+
+        /* disable paging */
+        mov %cr0, %eax
+        and $~X86_CR0_PG, %eax
+        mov %eax, %cr0
+        jmp 1f
+
+1:      /* restore cr4 */
+        mov     $0x4000, %eax
+        mov     %eax, %cr4
+
+        /* true shutdown work for tboot */
+        call shutdown
+        ud2
+
+/*
+ * 64b entry point
+ */
+ENTRY(shutdown_entry64)
+#ifdef TARGET_ARCH_x86_64
+	.code64
+	cli
+	lgdt    gdt_descr(%rip)
+        mov     $(ds_sel),%ecx
+        mov     %ecx,%ds
+        mov     %ecx,%es
+        mov     %ecx,%fs
+        mov     %ecx,%gs
+        mov     %ecx,%ss
+	
+1:      /* Jump to low identity mapping in compatibility mode. */
+        ljmp *compatibility_mode_far(%rip)
+        ud2
+
+compatibility_mode_far:
+        .long     compat_mode_entry
+        .word     cs_sel
+
+	.code32
+#endif

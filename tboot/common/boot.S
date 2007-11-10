@@ -124,61 +124,8 @@ ENTRY(_mini_guest)
 1:      hlt
         jmp 1b
 
-compat_mode_entry:
-	/* Disable paging and therefore leave 64 bit mode. */
-        movl %cr0, %eax
-        andl $~X86_CR0_PG, %eax
-        movl %eax, %cr0
 
-        /* Clear MSR_EFER[LME], disabling long mode */
-        movl    $MSR_EFER,%ecx
-        rdmsr
-        btcl    $_EFER_LME,%eax
-        wrmsr
-
-        jmp 1f
-1:      /* fall through to shutdown_entry32 */
-
-ENTRY(shutdown_entry32)
-	/* restore tboot context */
-        cli
-        lgdt    %cs:gdt_descr
-        mov     $(ds_sel),%ecx
-        mov     %ecx,%ds
-        mov     %ecx,%es
-        mov     %ecx,%fs
-        mov     %ecx,%gs
-        mov     %ecx,%ss
-
-#if 0
-/* set the tr? */
-        mov     $0x18, %eax
-        ltr     %ax
-#endif
-
-        ljmp    $(cs_sel),$(1f)
-1:      leal	bsp_stack,%esp
-
-        /* Reset EFLAGS (subsumes CLI and CLD). */
-        pushl   $0x0
-        popf
-
-        /* Load IDT */
-        lidt    idt_descr
-
-        /* disable paging */
-        mov %cr0, %eax
-        and $~X86_CR0_PG, %eax
-        mov %eax, %cr0
-        jmp 1f
-
-1:      /* restore cr4 */
-        mov     $0x4000, %eax
-        mov     %eax, %cr4
-
-        /* true shutdown work for tboot */
-        call shutdown
-        ud2
+#include "shutdown.S"
 
 /*
  * entry point for GETSEC[WAKEUP]
@@ -216,11 +163,11 @@ ENTRY(_txt_wakeup)
  * entry point in %ebx
  */
 ENTRY(_prot_to_real)
-    /* disable interrupts */
-    cli
-    mov     0x4(%esp), %ebx
+	/* disable interrupts */
+	cli
+	mov     0x4(%esp), %ebx
 
-    /* deal with parameter, real mode program entry point */
+	/* deal with parameter, real mode program entry point */
 	mov     %ebx, %eax
 	and     $0xffff0, %eax
 	shr     $4, %eax
@@ -228,55 +175,31 @@ ENTRY(_prot_to_real)
 	and     $0xf, %ebx
 	mov     %ebx, _real_mode_entry_point
 
-    /* load proper segments for real mode */
-    mov     $(ds16_sel), %ax
-    mov     %ax, %ds
-    mov     %ax, %es
-    mov     %ax, %fs
-    mov     %ax, %gs
-    mov     %ax, %ss
-    lidt    real_idt_desc
+	/* load proper segments for real mode */
+	mov     $(ds16_sel), %ax
+	mov     %ax, %ds
+	mov     %ax, %es
+	mov     %ax, %fs
+	mov     %ax, %gs
+	mov     %ax, %ss
+	lidt    real_idt_desc
 	xor     %eax, %eax
 	ljmp    $(cs16_sel), $(1f)
-    .code16
+
+	.code16
 1:	mov     %eax, %cr0
-    mov     $0x0, %ax
-    mov     %ax, %ds
-    mov     %ax, %es
-    mov     %ax, %fs
-    mov     %ax, %gs
-    mov     %ax, %ss
-    .code32
+	mov     $0x0, %ax
+	mov     %ax, %ds
+	mov     %ax, %es
+	mov     %ax, %fs
+	mov     %ax, %gs
+	mov     %ax, %ss
+
+	.code32
 
 	.byte   0x66
 	.byte   0x67
 	ljmp    *_real_mode_entry_point
-
-/*
- * 64b entry point
- */
-ENTRY(shutdown_entry64)
-#ifdef TARGET_ARCH_x86_64
-	.code64
-	cli
-	lgdt    gdt_descr(%rip)
-        mov     $(ds_sel),%ecx
-        mov     %ecx,%ds
-        mov     %ecx,%es
-        mov     %ecx,%fs
-        mov     %ecx,%gs
-        mov     %ecx,%ss
-	
-1:      /* Jump to low identity mapping in compatibility mode. */
-        ljmp *compatibility_mode_far(%rip)
-        ud2
-
-compatibility_mode_far:
-        .long     compat_mode_entry
-        .word     cs_sel
-
-	.code32
-#endif
 
 /*
  * interrupt handler
@@ -320,16 +243,16 @@ tss_descr:	/* tss */
 	.word	0x008f		/* granularity = 4096 TBD: need set D/B? */
 cs16_desc:	/* cs16 */
 	.word	0xffff		/* limit = 4GB */
-    .word   0x0000      /* base = 0 */
-    .word   0x9b00      /* read + exec + accessed */
+	.word   0x0000      /* base = 0 */
+	.word   0x9b00      /* read + exec + accessed */
 	.word	0x008f      /* granularity = 4096, D = 0 */
 ds16_desc:  /* ds16 */
-    .word   0xffff      /* limit = 4GB */
-    .word   0x0000      /* base = 0 */
-    .word   0x9300      /* read + exec + accessed */
-    .word   0x008f      /* granularity = 4096, D = 0 */
+	.word   0xffff      /* limit = 4GB */
+	.word   0x0000      /* base = 0 */
+	.word   0x9300      /* read + exec + accessed */
+	.word   0x008f      /* granularity = 4096, D = 0 */
 		/* end (unused) */
-        .quad	0x0000000000000000
+	.quad   0x0000000000000000
 gdt_table_end:
 
 /* IDT */
@@ -348,63 +271,13 @@ idt_table_end:
 
 /* Real Mode IDT */
 real_idt_desc:
-    .word   0x00ff
-    .long   0
-    .word   0
+	.word   0x03ff
+	.long   0
+	.word   0
 
-/*
- * s3 resume entry called from BIOS
- */
-        .code16
-        .align PAGE_SIZE, 0
 
-ENTRY(s3_wakeup_16)
-	cli
-	cld
-	mov     %cs, %ax
-	mov     %ax, %ds
-	lgdtl   real_gdt_desc - s3_wakeup_16
-	mov     $1, %eax
-	mov     %eax, %cr0
-	ljmpl   $(cs_sel), $(s3_wakeup_32)
+#include "wakeup.S"
 
-	.align 8
-/*
- * descriptors and descriptor tables
- */
-real_gdt_desc:
-	.word	real_gdt_table_end - real_gdt_table - 1
-	.long	TBOOT_S3_WAKEUP_ADDR + real_gdt_table - s3_wakeup_16
-	.word	0
-
-        .align PAGE_SIZE, 0
-
-real_gdt_table:
-		/* unused */
-        .quad	0x0000000000000000
-real_cs_desc:	/* cs */
-	.word	0xffff		/* limit = 4GB */
-	.word	0x00		/* base = 0 */
-	.word	0x9a00		/* read + exec */
-	.word	0x00cf		/* granularity = 4096 */
-real_ds_desc:	/* ds */
-	.word	0xffff		/* limit = 4GB */
-	.word	0x00		/* base = 0 */
-	.word	0x9200		/* read + write */
-	.word	0x00cf		/* granularity = 4096 */
-		/* end (unused) */
-        .quad	0x0000000000000000
-real_gdt_table_end:
-ENTRY(s3_wakeup_end)
-
-        .code32
-
-s3_wakeup_32:
-	mov     $(ds_sel), %ecx
-	mov     %ecx, %ds
-	mov     $1, %eax
-	mov     %eax, s3_flag
-	jmp     __start
 
 /*
  * stacks
@@ -445,9 +318,11 @@ ENTRY(vmcs_end)
  * misc. bss data
  */
 .section ".bss"
+
 _real_mode_entry_point:
-    .long   0
-    .word   0
+	.long   0
+	.word   0
+
 ENTRY(s3_flag)
 	.long 0
 
