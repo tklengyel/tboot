@@ -15,12 +15,17 @@ TARGET := $(CURDIR)/tboot
 DUMMY_SYMS_OBJ := $(CURDIR)/common/symbols-dummy.o
 
 C_SRCS := $(wildcard $(CURDIR)/common/*.c) $(wildcard $(CURDIR)/txt/*.c)
+
 S_SRCS += $(wildcard $(CURDIR)/common/*.S) $(wildcard $(CURDIR)/txt/*.S)
+# exclude wakeup.S and shutdown.S because they're included in boot.S
+INCLUDED_S_SRCS = $(CURDIR)/common/wakeup.S $(CURDIR)/common/shutdown.S
+S_SRCS := $(filter-out $(INCLUDED_S_SRCS),$(S_SRCS))
 
 # for time being, ensure that boot.o is first module
 OBJS := $(S_SRCS:.S=.o) $(C_SRCS:.c=.o)
 # exlcude symbols-dummy.o because that is linked explicitly
 OBJS := $(filter-out $(DUMMY_SYMS_OBJ),$(OBJS))
+
 
 TARGET_LDS := $(CURDIR)/common/tboot.lds
 
