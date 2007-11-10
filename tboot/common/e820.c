@@ -569,7 +569,15 @@ uint64_t get_max_ram(multiboot_info_t *mbi)
 {
     uint32_t entry_offset;
     memory_map_t *entry;
-    uint64_t max_ram, base, len;
+    uint64_t base, len;
+    /* TBD: we need to remove the statefullness of max_ram. In the long run
+       this is not secure because an attacker on S3 could set max_ram to be
+       very small then DMA into the image after we verify it */
+    static uint64_t max_ram = 0;
+
+    /* calculate only once to avoid invalid mbi content in s3 resume */
+    if ( max_ram > 0 )
+        return max_ram;
 
     if ( mbi->flags & MBI_MEMMAP ) {
         /* find highest RAM region */
