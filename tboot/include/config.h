@@ -24,9 +24,9 @@
 #define TBOOT_S3_WAKEUP_ADDR    0x8a000
 
 #ifdef MAX_PHYS_CPUS
-#define NR_CPUS MAX_PHYS_CPUS
+#define NR_CPUS     MAX_PHYS_CPUS
 #else
-#define NR_CPUS 32
+#define NR_CPUS     16
 #endif
 
 #ifdef __ASSEMBLY__

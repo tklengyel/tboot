@@ -51,14 +51,6 @@ typedef enum {
 #define DEF_POLICY_TYPE    TB_POLTYPE_CONT_NON_FATAL
 
 /*
- * policy actions
- */
-typedef enum {
-    TB_POLACT_CONTINUE,
-    TB_POLACT_HALT,
-} tb_policy_action_t;
-
-/*
  * policy hash types
  */
 typedef enum {

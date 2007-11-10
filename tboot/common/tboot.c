@@ -292,7 +292,7 @@ static inline void copy_s3_wakeup_entry(void)
            s3_wakeup_end - s3_wakeup_16);
 }
 
-void shutdown_system(uint32_t shutdown_type)
+static void shutdown_system(uint32_t shutdown_type)
 {
     long empty_idt[2] = {0, 0};
 

@@ -171,6 +171,7 @@ static bool validate_params(param_data_t *params)
         case POLGEN_CMD_NONE:
             error_msg("Missing command argument\n");
             return false;
+
         case POLGEN_CMD_CREATE:
             if ( are_uuids_equal(&params->uuid, &empty_uuid) ||
                  params->hash_type == -1 ||
@@ -186,6 +187,7 @@ static bool validate_params(param_data_t *params)
                 return false;
             }
             return true;
+
         case POLGEN_CMD_SHOW:
             if ( strlen(params->policy_file) == 0 ) {
                 error_msg("Missing options for --show command\n");
@@ -193,8 +195,10 @@ static bool validate_params(param_data_t *params)
                 return false;
             }
             return true;
+
         case POLGEN_CMD_HELP:
             return true;
+
         default:
             error_msg("Unknown command\n");
             print_params(params);

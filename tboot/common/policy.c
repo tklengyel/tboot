@@ -52,7 +52,18 @@
 #include <elf.h>
 #include <tboot.h>
 
-extern void shutdown_system(uint32_t shutdown_type);
+extern void shutdown(void);
+
+/* MLE/kernel shared data page (in boot.S) */
+extern tboot_shared_t _tboot_shared;
+
+/*
+ * policy actions
+ */
+typedef enum {
+    TB_POLACT_CONTINUE,
+    TB_POLACT_HALT,
+} tb_policy_action_t;
 
 /* policy map types */
 typedef struct {
@@ -478,7 +489,8 @@ void apply_policy(tb_error_t error)
         default:
             printk("Error: invalid policy action (%d)\n", action);
         case TB_POLACT_HALT:
-            shutdown_system(TB_SHUTDOWN_HALT);
+            _tboot_shared.shutdown_type = TB_SHUTDOWN_HALT;
+            shutdown();
     }
 }
 
