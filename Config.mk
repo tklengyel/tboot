@@ -4,12 +4,22 @@
 # global build settings
 #
 
+# supported targets
+.PHONY: all build install dist clean distclean mrproper
+
+# Default target
+all : build
+
+
 # debug build
 debug ?= n
 
 # for dist targets
-DISTDIR     ?= $(ROOTDIR)/dist
-DESTDIR     ?= /
+DESTDIR     ?= $(ROOTDIR)/dist
+DISTDIR     ?= /
+
+dist : DISTDIR=$(DESTDIR)
+
 
 #
 # tools and flags for components built to run on build (host)

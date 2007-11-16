@@ -2,10 +2,6 @@
 # Grand Unified Makefile for tboot
 #
 
-# Default target must appear before any include lines
-.PHONY: all
-all: dist
-
 # define ROOTDIR
 export ROOTDIR=$(CURDIR)
 
@@ -32,7 +28,6 @@ manifest : build
 #
 #    install
 #
-.PHONY: install
 install :
 	@set -e; for i in $(SUBDIRS); do \
 		$(MAKE) install-$$i; \
@@ -47,7 +42,6 @@ install-% :
 #
 #    build
 #
-.PHONY: build
 build :
 	@set -e; for i in $(SUBDIRS); do \
 		$(MAKE) build-$$i; \
@@ -62,15 +56,13 @@ build-% :
 #
 #    dist
 #
-.PHONY: dist
-dist : DESTDIR=$(DISTDIR)/install
 dist : $(patsubst %,dist-%,$(SUBDIRS))
-	$(INSTALL_DATA) ./COPYING $(DISTDIR)
-	$(INSTALL_DATA) ./README $(DISTDIR)
+	[ -d $(DISTDIR) ] || $(INSTALL_DIR) $(DISTDIR)
+	$(INSTALL_DATA) COPYING $(DISTDIR)
+	$(INSTALL_DATA) README $(DISTDIR)
 
-dist-% : DESTDIR=$(DISTDIR)/install
-dist-% : install-%
-	@: # do nothing
+dist-% :
+	$(MAKE) -C $* dist
 
 
 #
@@ -87,7 +79,6 @@ world :
 #
 #    clean
 #
-.PHONY: clean
 clean :
 	rm -f *~ include/*~
 	@set -e; for i in $(SUBDIRS); do \
@@ -101,7 +92,6 @@ clean-% :
 #
 #    distclean
 #
-.PHONY: distclean
 distclean :
 	@set -e; for i in $(SUBDIRS); do \
 		$(MAKE) distclean-$$i; \
@@ -115,7 +105,6 @@ distclean-% :
 #    mrproper
 #
 # Linux name for GNU distclean
-.PHONY: mrproper
 mrproper : distclean
 
 

@@ -2,13 +2,7 @@
 # tboot makefile
 #
 
-# Default target must appear before any include lines
-.PHONY: all
-all: dist
-
 include $(CURDIR)/Config.mk
-
-XEN_INC_ASMX86_DIR = $(ROOTDIR)/../xen/include/asm-x86
 
 TARGET := $(CURDIR)/tboot
 
@@ -57,47 +51,27 @@ $(TARGET_LDS) : $(TARGET_LDS).x $(HDRS)
 $(TARGET_LDS).x : FORCE
 
 #
-#    dist
+# universal rules
 #
-.PHONY: dist
 dist : install
 
 
-#
-#    build
-#
-.PHONY: build
 build : $(TARGET).gz
 
 
-#
-#    install
-#
-.PHONY: install
-install : $(DESTIR)/boot/$(TARGET).gz
-	if [ -d $(XEN_INC_ASMX86_DIR) ]; then \
-		cp $(ROOTDIR)/include/tboot.h $(XEN_INC_ASMX86_DIR); \
-	fi
+install : $(DISTIR)/boot/$(TARGET).gz
 
-$(DESTIR)/boot/$(TARGET).gz : $(TARGET).gz
-	[ -d $(DESTDIR)/boot ] || $(INSTALL_DIR) $(DESTDIR)/boot
-	$(INSTALL_DATA) $(TARGET).gz $(DESTDIR)/boot/$(notdir $(TARGET)).gz
-	$(INSTALL_DATA) $(TARGET)-syms $(DESTDIR)/boot/$(notdir $(TARGET))-syms
+$(DISTIR)/boot/$(TARGET).gz : $(TARGET).gz
+	[ -d $(DISTDIR)/boot ] || $(INSTALL_DIR) $(DISTDIR)/boot
+	$(INSTALL_DATA) $(TARGET).gz $(DISTDIR)/boot/$(notdir $(TARGET)).gz
+	$(INSTALL_DATA) $(TARGET)-syms $(DISTDIR)/boot/$(notdir $(TARGET))-syms
 
 
-#
-#    clean
-#
-.PHONY: clean
 clean :
 	rm -f $(TARGET)* $(TARGET_LDS) *~ include/*~ include/txt/*~ *.o common/*~ txt/*~ common/*.o txt/*.o
 	rm -f tags TAGS cscope.files cscope.in.out cscope.out cscope.po.out
 
 
-#
-#    distclean
-#
-.PHONY: distclean
 distclean : clean
 
 

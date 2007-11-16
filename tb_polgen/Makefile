@@ -2,10 +2,6 @@
 # tb_polgen makefile
 #
 
-# Default target must appear before any include lines
-.PHONY: all
-all : dist
-
 ROOTDIR ?= $(CURDIR)/..
 
 include $(ROOTDIR)/Config.mk
@@ -18,24 +14,31 @@ LIBS += -lssl
 
 
 #
-# rules
+# universal rules
 #
 
-.PHONY: build
+
 build : $(TARGET)
 
-.PHONY: install dist
-install dist : build
 
-.PHONY: clean
+dist : install
+
+
+install : $(DISTDIR)/usr/bin/$(TARGET)
+
+$(DISTDIR)/usr/bin/$(TARGET) : $(TARGET)
+	[ -d $(DISTDIR)/usr/bin ] || $(INSTALL_DIR) $(DISTDIR)/usr/bin
+	$(INSTALL_PROG) -t $(DISTDIR)/usr/bin $(TARGET)
+
+
 clean :
 	rm -f *~ *.a *.so *.o *.rpm $(DEP_FILES) $(TARGET)
 
-.PHONY: mrproper
+
 mrproper : clean
 
-.PHONY: distclean
 distclean : clean
+
 
 #
 # dependencies

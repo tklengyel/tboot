@@ -2,10 +2,6 @@
 # lcptools makefile
 #
 
-# Default target must appear before any include lines
-.PHONY: all
-all : dist
-
 ROOTDIR ?= $(CURDIR)/..
 
 include $(ROOTDIR)/Config.mk
@@ -32,24 +28,37 @@ LIBS += -lssl -ltspi
 
 
 #
-# rules
+# universal rules
 #
 
-.PHONY: build
 build : $(TPMNV_TARGETS) $(LCP_TARGETS)
 
-.PHONY: install dist
-install dist : build
 
-.PHONY: clean
+dist : install
+
+
+install :
+	@set -e; for i in $(TPMNV_TARGETS) $(LCP_TARGETS); do \
+		$(MAKE) DISTDIR=$(DISTDIR) INST_TARGET=$(DISTDIR)/usr/bin/$$i do_install; \
+	done
+
+.PHONY: do_install
+do_install : $(INST_TARGET)
+
+$(INST_TARGET) : $(notdir $(INST_TARGET))
+	[ -d $(DISTDIR)/usr/bin ] || $(INSTALL_DIR) $(DISTDIR)/usr/bin
+	$(INSTALL_PROG) -t $(DISTDIR)/usr/bin $^
+
+
 clean :
 	rm -f *~ *.a *.so *.o *.rpm $(DEP_FILES) $(TPMNV_TARGETS) $(LCP_TARGETS)
 
-.PHONY: mrproper
+
 mrproper : clean
 
-.PHONY: distclean
+
 distclean : clean
+
 
 #
 # dependencies

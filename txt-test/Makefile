@@ -4,10 +4,6 @@
 
 obj-m = txt-test.o
 
-# Default target must appear before any include lines
-.PHONY: all
-all: dist
-
 ROOTDIR ?= $(CURDIR)/..
 XEN_ROOT ?= $(ROOTDIR)
 
@@ -20,37 +16,21 @@ TARGET := $(CURDIR)/txt-test.ko
 
 
 #
-#    dist
+# universal targets
 #
-.PHONY: dist
 dist : install
 
 
-#
-#    build
-#
-.PHONY: build
 build : $(TARGET)
 
-#
-#    install
-#
-.PHONY: install
+
 install : build
 
 
-#
-#    clean
-#
-.PHONY: clean
 clean :
 	rm -f $(TARGET) *~ *.o *.mod.* *.symvers
 
 
-#
-#    distclean
-#
-.PHONY: distclean
 distclean : clean
 
 
