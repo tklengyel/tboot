@@ -18,7 +18,7 @@
 //#define VT_D
 
 /* address that tboot will execute at */
-#define TBOOT_BASE_ADDR         0x60000
+#define TBOOT_BASE_ADDR         0x58000
 
 /* address that tboot will do s3 resume at */
 #define TBOOT_S3_WAKEUP_ADDR    0x8a000

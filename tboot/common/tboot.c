@@ -336,6 +336,7 @@ void shutdown(void)
 
 void handle_exception(void)
 {
+    printk("received exception; shutting down...\n");
     _tboot_shared.shutdown_type = TB_SHUTDOWN_REBOOT;
     shutdown();
 }

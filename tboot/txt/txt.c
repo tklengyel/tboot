@@ -45,6 +45,7 @@
 #include <page.h>
 #include <processor.h>
 #include <printk.h>
+#include <atomic.h>
 #include <tpm.h>
 #include <e820.h>
 #include <uuid.h>
@@ -61,6 +62,9 @@
 #include <txt/smx.h>
 #include <txt/verify.h>
 #include <txt/vmcs.h>
+
+/* counter timeout for waiting for all APs to enter wait-for-sipi */
+#define AP_WFS_TIMEOUT     0x20000000
 
 extern char _start[];           /* start of module */
 extern char _end[];             /* end of module */
@@ -83,6 +87,12 @@ __attribute__ ((__section__ (".text"))) = {
     mle_start_off     :  (uint32_t)&_mle_start - TBOOT_BASE_ADDR,
     mle_end_off       :  (uint32_t)&_mle_end - TBOOT_BASE_ADDR,
 };
+
+/*
+ * counts of APs going into wait-for-sipi
+ */
+/* count of APs in WAIT-FOR-SIPI */
+atomic_t ap_wfs_count;
 
 static void print_file_info(void)
 {
@@ -339,29 +349,52 @@ void txt_wakeup_cpus(void)
     } gdt;
     uint16_t cs;
     mle_join_t mle_join;
+    int ap_wakeup_count;
+
+    atomic_set(&ap_wfs_count, 0);
 
     /* RLPs will use our GDT and CS */
     __asm__ __volatile__ ("sgdt (%0) \n" :: "a"(&gdt) : "memory");
     __asm__ __volatile__ ("mov %%cs, %0\n" : "=r"(cs));
-      
+
     mle_join.entry_point = (uint32_t)(unsigned long)&_txt_wakeup;
     mle_join.seg_sel = cs;
     mle_join.gdt_base = gdt.base;
     mle_join.gdt_limit = gdt.limit;
- 
+
     printk("mle_join.entry_point = %x\n", mle_join.entry_point);
     printk("mle_join.seg_sel = %x\n", mle_join.seg_sel);
     printk("mle_join.gdt_base = %x\n", mle_join.gdt_base);
     printk("mle_join.gdt_limit = %x\n", mle_join.gdt_limit);
- 
+
     write_priv_config_reg(TXTCR_MLE_JOIN, (uint64_t)(unsigned long)&mle_join);
-      
+
     printk("joining RLPs to MLE with GETSEC[WAKEUP]\n");
     __getsec_wakeup();
-     
-    /* TBD: maybe need wait here for AP to launch mini guest */
 
     printk("GETSEC[WAKEUP] completed\n");
+
+    /* assume BIOS isn't lying to us about # CPUs, else some CPUS may not */
+    /* have entered wait-for-sipi before we launch xen *or* we have to wait */
+    /* for timeout before launching xen */
+    /* if BIOS doesn't tell us, assume 1 (all TXT-capable CPUs have at */
+    /* least 2 cores) */
+    txt_heap_t *txt_heap = get_txt_heap();
+    bios_os_data_t *bios_os_data = get_bios_os_data_start(txt_heap);
+    if ( bios_os_data->version >= 0x02 )
+        ap_wakeup_count = bios_os_data->v2.num_logical_procs - 1;
+    else
+        ap_wakeup_count = 1;
+
+    printk("waiting for all APs (%d) to enter wait-for-sipi...\n",
+           ap_wakeup_count);
+    /* wait for all APs that woke up to have entered wait-for-sipi */
+    uint32_t timeout = AP_WFS_TIMEOUT;
+    do {
+        cpu_relax();
+        timeout--;
+    } while ( (atomic_read(&ap_wfs_count) < ap_wakeup_count) && timeout > 0 );
+    printk("all APs in wait-for-sipi\n");
 
     /* enable SMIs (do this after APs have been awakened and sync'ed w/ BSP) */
     printk("enabling SMIs on BSP\n");
@@ -586,7 +619,7 @@ void txt_cpu_wakeup(uint32_t cpuid)
     printk("enabling SMIs on cpu %x\n", cpuid);
     __getsec_smctrl();
 
-    handle_init_sipi_sipi();
+    handle_init_sipi_sipi(cpuid);
 }
 
 bool txt_protect_mem_regions(void)
@@ -679,6 +712,15 @@ bool txt_protect_mem_regions(void)
 
 void txt_shutdown(void)
 {
+    unsigned long apicbase;
+
+    rdmsrl(MSR_IA32_APICBASE, apicbase);
+    if ( !(apicbase & MSR_IA32_APICBASE_BSP) ) {
+        printk("calling txt_shutdown on AP\n");
+        while ( true )
+            __asm__ __volatile__("sti; hlt": : :"memory");
+    }
+
     /* set LT.CMD.NO-SECRETS flag (i.e. clear SECRETS flag) */
     write_priv_config_reg(TXTCR_CMD_NO_SECRETS, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* fence */

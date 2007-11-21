@@ -40,8 +40,7 @@
 #include <processor.h>
 
 #define BSP_STACK_SIZE		4096
-#define AP_STACK_SIZE		128
-#define NR_IDT_ENTRIES		256
+#define AP_STACK_SIZE		1024
 
 #define cs_sel      1<<3
 #define ds_sel      2<<3
@@ -134,25 +133,31 @@ ENTRY(_txt_wakeup)
 	# prepare this thread for C code
         /* Set up a few descriptors: on entry only CS is guaranteed good. */
         lgdt    %cs:gdt_descr
-        mov     $0x10,%ecx
-        mov     %ecx,%ds
-        mov     %ecx,%es
-        mov     %ecx,%fs
-        mov     %ecx,%gs
-        mov     %ecx,%ss
-        ljmp    $(cs_sel),$(1f)
-	# this really needs to use cpuid offset from ap_stacks to allow simult
-1:	leal	ap_stacks,%esp
+        mov     $0x10, %ecx
+        mov     %ecx, %ds
+        mov     %ecx, %es
+        mov     %ecx, %fs
+        mov     %ecx, %gs
+        mov     %ecx, %ss
+        ljmp    $(cs_sel), $(1f)
 
         /* Load IDT */
-        lidt    idt_descr
+1:	lidt    idt_descr
 
 	# get initial APIC ID for this processor
-	mov	$0x01,%eax
-	xor	%ebx,%ebx
+	mov	$0x01, %eax
+	xor	%ebx, %ebx
 	cpuid
-	shr	$24,%ebx
-	and	$0xff,%ebx
+	shr	$24, %ebx
+	and	$0xff, %ebx
+
+	# set stack as id-based offset from AP stack base
+	mov	$AP_STACK_SIZE, %eax
+	mul	%ebx
+	sub	$AP_STACK_SIZE, %eax
+	mov	$ap_stacks, %ecx
+	sub	%eax, %ecx
+	mov	%ecx, %esp
 
 	push	%ebx
 	call	txt_cpu_wakeup
@@ -206,8 +211,8 @@ ENTRY(_prot_to_real)
  */
 
 int_handler:
-    call handle_exception
-    ud2
+	call handle_exception
+	ud2
 
 /*
  * descriptors and descriptor tables
@@ -261,7 +266,7 @@ idt_descr:
 	.long	idt_table
 	.word	0
 idt_table:
-	.rept NR_IDT_ENTRIES
+	.rept 256
 		.word	int_handler - _start
 		.word	cs_sel
 		.word	0x8e00   /* present, DPL=0, 32b, interrupt */
@@ -290,7 +295,7 @@ bsp_stack_end:
 bsp_stack:
 
 ap_stacks_end:
-        .fill AP_STACK_SIZE * NR_CPUS, 1, 0
+        .fill AP_STACK_SIZE * (NR_CPUS-1), 1, 0
 ap_stacks:
 
 
@@ -310,7 +315,7 @@ ENTRY(host_vmcs)
         .align PAGE_SIZE, 0
 /* the input info when os/vmm kerneltrap into tboot */
 ENTRY(ap_vmcs)
-        .fill 1*PAGE_SIZE,1,0
+        .fill (NR_CPUS-1) * PAGE_SIZE, 1, 0
 ENTRY(vmcs_end)
 
 

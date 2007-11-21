@@ -17,6 +17,7 @@
 #include <processor.h>
 #include <printk.h>
 #include <spinlock.h>
+#include <atomic.h>
 #include <uuid.h>
 #include <tboot.h>
 #include <txt/txt.h>
@@ -56,6 +57,9 @@ extern char gdt_table[];
 #define RESET_TSS_DESC(n)   gdt_table[((n)<<3)+5] = 0x89
 
 DEFINE_SPINLOCK(ap_init_lock);
+
+/* counter for APs entering wait-for-sipi */
+extern atomic_t ap_wfs_count;
 
 /* Dynamic (run-time adjusted) execution control flags. */
 static uint32_t vmx_pin_based_exec_control;
@@ -138,34 +142,51 @@ static void build_ap_pagetable(void)
     uint32_t pt_entry = 0xe3; /* PRESENT+RW+A+D+4MB */
     uint32_t *pte = &idle_pg_table[0];
     uint32_t tboot_end = (uint32_t)&vmcs_end;
+
     while ( pt_entry <= tboot_end + 0xe3 ) {
         *pte = pt_entry;
         pt_entry += ( 1 << L2_PAGETABLE_SHIFT );
         pte++;
     }
-    printk("build 4M page table %p.\n", idle_pg_table);
 }
 
 extern char host_vmcs[PAGE_SIZE];
-extern char ap_vmcs[PAGE_SIZE];
+extern char ap_vmcs[NR_CPUS-1][PAGE_SIZE];
+static int exit_state[NR_CPUS-1];
 
 static bool start_vmx(void)
 {
-    uint32_t eax, edx;
     struct vmcs_struct *vmcs;
-
-    vmcs = (struct vmcs_struct*)host_vmcs;
-    memset(vmcs, 0, PAGE_SIZE);
+    static bool init_done = false;
 
     set_in_cr4(X86_CR4_VMXE);
 
-    vmx_init_vmcs_config();
-    vmcs->vmcs_revision_id = vmcs_revision_id;
+    vmcs = (struct vmcs_struct*)host_vmcs;
 
-    rdmsr(MSR_EFER, eax, edx);
+    /* only initialize this data the first time */
+    spin_lock(&ap_init_lock);
 
-    /* enable paging as required by vmentry */
-    build_ap_pagetable();
+    if ( !init_done ) {
+        printk("one-time initializing VMX mini-guest\n");
+
+        memset(vmcs, 0, PAGE_SIZE);
+
+        vmx_init_vmcs_config();
+        vmcs->vmcs_revision_id = vmcs_revision_id;
+
+        /* enable paging as required by vmentry */
+        build_ap_pagetable();
+
+        /* initialize vmexit state for each AP */
+        for ( int i = 0; i < NR_CPUS; i++ )
+            exit_state[i] = AP_WAIT_INIT;
+
+        init_done = true;
+    }
+    spin_unlock(&ap_init_lock);
+
+    printk("per-cpu initializing VMX mini-guest\n");
+
     write_cr3((unsigned long)idle_pg_table);
     set_in_cr4(X86_CR4_PSE);
     write_cr0(read_cr0() | X86_CR0_PG);
@@ -187,7 +208,9 @@ static void stop_vmx(void)
     if ( !(read_cr4() & X86_CR4_VMXE) )
         return;
 
-    __vmpclear((unsigned long)ap_vmcs);
+    unsigned int apicid = cpuid_ebx(1) >> 24;
+
+    __vmpclear((unsigned long)&ap_vmcs[apicid-1]);
     __vmxoff();
 
     clear_in_cr4(X86_CR4_VMXE);
@@ -392,9 +415,9 @@ static void construct_vmcs(void)
     printk("vmcs setup done.\n");
 }
 
-static void vmx_create_vmcs(void)
+static void vmx_create_vmcs(int cpuid)
 {
-    struct vmcs_struct *vmcs = (struct vmcs_struct*)ap_vmcs;
+    struct vmcs_struct *vmcs = (struct vmcs_struct*)&ap_vmcs[cpuid-1];
 
     memset(vmcs, 0, PAGE_SIZE);
 
@@ -411,6 +434,12 @@ static void vmx_create_vmcs(void)
 static void launch_mini_guest(void)
 {
     unsigned long error;
+
+    unsigned int apicid = cpuid_ebx(1) >> 24;
+    printk("launching mini-guest for cpu %d\n", apicid);
+
+    /* this is close enough to entering wait-for-sipi, so inc counter */
+    atomic_inc(&ap_wfs_count);
 
     __vmlaunch();
 
@@ -453,8 +482,7 @@ void vmx_vmexit_handler(void)
     unsigned long error, exit_qual;
     unsigned int exit_reason, apicid;
     uint32_t sipi_vec = 0;
-
-    static int state = AP_WAIT_INIT;
+    int *state = NULL;
 
     exit_reason = __vmread(VM_EXIT_REASON);
 /*    printk("vmx_vmexit_handler, exit_reason=%x.\n", exit_reason);*/
@@ -462,24 +490,27 @@ void vmx_vmexit_handler(void)
     if ( (exit_reason & VMX_EXIT_REASONS_FAILED_VMENTRY) ) {
         printk("failed vmentry.\n");
         vmx_failed_vmentry(exit_reason);
-        goto out;
+        return;
     }
+
+    apicid = cpuid_ebx(1) >> 24;
+    state = &exit_state[apicid-1];
 
     switch ( exit_reason )
         {
         case EXIT_REASON_INIT:
-            if ( state == AP_WAIT_INIT ) {
-                state = AP_WAIT_SIPI1;
+            if ( *state == AP_WAIT_INIT ) {
+                *state = AP_WAIT_SIPI1;
                 __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
             }
             break;
         case EXIT_REASON_SIPI:
-            if ( state == AP_WAIT_SIPI1 ) {
-                state = AP_WAIT_SIPI2;
+            if ( *state == AP_WAIT_SIPI1 ) {
+                *state = AP_WAIT_SIPI2;
                 __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
             }
-            else if ( state == AP_WAIT_SIPI2 )
-                state = AP_WAIT_DONE;
+            else if ( *state == AP_WAIT_SIPI2 )
+                *state = AP_WAIT_DONE;
             exit_qual = __vmread(EXIT_QUALIFICATION);
             sipi_vec = (exit_qual & 0xffUL) << PAGE_SHIFT;
             /* printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
@@ -488,14 +519,10 @@ void vmx_vmexit_handler(void)
             printk("can't handle vmexit due to 0x%x.\n", exit_reason);
         }
 
-    if ( state == AP_WAIT_DONE ) { /* disable VT then jump to xen code */
+    if ( *state == AP_WAIT_DONE ) { /* disable VT then jump to xen code */
 /*        printk("sucessfully handle INIT-SIPI-SIPI on AP.\n");*/
         stop_vmx();
-        state = AP_WAIT_INIT;
-        memset(host_vmcs, 0, PAGE_SIZE);
-        memset(ap_vmcs, 0, PAGE_SIZE);
-        spin_unlock(&ap_init_lock);
-        apicid = cpuid_ebx(1) >> 24;
+        *state = AP_WAIT_INIT;
         cpu_wakeup(apicid, sipi_vec);
         return; 
     }
@@ -506,17 +533,11 @@ void vmx_vmexit_handler(void)
     /* should not reach here */
     error = __vmread(VM_INSTRUCTION_ERROR);
     printk("<vm_resume_fail> error code %lx\n", error);
-
-out:
-    spin_unlock(&ap_init_lock);
 }
 
 /* Launch a mini guest to handle the physical INIT-SIPI-SIPI from BSP */
-void handle_init_sipi_sipi(void)
+void handle_init_sipi_sipi(int cpuid)
 {
-    /* handle APs one by one by a big spinlock,  */
-    spin_lock(&ap_init_lock);
-
     /* setup a dummy tss as vmentry require a non-zero host TR */
     load_TR(3);
 
@@ -526,16 +547,16 @@ void handle_init_sipi_sipi(void)
     /* prepare a guest for INIT-SIPI-SIPI handling */
     /* 1: setup VMX environment and VMXON */
     if ( !start_vmx() )
-        goto out;
+        return;
 
     /* 2: setup VMCS */
-    vmx_create_vmcs();
+    vmx_create_vmcs(cpuid);
 
     /* 3: launch VM */
     launch_mini_guest();
 
-out:
-    spin_unlock(&ap_init_lock);
+    printk("control should not return here from launch_mini_guest\n");
+    return;
 }
 
 
