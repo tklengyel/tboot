@@ -28,6 +28,9 @@ ifeq ($(TARGET_ARCH),x86_64)
 CFLAGS             += -DTARGET_ARCH_x86_64
 endif
 
+# uncomment to support logging to memory location
+#CFLAGS             += -DMEM_LOGGING
+
 AFLAGS             += -D__ASSEMBLY__
 
 # Most CFLAGS are safe for assembly files:

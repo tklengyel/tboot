@@ -34,6 +34,7 @@
 
 DEFINE_SPINLOCK(print_lock);
 
+#ifdef MEM_LOGGING
 /*
  * logging support
  */
@@ -45,11 +46,18 @@ static tboot_log_t _log = {
     curr_pos  : 0,
     buf       : "",
 };
-tboot_log_t *g_log = &_log;
+#endif
+tboot_log_t *g_log = NULL;
 
 void init_log(void)
 {
+#ifdef MEM_LOGGING
     g_log = &_log;
+#endif
+
+    if ( g_log == NULL )
+        return;
+
     g_log->max_size = sizeof(g_log->buf);
 
     /* if we're calling this post-launch, verify that curr_pos is valid */
@@ -59,6 +67,9 @@ void init_log(void)
 
 static void write_log(const char *s, unsigned int n)
 {
+    if ( g_log == NULL )
+        return;
+
     if ( n > g_log->max_size )
         return;
 
@@ -82,9 +93,13 @@ static void write_log(const char *s, unsigned int n)
 void print_log(void)
 {
     printk("g_log:\n");
-    printk("\t uuid="); print_uuid(&g_log->uuid); printk("\n");
-    printk("\t max_size=%x\n", g_log->max_size);
-    printk("\t curr_pos=%x\n", g_log->curr_pos);
+    if ( g_log == NULL )
+        printk("\t *** memory logging disabled ***\n");
+    else {
+        printk("\t uuid="); print_uuid(&g_log->uuid); printk("\n");
+        printk("\t max_size=%x\n", g_log->max_size);
+        printk("\t curr_pos=%x\n", g_log->curr_pos);
+    }
 }
 
 
@@ -134,7 +149,7 @@ static void early_serial_write(const char *s, unsigned int n)
 
 void early_serial_printk(const char *fmt, ...)
 {
-	char buf[256];
+	char buf[128];
 	int n;
 	va_list ap;
     static bool last_line_cr = true;
