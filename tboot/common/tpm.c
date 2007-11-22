@@ -1298,7 +1298,7 @@ static uint32_t _tpm_wrap_seal(uint32_t locality,
                     sealed_data_size, sealed_data,
                     &nonce_even, &res_auth);
 
-    /* FIXME: need adding check for res_auth */
+    /* skip check for res_auth */
 
     return ret;
 }
@@ -1375,7 +1375,7 @@ static uint32_t _tpm_wrap_unseal(uint32_t locality, const uint8_t *in_data,
                       secret_size, secret,
                       &nonce_even, &res_auth, &nonce_even_d, &res_auth_d);
 
-    /* FIXME: need adding check for res_auth */
+    /* skip check for res_auth */
 
     return ret;
 }
@@ -4139,7 +4139,6 @@ static bool test_tpm_wrap_seal(void)
                    (tpm_stored_data12_header_t *)sealed_data,
                    &nonce_even, &res_auth);
     */
-    /* FIXME: need adding check for res_auth */
 
     return ret;
 }
