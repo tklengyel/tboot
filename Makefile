@@ -80,7 +80,7 @@ world :
 #    clean
 #
 clean :
-	rm -f *~ include/*~
+	rm -f *~ include/*~ docs/*~
 	@set -e; for i in $(SUBDIRS); do \
 		$(MAKE) clean-$$i; \
 	done
