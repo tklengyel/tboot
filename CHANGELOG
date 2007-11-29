@@ -24,3 +24,5 @@
 	    setting 'vtd=1' is optional but some systems fail to boot dom0
 	    otherwise
 	    *** setting 'vtd=1' will cause S3 resume to fail ***
+	Updated trousers sub-directory to download 0.3.1 version from TrouSerS
+	    SourceForge site and build it
