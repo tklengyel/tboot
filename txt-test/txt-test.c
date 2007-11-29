@@ -49,6 +49,7 @@
 #include "../include/uuid.h"
 #include "../include/tboot.h"
 #include "../tboot/include/tpm.h"
+#include "../tboot/include/config.h"
 #include "../tboot/include/txt/config_regs.h"
 
 /* device name for Intel(r) TXT device we create */
@@ -57,9 +58,9 @@
 static struct file_operations fops;
 static int dev_major;
 
-#define TBOOT_MEM_BASE      (0x70000 - 3*PAGE_SIZE)
-                               /* 0x90000 is Xen's start of trampoline code */
-#define TBOOT_MEM_SIZE      (0x90000 - TBOOT_MEM_BASE)
+#define TBOOT_MEM_BASE      (TBOOT_BASE_ADDR - 3*PAGE_SIZE)
+                               /* 0x8c000 is Xen's start of trampoline code */
+#define TBOOT_MEM_SIZE      (0x2f000 + 3*PAGE_SIZE)
 
 #define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
 #define TPM_LOCALITY_SIZE           (NR_TPM_LOCALITY_PAGES*PAGE_SIZE)

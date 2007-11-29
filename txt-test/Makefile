@@ -5,12 +5,13 @@
 obj-m = txt-test.o
 
 ROOTDIR ?= $(CURDIR)/..
-XEN_ROOT ?= $(ROOTDIR)
 
 include $(ROOTDIR)/Config.mk
 
-LINUX_BUILD_DIR = $(ROOTDIR)/../build-linux-2.6.18-xen_$(TARGET_ARCH)
-LINUX_SRC_DIR = $(ROOTDIR)/../linux-2.6.18-xen.hg
+LINUX_BASE_DIR = $(ROOTDIR)/../
+
+LINUX_BUILD_DIR = $(LINUX_BASE_DIR)/build-linux-2.6.18-xen_$(TARGET_ARCH)
+LINUX_SRC_DIR = $(LINUX_BASE_DIR)/linux-2.6.18-xen.hg
 
 TARGET := $(CURDIR)/txt-test.ko
 
