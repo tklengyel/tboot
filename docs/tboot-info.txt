@@ -62,15 +62,15 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
        title Xen 3.1.0 w/ Intel(R) Trusted Execution Technology
            root (hd0,1)
            kernel /tboot.gz
-           module /xen.gz no-real-mode dom0_mem=524288 com1=115200,8n1
+           module /xen.gz vtd=1 dom0_mem=524288 com1=115200,8n1
            module /vmlinuz-2.6.18-xen root=/dev/VolGroup00/LogVol00 ro
            module /initrd-2.6.18-xen.img
            module /BRLK_SINIT_20070910_release.BIN
 
-o  Xen's command line must include the 'no-real-mode' option to prevent
-   Xen from reading the e820 table from BIOS.  The TXT code makes
-   modifications to the table passed via GRUB that the Xen portions of the
-   code need.
+o  It is optional to include 'vtd=1' on Xen's command line, though omitting it
+   has been found to cause dom0 to fail to boot on some systems.  In the
+   current version of tboot, if it is set then Xen will not be able to resume
+   from S3.
 
 o  Progress of the launch process is indicated via debug printk's to
    COM1 (hardcoded).  These appear before the normal "(XEN)" output and are
