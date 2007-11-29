@@ -8,3 +8,14 @@
 	Changed TB_LAUNCH_ERR_IDX to 0x20000002
 	Made TPM detailed debug ouput conditional
 	Changes TBOOT_S3_WAKEUP_ADDR to 0x8a000 to ensure no conflicts
+
+20071128:
+	Added '-f' command line option to lcptools/tpmnv_getcap to display the
+	    TPM_PERMANENT_FLAGS and TPM_STCLEAR_FLAGS contents
+	Revised the docs/policy.txt steps
+	Code and build re-factoring and cleanup (default target is now 'build')
+	Make memory logging build-time optional and disable by default
+	Support >2 cores/threads
+	Move tboot to load and execute at 16MB (this also now protects it from
+	    dom0 access since it's memory type can be E820_UNUSABLE now)
+	    *** this requires a patch to Xen ***
