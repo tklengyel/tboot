@@ -19,3 +19,8 @@
 	Move tboot to load and execute at 16MB (this also now protects it from
 	    dom0 access since it's memory type can be E820_UNUSABLE now)
 	    *** this requires a patch to Xen ***
+	The Xen command line shoudl have 'no-real-mode' removed and 'vtd=1'
+	    added (as indicated in the updated docs/tboot-info.txt)
+	    setting 'vtd=1' is optional but some systems fail to boot dom0
+	    otherwise
+	    *** setting 'vtd=1' will cause S3 resume to fail ***
