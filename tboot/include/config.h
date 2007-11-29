@@ -17,17 +17,36 @@
 /* only enable this if VT-d has been applied to xen */
 //#define VT_D
 
-/* address that tboot will execute at */
-#define TBOOT_BASE_ADDR         0x58000
+
+/* address tboot will execute (not necessarily load) at */
+#define TBOOT_BASE_ADDR              0x1003000
+
 
 /* address that tboot will do s3 resume at */
-#define TBOOT_S3_WAKEUP_ADDR    0x8a000
+/* (must be in lower 1MB (real mode) and less than Xen trampoline @ 0x8c000) */
+#define TBOOT_S3_WAKEUP_ADDR         0x8a000
 
+
+/* these addrs must be in low memory so that they are mapped by the */
+/* kernel at startup */
+
+/* address/size for modified e820 table */
+#define TBOOT_E820_COPY_ADDR         0x88000
+#define TBOOT_E820_COPY_SIZE         0x01800
+
+/* address/size for modified VMM/kernel command line */
+#define TBOOT_KERNEL_CMDLINE_ADDR    (TBOOT_E820_COPY_ADDR + \
+				      TBOOT_E820_COPY_SIZE)
+#define TBOOT_KERNEL_CMDLINE_SIZE    0x0400
+
+
+#ifndef NR_CPUS
 #ifdef MAX_PHYS_CPUS
 #define NR_CPUS     MAX_PHYS_CPUS
 #else
 #define NR_CPUS     16
-#endif
+#endif   /* MAX_PHYS_CPUS */
+#endif   /* NR_CPUS */
 
 #ifdef __ASSEMBLY__
 #define ENTRY(name)                             \
@@ -42,7 +61,9 @@
 #define __FIXUP_ALIGN ".align 4"
 #define __FIXUP_WORD  ".long"
 
+#ifndef EXPORT_SYMBOL
 #define EXPORT_SYMBOL(var)
+#endif
 
 #define COMPILE_TIME_ASSERT( e )   \
     {                                                            \

@@ -47,7 +47,7 @@
 #include <tboot.h>
 
 /* copy of kernel/VMM command line so that can append 'tboot=0x1234' */
-static char new_cmdline[512];
+static char *new_cmdline = (char *)TBOOT_KERNEL_CMDLINE_ADDR;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
@@ -69,11 +69,11 @@ static void print_mbi(multiboot_info_t *mbi)
     if ((mbi->flags) & ( 1<<3 )) {
         printk("mods_count = %x, mods_addr = %x\n", mbi->mods_count,
                mbi->mods_addr);
-        for ( i=0; i<mbi->mods_count; i++ ) {
+        for ( i = 0; i < mbi->mods_count; i++ ) {
 	        module_t *p = (module_t *)(mbi->mods_addr + i*sizeof(module_t));
-	        printk("\t i = %x, mod_start = %x, mod_end = %x, string = %x, "
-                   "string = %s\n", i, p->mod_start, p->mod_end, p->string,
-                   (char *)p->string);
+	        printk("\t %d : mod_start = 0x%x, mod_end = 0x%x\n"
+                   "\t      string (@0x%x) = %s\n", i, p->mod_start,
+                   p->mod_end, p->string, (char *)p->string);
         }
     }
     if ((mbi->flags) & ( 1<<4 )) {
@@ -176,6 +176,7 @@ static bool is_elf_image(const void *image, const size_t size)
     return true;
 }
 
+#if 0
 static bool get_elf_image_range(const elf_header_t *elf, void **start,
                                 void **end)
 {
@@ -207,6 +208,7 @@ static bool get_elf_image_range(const elf_header_t *elf, void **start,
     }
 
     if (u_start >= u_end) {
+        printk("Error: PT_LOAD header not found\n");
         *start = NULL;
         *end = NULL;
         return false;
@@ -256,6 +258,7 @@ static bool move_modules_backward(multiboot_info_t *mbi, void *dest)
 
     return true;
 }
+#endif
 
 static bool expand_elf_image(const elf_header_t *elf, void **entry_point)
 {
@@ -291,23 +294,18 @@ static bool expand_elf_image(const elf_header_t *elf, void **entry_point)
 static bool adjust_xen_cmdline(multiboot_info_t *mbi,
                                const void *tboot_shared_addr)
 {
-    static char tboot_cmdline_option[32];
+    char *old_cmdline;
 
     /* assumes mbi is valid */
 
-    /* this is the command line option that will be added (leading space is */
-    /* intentional to separate this option from existing ones) */
-    snprintf(tboot_cmdline_option, sizeof(tboot_cmdline_option),
-             " tboot=0x%p", tboot_shared_addr);
-    tboot_cmdline_option[sizeof(tboot_cmdline_option)-1] = '\0';
-
     if ( mbi->flags & MBI_CMDLINE && mbi->cmdline != 0 )
-        strlcpy(new_cmdline, (char *)mbi->cmdline,
-                sizeof(new_cmdline) - strlen(tboot_cmdline_option) - 1);
+        old_cmdline = (char *)mbi->cmdline;
     else
-        new_cmdline[0] = '\0';
+        old_cmdline = "";
 
-    strlcat(new_cmdline, tboot_cmdline_option, sizeof(new_cmdline));
+    snprintf(new_cmdline, TBOOT_KERNEL_CMDLINE_SIZE, "%s tboot=0x%p",
+             old_cmdline, tboot_shared_addr);
+    new_cmdline[TBOOT_KERNEL_CMDLINE_SIZE - 1] = '\0';
 
     mbi->cmdline = (u32)new_cmdline;
     mbi->flags |= MBI_CMDLINE;
@@ -318,7 +316,7 @@ static bool adjust_xen_cmdline(multiboot_info_t *mbi,
 bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
 {
     module_t *m;
-    void *xen_base, *xen_expanded_start, *xen_expanded_end, *xen_entry_point;
+    void *xen_base, *xen_entry_point;
     elf_header_t *xen_as_elf;
     size_t xen_size;
 
@@ -333,18 +331,6 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
     if (!is_elf_image(xen_base, xen_size))
         return false;
 
-    xen_as_elf = (elf_header_t *)xen_base;
-
-    if (!get_elf_image_range(xen_as_elf, &xen_expanded_start,
-                             &xen_expanded_end))
-        return false;
-
-    xen_expanded_end = (void *)(((uint32_t)xen_expanded_end + PAGE_SIZE) &
-                                PAGE_MASK);
-
-    if (!move_modules_backward(mbi, xen_expanded_end))
-        return false;
-
     xen_base = remove_module(mbi, NULL);
     if (xen_base == NULL)
         return false;
@@ -356,6 +342,8 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
 
     if ( is_measured_launch )
         adjust_xen_cmdline(mbi, &_tboot_shared);
+
+    printk("transfering control to xen @0x%p...\n", xen_entry_point);
 
     /* jump to xen start entry */
     __asm__ __volatile__ (
@@ -471,8 +459,10 @@ void *remove_module(multiboot_info_t *mbi, void *mod_start)
     }
 
     /* not found */
-    if ( m == NULL )
+    if ( m == NULL ) {
+        printk("could not find module to remove\n");
         return NULL;
+    }
 
     /* if we're removing the first module (i.e. the "kernel") then need to */
     /* adjust some mbi fields as well */

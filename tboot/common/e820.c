@@ -46,9 +46,9 @@
  * copy of bootloader/BIOS e820 table with adjusted entries
  * this version will replace original in mbi
  */
-#define MAX_E820_ENTRIES      128
+#define MAX_E820_ENTRIES      (TBOOT_E820_COPY_SIZE / sizeof(memory_map_t))
 static int g_nr_map;
-static memory_map_t g_copy_e820_map[MAX_E820_ENTRIES];
+static memory_map_t *g_copy_e820_map = (memory_map_t *)TBOOT_E820_COPY_ADDR;
 
 static inline void split64b(uint64_t val, uint32_t *val_lo, uint32_t *val_hi)
 {

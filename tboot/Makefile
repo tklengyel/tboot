@@ -30,7 +30,7 @@ $(TARGET).gz : $(TARGET)
 	gzip -f -9 < $< > $@
 
 $(TARGET) : $(TARGET)-syms $(MKELF)
-	$(MKELF) $(TARGET)-syms $(TARGET) 0x100000 \
+	$(MKELF) $(TARGET)-syms $(TARGET) 0x1003000 \
 	`$(NM) -nr $(TARGET)-syms | head -n 1 | sed -e 's/^\([^ ]*\).*/0x\1/'`
 
 $(TARGET)-syms : $(OBJS) $(DUMMY_SYMS_OBJ) $(TARGET_LDS)

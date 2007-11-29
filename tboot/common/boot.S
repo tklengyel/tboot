@@ -52,7 +52,7 @@
 ENTRY(start)
 ENTRY(_start)
 ENTRY(_stext)
-        jmp __copy_self
+        jmp __start
 
         .align 4
 
@@ -66,19 +66,6 @@ ENTRY(_stext)
         /* checksum: negated sum of above */
         .long -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 
-
-__copy_self:
-	/* copy ourselves to lower memory first */
-	mov	$_stext,%ecx
-	mov	$0x100000,%edi
-1:	mov	(%edi),%eax
-	mov	%eax,(%ecx)
-	add	$0x04,%ecx
-	add	$0x04,%edi
-	cmp	$_end,%ecx
-	jle	1b
-	lea	__start,%eax
-	jmp	*%eax
 
 ENTRY(__start)
         /* Set up a few descriptors: on entry only CS is guaranteed good. */

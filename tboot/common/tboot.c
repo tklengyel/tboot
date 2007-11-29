@@ -74,6 +74,13 @@ static multiboot_info_t *g_mbi;
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
+/*
+ * caution: must make sure the total wakeup entry code length
+ * (s3_wakeup_end - s3_wakeup_16) can fit into one page.
+ */
+static uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
+
+
 static bool verify_platform(void)
 {
     return txt_verify_platform();
@@ -99,6 +106,29 @@ static bool launch_environment(multiboot_info_t *mbi)
     return txt_launch_environment(mbi);
 }
 
+static void copy_s3_wakeup_entry(void)
+{
+    if ( s3_wakeup_end - s3_wakeup_16 > PAGE_SIZE ) {
+        printk("S3 entry is too large to be copied into one page!\n");
+        return;
+    }
+
+    /* backup target address space first */
+    memcpy(g_saved_s3_wakeup_page, (void *)TBOOT_S3_WAKEUP_ADDR,
+           s3_wakeup_end - s3_wakeup_16);
+
+    /* copy s3 entry into target mem */
+    memcpy((void *)TBOOT_S3_WAKEUP_ADDR, s3_wakeup_16,
+           s3_wakeup_end - s3_wakeup_16);
+}
+
+static void restore_saved_s3_wakeup_page(void)
+{
+    /* restore saved page */
+    memcpy((void *)TBOOT_S3_WAKEUP_ADDR, g_saved_s3_wakeup_page,
+           s3_wakeup_end - s3_wakeup_16);
+}
+
 static void post_launch(void)
 {
     uint64_t base, size;
@@ -115,6 +145,9 @@ static void post_launch(void)
     txt_post_launch();
 
     if ( s3_flag  ) {
+        /* restore backuped s3 wakeup page */
+        restore_saved_s3_wakeup_page();
+
         /* bring RLPs into environment */
         txt_wakeup_cpus();
 
@@ -153,18 +186,14 @@ static void post_launch(void)
     size = (uint64_t)(unsigned long)&_end - base;
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
-    /* TBD: this should use E820_UNUSABLE type to prevent dom0 mapping */
-    /* but that causes fault in dom0 */
-    if ( !e820_protect_region(base, size, E820_RESERVED) )
+    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
         goto launch_xen;
 
-    /* mark the shared MLE/kernel page as E820_RESERVED */
-    /* (xen will change it to E820_UNUSABLE when it finds it) */
     base = (uint32_t)&_tboot_shared;
     size = PAGE_SIZE;
     printk("protecting MLE/kernel shared (%Lx - %Lx) in e820 table\n",
            base, (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_RESERVED) )
+    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
         goto launch_xen;
 
     /* replace map in mbi with copy */
@@ -184,11 +213,13 @@ static void post_launch(void)
      */
     memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
-    _tboot_shared.version = 0x01;
+    _tboot_shared.version = 0x02;
     _tboot_shared.log_addr = (uint32_t)g_log;
     _tboot_shared.shutdown_entry32 = (uint32_t)shutdown_entry32;
     _tboot_shared.shutdown_entry64 = (uint32_t)shutdown_entry64;
-    _tboot_shared.s3_tb_wakeup_entry   = (uint32_t)TBOOT_S3_WAKEUP_ADDR;
+    _tboot_shared.s3_tb_wakeup_entry = (uint32_t)TBOOT_S3_WAKEUP_ADDR;
+    _tboot_shared.tboot_base = (uint32_t)&_start;
+    _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
     print_tboot_shared(&_tboot_shared);
     print_log();
 
@@ -284,12 +315,6 @@ multiboot_info_t* begin_launch(multiboot_info_t *mbi)
  failed:
     launch_xen(mbi, false);
     return mbi;
-}
-
-static inline void copy_s3_wakeup_entry(void)
-{
-    memcpy((void *)TBOOT_S3_WAKEUP_ADDR, s3_wakeup_16,
-           s3_wakeup_end - s3_wakeup_16);
 }
 
 static void shutdown_system(uint32_t shutdown_type)
