@@ -44,6 +44,7 @@
 #include <page.h>
 #include <printk.h>
 #include <multiboot.h>
+#include <tb_error.h>
 #include <e820.h>
 #include <acpi.h>
 #include <txt/txt.h>
@@ -158,13 +159,15 @@ static bool supports_smx(void)
     return true;
 }
 
-static bool supports_txt(void)
+static tb_error_t supports_txt(void)
 {
     capabilities_t cap;
 
     /* processor must support SMX */
-    if ( !supports_smx() || !supports_vmx() )
-        return false;
+    if ( !supports_smx() )
+        return TB_ERR_SMX_NOT_SUPPORTED;
+    if ( !supports_vmx() )
+        return TB_ERR_VMX_NOT_SUPPORTED;
 
     /* testing for chipset support requires enabling SMX on the processor */
     write_cr4(read_cr4() | X86_CR4_SMXE);
@@ -180,7 +183,7 @@ static bool supports_txt(void)
         if ( cap.senter && cap.sexit && cap.parameters && cap.smctrl &&
              cap.wakeup ) {
             printk("TXT chipset and all needed capabilities present\n");
-            return true;
+            return TB_ERR_NONE;
         }
         else
             printk("ERR: insufficient SMX capabilities (%x)\n", cap._raw);
@@ -191,7 +194,7 @@ static bool supports_txt(void)
     /* since we are failing, we should clear the SMX flag */
     write_cr4(read_cr4() & ~X86_CR4_SMXE);
 
-    return false;
+    return TB_ERR_TXT_NOT_SUPPORTED;
 }
 
 static void print_bios_os_data(bios_os_data_t *bios_os_data)
@@ -608,19 +611,24 @@ bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_os_data_only)
     return true;
 }
 
-bool txt_verify_platform(void)
+tb_error_t txt_verify_platform(void)
 {
     txt_heap_t *txt_heap;
+    tb_error_t err;
 
     read_processor_info();
 
     /* support Intel(r) TXT (this includes TPM support) */
-    if ( !supports_txt() )
-        return false;
+    err = supports_txt();
+    if ( err != TB_ERR_NONE )
+        return err;
 
     /* verify BIOS to OS data */
     txt_heap = get_txt_heap();
-    return verify_bios_os_data(txt_heap);
+    if ( !verify_bios_os_data(txt_heap) )
+        return TB_ERR_FATAL;
+
+    return TB_ERR_NONE;
 }
 
 static bool verify_saved_mtrrs(txt_heap_t *txt_heap)
@@ -631,7 +639,7 @@ static bool verify_saved_mtrrs(txt_heap_t *txt_heap)
     return validate_mtrrs(&(os_mle_data->saved_mtrr_state));
 }
 
-bool txt_post_launch_verify_platform(void)
+tb_error_t txt_post_launch_verify_platform(void)
 {
     txt_heap_t *txt_heap;
 
@@ -641,21 +649,21 @@ bool txt_post_launch_verify_platform(void)
     txt_heap = get_txt_heap();
 
     if ( !verify_txt_heap(txt_heap, false) )
-        return false;
+        return TB_ERR_POST_LAUNCH_VERIFICATION;
 
     /* verify the saved MTRRs */
     if ( !verify_saved_mtrrs(txt_heap) )
-        return false;
+        return TB_ERR_POST_LAUNCH_VERIFICATION;
             
     /* verify that VT-d PMRs were really set to protect all of RAM */
     if ( !verify_vtd_pmrs(txt_heap) )
-        return false;
+        return TB_ERR_POST_LAUNCH_VERIFICATION;
 
     /* verify the VT-d DMAR tables */
     if ( !verify_vtd_dmar(txt_heap) )
-        return false;
+        return TB_ERR_POST_LAUNCH_VERIFICATION;
 
-    return true;
+    return TB_ERR_NONE;
 }
 
 bool verify_e820_map(sinit_mdr_t* mdrs_base, uint32_t num_mdrs)

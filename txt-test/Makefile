@@ -29,7 +29,8 @@ install : build
 
 
 clean :
-	rm -f $(TARGET) *~ *.o *.mod.* *.symvers
+	rm -f $(TARGET) *~ *.o *.mod.* *.symvers .*
+	rm -rf .*
 
 
 distclean : clean

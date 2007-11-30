@@ -230,6 +230,32 @@ extern uint32_t tpm_unseal(
                   uint32_t sealed_data_size, const uint8_t *sealed_data,
                   uint32_t *secret_size, uint8_t *secret);
 
+/*
+ * tpm_cmp_creation_pcrs compare the current values of specified PCRs with
+ * the values of the creation PCRs in the sealed data
+ *
+ * return       : true if they match, false if they don't match
+ */
+extern bool tpm_cmp_creation_pcrs(
+              uint32_t pcr_nr_create, const uint8_t pcr_indcs_create[],
+              const tpm_pcr_value_t *pcr_values_create[],
+              uint32_t sealed_data_size, uint8_t *sealed_data);
+
+/*
+ * tpm_get_nvindex_size use TPM_GETCAPABILITY cmd to  get the size of the NV
+ * index given as index.
+ *
+ * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
+ */
+extern uint32_t tpm_get_nvindex_size(uint32_t locality,
+                                     tpm_nv_index_t index, uint32_t *size);
+
+/*
+ * tpm_save_state save all volatile state info into non-volatile memory.
+ *
+ * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
+ */
+extern uint32_t tpm_save_state(uint32_t locality);
 /* #define TPM_UNIT_TEST 1 */
 
 #ifdef TPM_UNIT_TEST

@@ -60,6 +60,7 @@
 #define TPM_ORD_UNSEAL              0x00000018
 #define TPM_ORD_OSAP                0x0000000B
 #define TPM_ORD_OIAP                0x0000000A
+#define TPM_ORD_SAVE_STATE          0x00000098
 
 #define TPM_TAG_PCR_INFO_LONG       0x0006
 #define TPM_TAG_STORED_DATA12       0x0016
@@ -1506,6 +1507,200 @@ uint32_t tpm_unseal(uint32_t locality,
     ret = _tpm_wrap_unseal(locality, sealed_data, secret_size, secret);
 
     return ret;
+}
+
+static void calc_pcr_composition(uint32_t nr, const uint8_t indcs[],
+                                 const tpm_pcr_value_t *values[],
+                                 tpm_composite_hash_t *composite)
+{
+    uint32_t i, offset, blob_size;
+    tpm_pcr_selection_t sel;
+
+    if ( nr == 0 || indcs == NULL || values == NULL || composite == NULL)
+        return;
+
+    sel.size_of_select = 3;
+    for ( i = 0; i < nr; i++ )
+        sel.pcr_select[indcs[i]/8] |= 1 << (indcs[i] % 8);
+
+    offset = 0;
+    UNLOAD_PCR_SELECTION(WRAPPER_IN_BUF, offset, &sel);
+    blob_size = sizeof(tpm_pcr_value_t) * nr;
+    UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, blob_size);
+    for ( i = 0; i < nr; i++ )
+        UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, values[i]);
+    sha1_buffer(WRAPPER_IN_BUF, offset, (uint8_t *)composite);
+}
+
+static tpm_composite_hash_t *get_cre_pcr_composite(uint8_t *data)
+{
+    if ( ((tpm_stored_data12_header_t *)data)->seal_info_size == 0 )
+        return NULL;
+    else
+        return &((tpm_stored_data12_t *)data)->seal_info.digest_at_creation;
+}
+
+static void print_hash(char *hash)
+{
+    for ( int i = 0; i < 20; i++ )
+        printk("%02x ", *hash);
+
+    printk("\n");
+}
+
+bool tpm_cmp_creation_pcrs(uint32_t pcr_nr_create,
+                           const uint8_t pcr_indcs_create[],
+                           const tpm_pcr_value_t *pcr_values_create[],
+                           uint32_t sealed_data_size, uint8_t *sealed_data)
+{
+    uint32_t i;
+    tpm_composite_hash_t composite = {{0,}}, *cre_composite;
+
+    if ( pcr_indcs_create == NULL )
+        pcr_nr_create = 0;
+    for ( i = 0; i < pcr_nr_create; i++ )
+        if ( pcr_indcs_create[i] >= TPM_NR_PCRS )
+            return false;
+    if ( !check_sealed_data(sealed_data_size, sealed_data) ) {
+        printk("TPM: Bad blob.\n");
+        return false;
+    }
+
+    if ( pcr_nr_create > 0 )
+        calc_pcr_composition(pcr_nr_create, pcr_indcs_create,
+                             pcr_values_create, &composite);
+
+    cre_composite = get_cre_pcr_composite(sealed_data);
+    if ( cre_composite == NULL )
+        return false;
+    if ( memcmp(&composite, cre_composite, sizeof(composite)) ) {
+        printk("TPM: Not equal to creation composition\n");
+        print_hash((char *)&composite);
+        return false;
+    }
+
+    return true;
+}
+
+typedef uint32_t tpm_capability_area_t;
+
+#define TPM_CAP_NV_INDEX    0x00000011
+
+static uint32_t tpm_get_capability(
+                  uint32_t locality, tpm_capability_area_t cap_area,
+                  uint32_t sub_cap_size, const uint8_t *sub_cap,
+                  uint32_t *resp_size, uint8_t *resp)
+{
+    uint32_t ret, offset, out_size;
+
+    if ( sub_cap == NULL || resp_size == NULL || resp == NULL )
+        return TPM_BAD_PARAMETER;
+
+    offset = 0;
+    UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, cap_area);
+    UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, sub_cap_size);
+    UNLOAD_BLOB(WRAPPER_IN_BUF, offset, sub_cap, sub_cap_size);
+
+    out_size = sizeof(*resp_size) + *resp_size;
+
+    ret = tpm_submit_cmd(locality, TPM_ORD_GET_CAPABILITY, offset, &out_size);
+
+    printk("TPM: get capability, return value = %08X\n", ret);
+    if ( ret != TPM_SUCCESS )
+        return ret;
+
+#ifdef TPM_TRACE
+    {
+        printk("TPM: ");
+        for ( uint32_t i = 0; i < out_size; i++ )
+            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
+        printk("\n");
+    }
+#endif
+
+    offset = 0;
+    LOAD_INTEGER(WRAPPER_OUT_BUF, offset, *resp_size);
+    if ( out_size < sizeof(*resp_size) + *resp_size )
+        return TPM_FAIL;
+    LOAD_BLOB(WRAPPER_OUT_BUF, offset, resp, *resp_size);
+
+    return ret;
+}
+
+typedef struct __attribute__ ((packed)) {
+    tpm_pcr_selection_t         pcr_selection;
+    tpm_locality_selection_t    locality_at_release;
+    tpm_composite_hash_t        digest_at_release;
+} tpm_pcr_info_short_t;
+
+typedef struct __attribute__ ((packed)) {
+    tpm_structure_tag_t tag;
+    uint32_t            attributes;
+} tpm_nv_attributes_t;
+
+typedef struct __attribute__ ((packed)) {
+    tpm_structure_tag_t     tag;
+    tpm_nv_index_t          nv_index;
+    tpm_pcr_info_short_t    pcr_info_read;
+    tpm_pcr_info_short_t    pcr_info_write;
+    tpm_nv_attributes_t     permission;
+    uint8_t                 b_read_st_clear;
+    uint8_t                 b_write_st_clear;
+    uint8_t                 b_write_define;
+    uint32_t                data_size;
+} tpm_nv_data_public_t;
+
+uint32_t tpm_get_nvindex_size(uint32_t locality,
+                              tpm_nv_index_t index, uint32_t *size)
+{
+    uint32_t ret, offset, resp_size;
+    uint8_t sub_cap[sizeof(index)];
+    uint8_t resp[sizeof(tpm_nv_data_public_t)];
+
+    if ( size == NULL )
+        return TPM_BAD_PARAMETER;
+
+    offset = 0;
+    UNLOAD_INTEGER(sub_cap, offset, index);
+
+    resp_size = sizeof(resp);
+    ret = tpm_get_capability(locality, TPM_CAP_NV_INDEX, sizeof(sub_cap), sub_cap, &resp_size, resp);
+
+    printk("TPM: get nvindex size, return value = %08X\n", ret);
+    if ( ret != TPM_SUCCESS )
+        return ret;
+
+#ifdef TPM_TRACE
+    {
+        printk("TPM: ");
+        for ( uint32_t i = 0; i < resp_size; i++ )
+            printk("%02X ", (uint32_t)resp[i]);
+        printk("\n");
+    }
+#endif
+
+    if ( resp_size != sizeof(resp) )
+        return TPM_FAIL;
+
+    offset = resp_size - sizeof(uint32_t);
+    LOAD_INTEGER(resp, offset, *size);
+
+    return ret;
+}
+
+uint32_t tpm_save_state(uint32_t locality)
+{
+    uint32_t ret, offset, out_size;
+
+    offset = 0;
+    out_size = 0;
+
+    ret = tpm_submit_cmd(locality, TPM_ORD_SAVE_STATE, offset, &out_size);
+
+    printk("TPM: save state, return value = %08X\n", ret);
+    
+    return ret;
+
 }
 
 #ifdef TPM_UNIT_TEST

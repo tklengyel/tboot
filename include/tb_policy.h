@@ -82,6 +82,16 @@ typedef struct __attribute__ ((__packed__)) {
 
 
 /*
+ * hashes that we extend into DRTM PCRs and so need to preserve across S3
+ */
+typedef struct {
+    tb_hash_t   vmm;
+    tb_hash_t   dom0;
+    tb_hash_t   policy;
+} tcb_hashes_t;
+
+
+/*
  * TPM NV indices
  */
 

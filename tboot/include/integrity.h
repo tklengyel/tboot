@@ -1,7 +1,8 @@
 /*
- * txt.h: Intel(r) TXT support functions
+ * integrity.h: routines for memory integrity measurement & 
+ *          verification. Memory integrity is protected with tpm seal
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2007, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,25 +34,14 @@
  *
  */
 
-#ifndef __TXT_TXT_H__
-#define __TXT_TXT_H__
+#ifndef _TBOOT_INTEGRITY_H_
+#define _TBOOT_INTEGRITY_H_
 
-#include <multiboot.h>
+extern void seal_tcb(void);
+    
+extern bool verify_mem_integrity(void);
 
-extern bool txt_is_launched(void);
-extern bool txt_get_error(void);
-extern tb_error_t txt_verify_platform(void);
-extern bool txt_prepare_cpu(void);
-extern bool txt_prepare_platform(void);
-extern void txt_wakeup_cpus(void);
-extern tb_error_t txt_launch_environment(multiboot_info_t *mbi);
-extern tb_error_t txt_post_launch(void);
-extern tb_error_t txt_protect_mem_regions(void);
-extern tb_error_t txt_post_launch_verify_platform(void);
-extern bool txt_s3_launch_environment(void);
-extern void txt_shutdown(void);
-
-#endif      /* __TXT_TXT_H__ */
+#endif /* _TBOOT_INTEGRITY_H_ */
 
 
 /*
@@ -63,4 +53,3 @@ extern void txt_shutdown(void);
  * indent-tabs-mode: nil
  * End:
  */
-

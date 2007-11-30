@@ -10,6 +10,7 @@
 #include <types.h>
 #include <stdbool.h>
 #include <msr.h>
+#include <tb_error.h>
 #include <compiler.h>
 #include <string.h>
 #include <misc.h>

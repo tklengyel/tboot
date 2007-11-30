@@ -60,22 +60,52 @@ void print_tb_error_msg(tb_error_t error)
 {
     switch( error ) {
         case TB_ERR_NONE:
-            printk("no error.\n");
+            printk("succeeded.\n");
             break;
         case TB_ERR_FIXED:
-            printk("last error was fixed.\n");
+            printk("previous error has been fixed.\n");
             break;
         case TB_ERR_GENERIC:
             printk("non-fatal generic error.\n");
             break;
+       case TB_ERR_TPM_NOT_READY:
+            printk("TPM not ready.\n");
+            break;
+        case TB_ERR_SMX_NOT_SUPPORTED:
+            printk("SMX not supported.\n");
+            break;
+        case TB_ERR_VMX_NOT_SUPPORTED:
+            printk("VMX not supported.\n");
+            break;
+        case TB_ERR_TXT_NOT_SUPPORTED:
+            printk("TXT not supported.\n");
+            break;
+        case TB_ERR_POLICY_VMM_VERIFY_FAILED:
+            printk("verifying VMM against policy failed.\n");
+            break;
+        case TB_ERR_POLICY_DOM0_VERIFY_FAILED:
+            printk("verifying dom0 against policy failed.\n");
+            break;
+        case TB_ERR_POLICY_MODULES_NOT_IN_POLICY:
+            printk("modules in mbi but not in policy.\n");
+            break;
+        case TB_ERR_POLICY_INVALID:
+            printk("policy invalid.\n");
+            break;
+        case TB_ERR_POLICY_NOT_PRESENT:
+            printk("no policy in TPM NV.\n");
+            break;
+        case TB_ERR_SINIT_NOT_PRESENT:
+            printk("SINIT ACM not provided.\n");
+            break;
+        case TB_ERR_ACMOD_VERIFY_FAILED:
+            printk("verifying AC module failed.\n");
+            break;
+        case TB_ERR_POST_LAUNCH_VERIFICATION:
+            printk("verification of post-launch failed.\n");
+            break;
         case TB_ERR_FATAL:
-            printk("fatal error.\n");
-            break;
-        case TB_ERR_VMM_VERIFY_FAILED:
-            printk("verifying vmm against tb_policy failed.\n");
-            break;
-        case TB_ERR_DOM0_VERIFY_FAILED:
-            printk("verifying dom0 against tb_policy failed.\n");
+            printk("generic fatal error.\n");
             break;
         default:
             printk("unknown error (%d).\n", error);

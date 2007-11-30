@@ -37,6 +37,7 @@
 #include <stdbool.h>
 #include <types.h>
 #include <printk.h>
+#include <tb_error.h>
 #include <txt/txt.h>
 #include <txt/config_regs.h>
 #include <txt/errorcode.h>

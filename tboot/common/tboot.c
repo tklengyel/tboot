@@ -50,15 +50,17 @@
 #include <uuid.h>
 #include <elf.h>
 #include <hash.h>
-#include <txt/txt.h>
 #include <tb_error.h>
+#include <txt/txt.h>
 #include <tb_policy.h>
 #include <tboot.h>
 #include <acpi.h>
+#include <integrity.h>
+#include <tpm.h>
 
 extern void _prot_to_real(uint32_t dist_addr);
 extern bool load_policy(void);
-extern tb_error_t evaluate_all_policies(multiboot_info_t *mbi);
+extern void evaluate_all_policies(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
 
 extern long s3_flag;
@@ -69,7 +71,7 @@ extern char s3_wakeup_16[];
 extern char s3_wakeup_end[];
 
 /* multiboot struct saved so that post_launch() can use it */
-static multiboot_info_t *g_mbi;
+multiboot_info_t *g_mbi = NULL;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
@@ -81,7 +83,7 @@ extern tboot_shared_t _tboot_shared;
 static uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
 
 
-static bool verify_platform(void)
+static tb_error_t verify_platform(void)
 {
     return txt_verify_platform();
 }
@@ -101,7 +103,7 @@ static bool prepare_platform(void)
     return txt_prepare_platform();
 }
 
-static bool launch_environment(multiboot_info_t *mbi)
+static tb_error_t launch_environment(multiboot_info_t *mbi)
 {
     return txt_launch_environment(mbi);
 }
@@ -138,11 +140,10 @@ static void post_launch(void)
     extern void shutdown_entry32(void);
     extern void shutdown_entry64(void);
 
-    /* TBD: need to handle errors here by tearing down */
-
     printk("measured launch succeeded\n");
 
-    txt_post_launch();
+    err = txt_post_launch();
+    apply_policy(err);
 
     if ( s3_flag  ) {
         /* restore backuped s3 wakeup page */
@@ -151,6 +152,10 @@ static void post_launch(void)
         /* bring RLPs into environment */
         txt_wakeup_cpus();
 
+        /* verify memory integrity */
+        if ( !verify_mem_integrity() )
+            apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
+
         print_tboot_shared(&_tboot_shared);
 
         _prot_to_real(_tboot_shared.s3_k_wakeup_entry);
@@ -158,15 +163,15 @@ static void post_launch(void)
 
     /* make copy of e820 map that we will adjust */
     if ( !copy_e820_map(g_mbi) )
-        goto launch_xen;
+        apply_policy(TB_ERR_FATAL);
 
     /* ensure the mbi is properly formatted, etc. */
     if ( !verify_modules(g_mbi) )
-        goto launch_xen;
+        apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* marked mem regions used by TXT (heap, SINIT, etc.) as E820_UNUSABLE */
-    if ( !txt_protect_mem_regions() )
-        goto launch_xen;
+    err = txt_protect_mem_regions();
+    apply_policy(err);
 
     /* check tboot and the page table */
     base = (uint64_t)((unsigned long)&_start - 3*PAGE_SIZE);
@@ -176,7 +181,7 @@ static void post_launch(void)
     if ( e820_check_region(base, size) != E820_RAM ) {
         printk(": failed.\n");
         /* TBD: un-comment when new SINIT is released */
-        /* goto launch_xen; */
+        /* apply_policy(TB_ERR_FATAL); */
     }
     else
         printk(": succeeded.\n");
@@ -187,14 +192,14 @@ static void post_launch(void)
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        goto launch_xen;
+        apply_policy(TB_ERR_FATAL);
 
     base = (uint32_t)&_tboot_shared;
     size = PAGE_SIZE;
     printk("protecting MLE/kernel shared (%Lx - %Lx) in e820 table\n",
            base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        goto launch_xen;
+        apply_policy(TB_ERR_FATAL);
 
     /* replace map in mbi with copy */
     replace_e820_map(g_mbi);
@@ -203,10 +208,14 @@ static void post_launch(void)
     print_e820_map();
 
     /*
-     * verify vmm and dom0 against tboot policy & TCB_manifest
+     * verify VMM and dom0 against tboot policy & TCB_manifest
      */
-    err = evaluate_all_policies(g_mbi);
-    apply_policy(err);
+    evaluate_all_policies(g_mbi);
+
+    /*
+     * seal hashes of Xen, dom0, TCB policy to current value of PCR17 & 18
+     */
+    seal_tcb();
 
     /*
      * init MLE/kernel shared data page
@@ -228,8 +237,8 @@ static void post_launch(void)
     /* bring RLPs into environment */
     txt_wakeup_cpus();
 
-launch_xen:
     launch_xen(g_mbi, is_measured_launch);
+    apply_policy(TB_ERR_FATAL);
 }
 
 #define __STR(...)   #__VA_ARGS__
@@ -243,9 +252,10 @@ void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec)
     _prot_to_real(sipi_vec);
 }
 
-multiboot_info_t* begin_launch(multiboot_info_t *mbi)
+void begin_launch(multiboot_info_t *mbi)
 {
     unsigned long apicbase;
+    tb_error_t err;
 
     init_log();
     early_serial_init();
@@ -253,11 +263,14 @@ multiboot_info_t* begin_launch(multiboot_info_t *mbi)
     printk("***************************************\n");
     printk("begin launch()\n");
 
+    /* save for post launch */
+    g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;
+
     /* we should only be executing on the BSP */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
     if ( !(apicbase & MSR_IA32_APICBASE_BSP) ) {
         printk("entry processor is not BSP\n");
-        goto failed;
+        apply_policy(TB_ERR_FATAL);
     }
 
     /* we need to make sure this is a (TXT-) capable platform before using */
@@ -266,32 +279,32 @@ multiboot_info_t* begin_launch(multiboot_info_t *mbi)
 
     /* make TPM ready for measured launch */
     if ( !prepare_platform() )
-        goto failed;
+        apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
-    load_policy();
+    err = load_policy();
+    apply_policy(err);
 
     /* need to verify that platform can perform measured launch */
-    if ( !verify_platform() )
-        goto failed;
+    err = verify_platform();
+    apply_policy(err);
 
     /* this is being called post-measured launch */
-    if ( is_launched() ) {
+    if ( is_launched() )
         post_launch();
-    }
 
     /* print any errors on last boot, which must be from TXT launch */
     txt_get_error();
 
     /* make the CPU ready for measured launch */
     if ( !prepare_cpu() )
-        goto failed;
+        apply_policy(TB_ERR_FATAL);
 
     /* do s3 launch directly, if is a s3 resume */
     if ( s3_flag ) {
         txt_s3_launch_environment();
         printk("we should never get here\n");
-        return mbi;
+        apply_policy(TB_ERR_FATAL);
     }
         
     /* check for error from previous boot */
@@ -301,20 +314,13 @@ multiboot_info_t* begin_launch(multiboot_info_t *mbi)
     else
         printk("last boot has no error.\n");
 
-    /* save for post_launch */
-    g_mbi = mbi;
-
     /* launch the measured environment */
-    if ( !launch_environment(mbi) )
-        goto failed;
+    err = launch_environment(mbi);
+    apply_policy(err);
 
     /* for Intel(r) TXT, we will never get here */
     printk("we should never get here\n");
-    return mbi;
-
- failed:
-    launch_xen(mbi, false);
-    return mbi;
+    apply_policy(TB_ERR_FATAL);
 }
 
 static void shutdown_system(uint32_t shutdown_type)
@@ -345,15 +351,28 @@ static void shutdown_system(uint32_t shutdown_type)
     }
 }
 
+static void cap_pcrs(void)
+{
+    tpm_pcr_value_t dummy;
+    tpm_pcr_extend(2, 17, &dummy, NULL);
+    tpm_pcr_extend(2, 18, &dummy, NULL);
+    tpm_pcr_extend(2, 19, &dummy, NULL);
+}
+
 void shutdown(void)
 {
-    /* TBD:  cap dynamic PCRs (17, 18) */
+    if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 )
+        tpm_save_state(2);
+
+    /* cap dynamic PCRs (17, 18, 19) */
+    cap_pcrs();
 
     /* scrub any secrets by clearing their memory, then flush cache */
     /* we don't have any secrets to scrub, however */
     ;
 
-    txt_shutdown();
+    if ( is_launched() )
+        txt_shutdown();
 
     /* machine shutdown */
     shutdown_system(_tboot_shared.shutdown_type);

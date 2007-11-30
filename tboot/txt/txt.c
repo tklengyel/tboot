@@ -37,6 +37,7 @@
 #include <config.h>
 #include <stdbool.h>
 #include <types.h>
+#include <tb_error.h>
 #include <multiboot.h>
 #include <msr.h>
 #include <compiler.h>
@@ -410,7 +411,7 @@ bool txt_is_launched(void)
     return sts.senter_done_sts;
 }
 
-bool txt_launch_environment(multiboot_info_t *mbi)
+tb_error_t txt_launch_environment(multiboot_info_t *mbi)
 {
     acm_hdr_t *sinit = NULL;
     void *mle_ptab_base;
@@ -430,7 +431,7 @@ bool txt_launch_environment(multiboot_info_t *mbi)
         /* extra file */
         if ( remove_module(mbi, sinit) == NULL ) {
             printk("failed to remove SINIT module from module list\n");
-            return false;
+            return TB_ERR_FATAL;
         }
     }
 
@@ -438,10 +439,10 @@ bool txt_launch_environment(multiboot_info_t *mbi)
     /* BIOS reserved region */
     sinit = copy_sinit(sinit);
     if ( sinit == NULL )
-        return false;
+        return TB_ERR_SINIT_NOT_PRESENT;
     /* do some checks on it */
     if ( !verify_acmod(sinit) )
-        return false;
+        return TB_ERR_ACMOD_VERIFY_FAILED;
 
     /* print some debug info */
     print_file_info();
@@ -452,10 +453,12 @@ bool txt_launch_environment(multiboot_info_t *mbi)
                              g_mle_hdr.mle_start_off + TBOOT_BASE_ADDR,
                              g_mle_hdr.mle_end_off - g_mle_hdr.mle_start_off);
     if ( mle_ptab_base == NULL )
-        return false;
+        return TB_ERR_FATAL;
 
     /* initialize TXT heap */
     txt_heap = init_txt_heap(mle_ptab_base, sinit, mbi);
+    if ( txt_heap == NULL )
+        return TB_ERR_FATAL;
 
     /* save MTRRs before we alter them for SINIT launch */
     os_mle_data = get_os_mle_data_start(txt_heap);
@@ -467,7 +470,7 @@ bool txt_launch_environment(multiboot_info_t *mbi)
     printk("executing GETSEC[SENTER]...\n");
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
     printk("ERROR--we should not get here!\n");
-    return false;
+    return TB_ERR_FATAL;
 }
 
 bool txt_prepare_platform(void)
@@ -560,15 +563,18 @@ bool txt_prepare_cpu(void)
     return true;
 }
 
-bool txt_post_launch(void)
+tb_error_t txt_post_launch(void)
 {
     txt_heap_t *txt_heap;
     os_mle_data_t *os_mle_data;
+    tb_error_t err;
 
-    /* TBD: need to handle this gracefully */
     /* verify MTRRs, VT-d settings, TXT heap, etc. */
-    if ( !txt_post_launch_verify_platform() )
+    err = txt_post_launch_verify_platform();
+    if ( err != TB_ERR_NONE ) {
         printk("failed to verify platform\n");
+        return err;
+    }
 
     /* clear error config registers so that we start fresh */
     write_priv_config_reg(TXTCR_ERRORCODE, 0x00000000);
@@ -596,7 +602,7 @@ bool txt_post_launch(void)
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
     printk("opened TPM locality 1\n");
 
-    return true;
+    return TB_ERR_NONE;
 }
 
 void txt_cpu_wakeup(uint32_t cpuid)
@@ -622,7 +628,7 @@ void txt_cpu_wakeup(uint32_t cpuid)
     handle_init_sipi_sipi(cpuid);
 }
 
-bool txt_protect_mem_regions(void)
+tb_error_t txt_protect_mem_regions(void)
 {
     uint64_t base, size;
     txt_heap_t* txt_heap;
@@ -642,7 +648,7 @@ bool txt_protect_mem_regions(void)
     printk("protecting TXT heap (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        return false;
+        return TB_ERR_FATAL;
 
     /* SINIT */
     base = read_pub_config_reg(TXTCR_SINIT_BASE);
@@ -650,7 +656,7 @@ bool txt_protect_mem_regions(void)
     printk("protecting SINIT (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        return false;
+        return TB_ERR_FATAL;
 
     /* ensure that memory not marked as good RAM by the MDRs is RESERVED in
        the e820 table */
@@ -669,7 +675,7 @@ bool txt_protect_mem_regions(void)
     printk("verifying e820 table against SINIT MDRs: ");
     if ( !verify_e820_map(mdrs_base, num_mdrs) ) {
         printk("verification failed.\n");
-        return false;
+        return TB_ERR_POST_LAUNCH_VERIFICATION;
     }
     printk("verification succeeded.\n");
 
@@ -705,9 +711,9 @@ bool txt_protect_mem_regions(void)
     printk("protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
            base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        return false;
+        return TB_ERR_FATAL;
 
-    return true;
+    return TB_ERR_NONE;
 }
 
 void txt_shutdown(void)

@@ -57,11 +57,14 @@ extern void shutdown(void);
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
+extern multiboot_info_t *g_mbi;
+
 /*
  * policy actions
  */
 typedef enum {
     TB_POLACT_CONTINUE,
+    TB_POLACT_UNMEASURED_LAUNCH,
     TB_POLACT_HALT,
 } tb_policy_action_t;
 
@@ -74,23 +77,39 @@ typedef struct {
 typedef struct {
     uint8_t                policy_type;
     tb_policy_action_t     default_action;
-    int                    num_exceptions;
-                                           /* exceptions to default */
     tb_policy_map_entry_t  exception_action_table[TB_ERR_MAX];
+                           /* have TB_ERR_NONE as last entry */
 } tb_policy_map_t;
 
 /* map */
 static const tb_policy_map_t g_policy_map[] = {
-    { TB_POLTYPE_CONT_NON_FATAL, TB_POLACT_CONTINUE, 1, {
-            {TB_ERR_FATAL, TB_POLACT_HALT} }
+    { TB_POLTYPE_CONT_NON_FATAL, TB_POLACT_CONTINUE,
+      {
+          {TB_ERR_FATAL,                     TB_POLACT_HALT},
+          {TB_ERR_TPM_NOT_READY,             TB_POLACT_UNMEASURED_LAUNCH},
+          {TB_ERR_SMX_NOT_SUPPORTED,         TB_POLACT_UNMEASURED_LAUNCH},
+          {TB_ERR_VMX_NOT_SUPPORTED,         TB_POLACT_UNMEASURED_LAUNCH},
+          {TB_ERR_TXT_NOT_SUPPORTED,         TB_POLACT_UNMEASURED_LAUNCH},
+          {TB_ERR_SINIT_NOT_PRESENT,         TB_POLACT_UNMEASURED_LAUNCH},
+          {TB_ERR_ACMOD_VERIFY_FAILED,       TB_POLACT_UNMEASURED_LAUNCH},
+          {TB_ERR_NONE,                      TB_POLACT_CONTINUE},
+      }
     },
 
-    { TB_POLTYPE_CONT_VERIFY_FAIL, TB_POLACT_HALT, 2, {
-            {TB_ERR_VMM_VERIFY_FAILED, TB_POLACT_CONTINUE},
-            {TB_ERR_DOM0_VERIFY_FAILED, TB_POLACT_CONTINUE} }
+    { TB_POLTYPE_CONT_VERIFY_FAIL, TB_POLACT_HALT,
+      {
+          {TB_ERR_POLICY_VMM_VERIFY_FAILED,  TB_POLACT_CONTINUE},
+          {TB_ERR_POLICY_DOM0_VERIFY_FAILED, TB_POLACT_CONTINUE}, 
+          {TB_ERR_POLICY_NOT_PRESENT,        TB_POLACT_CONTINUE},
+          {TB_ERR_POLICY_INVALID,            TB_POLACT_CONTINUE},
+          {TB_ERR_NONE,                      TB_POLACT_CONTINUE},
+      }
     },
 
-    { TB_POLTYPE_HALT, TB_POLACT_HALT, 0, {}
+    { TB_POLTYPE_HALT, TB_POLACT_HALT,
+      {
+          {TB_ERR_NONE,                      TB_POLACT_CONTINUE},
+      }
     },
 };
 
@@ -124,6 +143,8 @@ static const tb_policy_index_t _def_policy = {
 /* current policy */
 static const tb_policy_index_t* g_policy_index = &_def_policy;
 
+/* hashes that are used to restore DRTM PCRs in S3 resume */
+tcb_hashes_t g_tcb_hashes;
 
 /*
  * verify policy
@@ -236,6 +257,7 @@ static tb_policy_t* get_policy(const tb_policy_index_t *tb_policy_index, int i)
     return policy;
 }
 
+#define NV_READ_SEG_SIZE    256
 /*
  * read_tb_policy
  *
@@ -246,44 +268,47 @@ static tb_policy_t* get_policy(const tb_policy_index_t *tb_policy_index, int i)
 static bool read_policy(void* policy_index, int *policy_index_size)
 {
     int offset = 0;
-    uint8_t data[256];
     unsigned int data_size = 0;
-    uint32_t ret;
+    uint32_t ret, index_size;
 
     if ( policy_index_size == NULL ) {
         printk("size is NULL\n");
         return false;
     }
 
-    memset(data, 0, sizeof(data));
+    ret = tpm_get_nvindex_size(0, TB_TCB_POLICY_IDX, &index_size);
+    if ( ret != TPM_SUCCESS ) {
+        printk("failed to get actual policy size in TPM NV\n");
+        return false;
+    }
+
+    if ( index_size > *policy_index_size ) {
+        printk("policy in TPM NV was too big for buffer\n");
+        index_size = *policy_index_size;
+    }
+
 
     do {
         /* get data_size */
-        if ( (*policy_index_size - offset) > sizeof(data) )
-            data_size = sizeof(data);
+        if ( (index_size - offset) > NV_READ_SEG_SIZE )
+            data_size = NV_READ_SEG_SIZE;
         else
-            data_size = (uint32_t)(*policy_index_size - offset);
+            data_size = (uint32_t)(index_size - offset);
 
         /* read! */
-        ret = tpm_nv_read_value(0, TB_TCB_POLICY_IDX, offset, data,
-                                &data_size);
+        ret = tpm_nv_read_value(0, TB_TCB_POLICY_IDX, offset,
+                                (uint8_t *)policy_index + offset, &data_size);
         if ( ret != TPM_SUCCESS )
             break;
 
-        /* copy to policy_buffer */
-        memcpy((void *)policy_index + offset, &data[0], data_size);
-
         /* adjust offset */
         offset += data_size;
-    } while ( offset < *policy_index_size );
+    } while ( offset < index_size );
 
     if ( offset == 0 && ret != TPM_SUCCESS ) {
         printk("Error: read TPM error: 0x%x.\n", ret);
         return false;
     }
-
-    if ( offset == *policy_index_size )
-        printk("policy in TPM NV was too big for buffer\n");
 
     *policy_index_size = offset;
 
@@ -296,14 +321,14 @@ static bool read_policy(void* policy_index, int *policy_index_size)
  * load policy from TPM into global buffer
  *
  */
-bool load_policy(void)
+tb_error_t load_policy(void)
 {
-    bool ret;
+    tb_error_t err = TB_ERR_FATAL;
     int policy_index_size = MAX_TB_POL_INDEX_SIZE;
 
     if ( read_policy(_policy_index_buf, &policy_index_size) ) {
         g_policy_index = (tb_policy_index_t *)_policy_index_buf;
-        ret = true;
+        err = TB_ERR_NONE;
     }
     else {    /* use default policy */
         printk("failed to read policy from TPM NV, using default\n");
@@ -317,13 +342,13 @@ bool load_policy(void)
             policy_index_size += _def_policy.policies[i].num_hashes *
                 sizeof(_def_policy.policies[i].hashes[0]);
         }
-        ret = false;
+        err = TB_ERR_POLICY_NOT_PRESENT;
     }
 
     if ( !verify_policy(g_policy_index, policy_index_size) )
-        return false;
-    else
-        return ret;
+        err = TB_ERR_POLICY_INVALID;
+
+    return err;
 }
 
 /*
@@ -384,39 +409,50 @@ static bool is_hash_in_policy(const tb_policy_t *policy, const tb_hash_t *hash)
     return false;
 }
 
-static bool evaluate_policy(tb_policy_t *policy, const unsigned char *cmdline,
-                            int va_list_len, ...)
+/* generate hash by hashing cmdline and modules */
+static bool generate_hash(tb_hash_t *m_hash, uint8_t hash_alg, 
+                          const unsigned char* cmdline, int va_list_len, ...)
 {
     va_list ap;
     tb_hash_t hash;
 
     /* assumes policy has been validated */
 
-    if (( policy == NULL ) || ( va_list_len <= 0 )) {
+    if (( m_hash == NULL ) || ( va_list_len <= 0 )) {
+        printk("Error: input parameter is wrong.\n");
+        return false;
+    }
+
+    /* hash command line */
+    printk("hash of command line \"%s\" is...\n    ", cmdline);
+    if ( !hash_buffer(cmdline, strlen((char *)cmdline), &hash,
+                      hash_alg) )
+        return false;
+    print_hash(&hash, hash_alg);
+
+    /* hash images */
+    va_start(ap, va_list_len);
+    if ( !hash_images(&hash, hash_alg, va_list_len, ap) )
+        return false;
+    va_end(ap);
+
+    *m_hash = hash;
+    return true;
+}
+
+static bool evaluate_policy(tb_policy_t *policy, tb_hash_t *m_hash)
+{
+    /* assumes policy has been validated */
+
+    if ( policy == NULL || m_hash == NULL) {
         printk("Error: input parameter is wrong.\n");
         return false;
     }
 
     if ( policy->hash_type == TB_HTYPE_ANY )
         return true;
-
-    else if ( policy->hash_type == TB_HTYPE_HASHONLY ) {
-        /* hash command line */
-        printk("hash of command line \"%s\" is...\n    ", cmdline);
-        if ( !hash_buffer(cmdline, strlen((char *)cmdline), &hash,
-                          policy->hash_alg) )
-            return false;
-        print_hash(&hash, policy->hash_alg);
-
-        /* hash images */
-        va_start(ap, va_list_len);
-        if ( !hash_images(&hash, policy->hash_alg, va_list_len, ap) )
-            return false;
-        va_end(ap);
-
-        /* then look for match in policy */
-        return is_hash_in_policy(policy, &hash);
-    }
+    else if ( policy->hash_type == TB_HTYPE_HASHONLY )
+        return is_hash_in_policy(policy, m_hash);
 
     return false;
 }
@@ -445,8 +481,7 @@ static tb_policy_t* find_policy_by_uuid(const tb_policy_index_t *policy_index,
  * map policy type + error -> action
  *
  */
-static tb_policy_action_t evaluate_error(tb_policy_type_t policy_type,
-                                         tb_error_t error)
+static tb_policy_action_t evaluate_error(tb_error_t error)
 {
     tb_policy_action_t action = TB_POLACT_HALT;
 
@@ -454,7 +489,7 @@ static tb_policy_action_t evaluate_error(tb_policy_type_t policy_type,
         return TB_POLACT_CONTINUE;
 
     for ( int i = 0; i < ARRAY_SIZE(g_policy_map); i++ ) {
-        if ( g_policy_map[i].policy_type == policy_type ) {
+        if ( g_policy_map[i].policy_type == g_policy_index->policy_type ) {
             action = g_policy_map[i].default_action;
             for ( int j = 0;
                   j < ARRAY_SIZE(g_policy_map[i].exception_action_table);
@@ -462,6 +497,9 @@ static tb_policy_action_t evaluate_error(tb_policy_type_t policy_type,
                 if ( g_policy_map[i].exception_action_table[j].error ==
                      error )
                     action = g_policy_map[i].exception_action_table[j].action;
+                if ( g_policy_map[i].exception_action_table[j].error == 
+                     TB_ERR_NONE )
+                    break;
             }
         }
     }
@@ -481,112 +519,184 @@ void apply_policy(tb_error_t error)
 
     print_tb_error_msg(error);
 
-    action = evaluate_error(g_policy_index->policy_type, error);
+    action = evaluate_error(error);
     switch ( action ) {
         case TB_POLACT_CONTINUE:
             return;
-
+        case TB_POLACT_UNMEASURED_LAUNCH:
+            launch_xen(g_mbi, false);
+            break; /* if launch xen fails, do halt at the end */
+        case TB_POLACT_HALT:
+            break; /* do halt at the end */
         default:
             printk("Error: invalid policy action (%d)\n", action);
-        case TB_POLACT_HALT:
-            _tboot_shared.shutdown_type = TB_SHUTDOWN_HALT;
-            shutdown();
+            /* do halt at the end */
     }
+
+    _tboot_shared.shutdown_type = TB_SHUTDOWN_HALT;
+    shutdown();
+}
+
+static unsigned int calc_tcb_policy_size(void)
+{
+    unsigned int size = sizeof(*g_policy_index);
+
+    /* tb_policy_index_t has empty array, which isn't counted in size */
+    /* so add size of each policy */
+    for ( int i = 0; i < g_policy_index->num_policies; i++ ) {
+        size += sizeof(g_policy_index->policies[i]);
+        /* and each policy has empty hash array, so count those */
+        size += g_policy_index->policies[i].num_hashes *
+                sizeof(g_policy_index->policies[i].hashes[0]);
+    }
+
+    return size;
 }
 
 /*
  * verify modules against TCB policy
  */
-tb_error_t evaluate_all_policies(multiboot_info_t *mbi)
+static tb_error_t evaluate_vmm(multiboot_info_t *mbi)
 {
-    module_t *m;
     tb_policy_t *policy;
-    unsigned char *cmdline;
-    uint32_t vmm_base, vmm_size;
-    uint32_t vmlinuz_base, vmlinuz_size;
-    uint32_t initrd_base, initrd_size;
 
     /*
      * verify Xen/VMM
      */
 
-    /* get VMM module info */
-    m = get_module(mbi, 0);
-    if ( m == NULL )
-        return TB_ERR_FATAL;
-    vmm_base = m->mod_start;
-    vmm_size = m->mod_end - m->mod_start;
-    cmdline = (unsigned char *)m->string;
+    /* generate hash for VMM */
+    if ( mbi != NULL ) {
+        module_t *m;
+        unsigned char *cmdline;
+        uint32_t vmm_base, vmm_size;
+
+        memset(&g_tcb_hashes.vmm, 0, sizeof(g_tcb_hashes.vmm));
+
+        /* get VMM module info */
+        m = get_module(mbi, 0);
+        if ( m == NULL )
+            return TB_ERR_FATAL;
+        vmm_base = m->mod_start;
+        vmm_size = m->mod_end - m->mod_start;
+        cmdline = (unsigned char *)m->string;
+
+        if ( !generate_hash(&g_tcb_hashes.vmm, TB_HALG_SHA1, cmdline, 1, 
+                            vmm_base, vmm_size) ) {
+            printk("VMM hash can NOT be generated.\n");
+            early_vga_printk("The installed components do not match the "
+                             "verified launch policy.\n");
+            return TB_ERR_POLICY_VMM_VERIFY_FAILED;
+        }
+    }
 
     /* get VMM policy */
     policy = find_policy_by_uuid(g_policy_index, &((uuid_t)TBPOL_VMM_UUID));
     if ( policy == NULL ) {
         printk("no VMM policy\n");
-        return TB_ERR_NO_POLICY;
+        return TB_ERR_POLICY_NOT_PRESENT;
     }
 
     /* verify */
     printk("verifying VMM policy...\n");
-    if ( !evaluate_policy(policy, cmdline, 1, vmm_base, vmm_size) ) {
-        printk("VMM did not verify\n");
+    if ( !evaluate_policy(policy, &g_tcb_hashes.vmm) ) {
+        printk("VMM is NOT verified.\n");
         early_vga_printk("The installed components do not match the "
                          "verified launch policy.\n");
-        apply_policy(TB_ERR_VMM_VERIFY_FAILED);
+        return TB_ERR_POLICY_VMM_VERIFY_FAILED;
     }
-    else
-        printk("VMM verified\n");
+
+    printk("VMM is verified.\n");
+    return TB_ERR_NONE;
+}
+
+static tb_error_t evaluate_dom0(multiboot_info_t *mbi)
+{
+    tb_policy_t *policy;
 
     /*
      * verify dom0
      */
 
-    /* get vmlinuz module info */
-    m = get_module(mbi, 1);
-    if ( m == NULL )
-        return TB_ERR_GENERIC;   /* TBD: should be FATAL? */
-    vmlinuz_base = m->mod_start;
-    vmlinuz_size = m->mod_end - m->mod_start;
-    cmdline = (unsigned char *)m->string;
+    /* generate hash for dom0 */
+    if ( mbi != NULL ) {
+        module_t *m;
+        unsigned char *cmdline;
+        uint32_t vmlinuz_base, vmlinuz_size;
+        uint32_t initrd_base, initrd_size;
 
-    /* get initrd module info */
-    m = get_module(mbi, 2);
-    if ( m == NULL )
-        return TB_ERR_GENERIC;
-    initrd_base = m->mod_start;
-    initrd_size = m->mod_end - m->mod_start;
-    /* initrd cmd line is irrelevant */
+        memset(&g_tcb_hashes.dom0, 0, sizeof(g_tcb_hashes.dom0));
+
+        /* get vmlinuz module info */
+        m = get_module(mbi, 1);
+        if ( m == NULL )
+            return TB_ERR_FATAL;
+        vmlinuz_base = m->mod_start;
+        vmlinuz_size = m->mod_end - m->mod_start;
+        cmdline = (unsigned char *)m->string;
+
+        /* get initrd module info */
+        m = get_module(mbi, 2);
+        if ( m == NULL )
+            return TB_ERR_GENERIC;
+        initrd_base = m->mod_start;
+        initrd_size = m->mod_end - m->mod_start;
+        /* initrd cmd line is irrelevant */
+
+        if ( !generate_hash(&g_tcb_hashes.dom0, TB_HALG_SHA1, cmdline, 2, 
+                             vmlinuz_base, vmlinuz_size,
+                             initrd_base, initrd_size) ) {
+            printk("dom0 hash can NOT be generated.\n");
+            early_vga_printk("The installed components do not match the "
+                             "verified launch policy.\n");
+            return TB_ERR_POLICY_DOM0_VERIFY_FAILED;
+        }
+    }
 
     /* get dom0 policy */
     policy = find_policy_by_uuid(g_policy_index, &((uuid_t)TBPOL_DOM0_UUID));
     if ( policy == NULL ) {
         printk("no dom0 policy\n");
-        return TB_ERR_NO_POLICY;
+        return TB_ERR_POLICY_NOT_PRESENT;
     }
 
     /* verify */
     printk("verifying dom0 policy...\n");
-    if ( !evaluate_policy(policy, cmdline, 2, vmlinuz_base, vmlinuz_size,
-                          initrd_base, initrd_size) ) {
-        printk("dom0 did not verify\n");
+    if ( !evaluate_policy(policy, &g_tcb_hashes.dom0)) {
+        printk("dom0 is NOT verified.\n");
         early_vga_printk("The installed components do not match the "
                          "verified launch policy.\n");
-        apply_policy(TB_ERR_DOM0_VERIFY_FAILED);
+        return TB_ERR_POLICY_DOM0_VERIFY_FAILED;
     }
-    else
-        printk("dom0 verified\n");
 
+    printk("dom0 is verified.\n");
+    return TB_ERR_NONE;
+} 
+
+void evaluate_all_policies(multiboot_info_t *mbi)
+{
+    apply_policy(evaluate_vmm(mbi));
+    apply_policy(evaluate_dom0(mbi));
+    
     /*
      * ensure no more modules
      */
     if ( get_module(mbi, 3) != NULL ) {
-        printk("there are additional modules not in policy\n");
-        return TB_ERR_GENERIC;
+        printk("there are additional modules not in policy.\n");
+        apply_policy(TB_ERR_POLICY_MODULES_NOT_IN_POLICY);
     }
-
-    return TB_ERR_NONE;
+    
+    /* 
+     * generate hash of tcb policy
+     */
+    hash_buffer((unsigned char *)g_policy_index, calc_tcb_policy_size(),
+         &g_tcb_hashes.policy, TB_HALG_SHA1);
 }
 
-
+void re_evaluate_all_policies(void)
+{
+    apply_policy(evaluate_vmm(NULL));
+    apply_policy(evaluate_dom0(NULL));
+}
 
 /*
  * Local variables:
