@@ -74,28 +74,58 @@ static inline uint64_t read_txt_config_reg(void *config_regs_base,
     return *(volatile uint64_t *)(config_regs_base + reg);
 }
 
+static inline const char * bit_to_str(uint64_t b)
+{
+    return b ? "TRUE" : "FALSE";
+}
+
 static void display_config_regs(void *txt_config_base)
 {
+    txt_sts_t sts;
+    txt_ests_t ests;
+    txt_e2sts_t e2sts;
     printk("Intel(r) TXT Configuration Registers:\n");
 
     /* STS */
-    printk("\tSTS: 0x%Lx\n", read_txt_config_reg(txt_config_base, TXTCR_STS));
+    sts._raw = read_txt_config_reg(txt_config_base, TXTCR_STS);
+    printk("\tSTS: 0x%Lx\n", sts._raw);
+    printk("\t    senter_done: %s\n", bit_to_str(sts.senter_done_sts));
+    printk("\t    sexit_done: %s\n", bit_to_str(sts.sexit_done_sts));
+    printk("\t    mem_unlock: %s\n", bit_to_str(sts.mem_unlock_sts));
+    printk("\t    mem_config_lock: %s\n", bit_to_str(sts.mem_config_lock_sts));
+    printk("\t    private_open: %s\n", bit_to_str(sts.private_open_sts));
+    printk("\t    mem_config_ok: %s\n", bit_to_str(sts.mem_config_ok_sts));
 
     /* ESTS */
-    printk("\tESTS: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                  TXTCR_ESTS));
+    ests._raw = read_txt_config_reg(txt_config_base, TXTCR_ESTS);
+    printk("\tESTS: 0x%Lx\n", ests._raw);
+    printk("\t    txt_rogue: %s\n", bit_to_str(ests.txt_rogue_sts));
+    printk("\t    bm_write_attack: %s\n", bit_to_str(ests.bm_write_attack));
+    printk("\t    bm_read_attack: %s\n", bit_to_str(ests.bm_read_attack));
+    printk("\t    fsb_write_attack: %s\n", bit_to_str(ests.fsb_write_attack));
+    printk("\t    fsb_read_attack: %s\n", bit_to_str(ests.fsb_read_attack));
+    printk("\t    txt_wake_error: %s\n", bit_to_str(ests.txt_wake_error_sts));
 
     /* E2STS */
-    printk("\tE2STS: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                   TXTCR_E2STS));
+    e2sts._raw = read_txt_config_reg(txt_config_base, TXTCR_E2STS);
+    printk("\tE2STS: 0x%Lx\n", e2sts._raw);
+    printk("\t    slp_entry_error: %s\n",
+           bit_to_str(e2sts.slp_entry_error_sts));
+    printk("\t    secrets: %s\n", bit_to_str(e2sts.secrets_sts));
+    printk("\t    block_mem: %s\n", bit_to_str(e2sts.block_mem_sts));
+    printk("\t    reset: %s\n", bit_to_str(e2sts.reset_sts));
 
     /* ERRORCODE */
     printk("\tERRORCODE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
                                                        TXTCR_ERRORCODE));
 
     /* DIDVID */
-    printk("\tDIDVID: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                    TXTCR_DIDVID));
+    txt_didvid_t didvid;
+    didvid._raw = read_txt_config_reg(txt_config_base, TXTCR_DIDVID);
+    printk("\tDIDVID: 0x%Lx\n", didvid._raw);
+    printk("\t    vendor_id: 0x%x\n", didvid.vendor_id);
+    printk("\t    device_id: 0x%x\n", didvid.device_id);
+    printk("\t    revision_id: 0x%x\n", didvid.revision_id);
 
     /* SINIT.BASE/SIZE */
     printk("\tSINIT.BASE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
