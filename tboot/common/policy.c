@@ -298,7 +298,7 @@ static bool read_policy(void* policy_index, int *policy_index_size)
         /* read! */
         ret = tpm_nv_read_value(0, TB_TCB_POLICY_IDX, offset,
                                 (uint8_t *)policy_index + offset, &data_size);
-        if ( ret != TPM_SUCCESS )
+        if ( ret != TPM_SUCCESS || data_size == 0 )
             break;
 
         /* adjust offset */
