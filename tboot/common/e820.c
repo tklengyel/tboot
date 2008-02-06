@@ -263,7 +263,7 @@ bool copy_e820_map(multiboot_info_t *mbi)
     uint32_t entry_offset;
 
     if ( mbi->flags & MBI_MEMMAP ) {
-        uint64_t previous_base, previous_length, current_base;
+        uint64_t current_base;
         uint64_t check_base;
 
         printk("original e820 map:\n");
@@ -272,9 +272,6 @@ bool copy_e820_map(multiboot_info_t *mbi)
 
         g_nr_map = 0;
         entry_offset = 0;
-
-        previous_base = 0;
-        previous_length = 0;
 
         while ( entry_offset < mbi->mmap_length &&
                 g_nr_map < MAX_E820_ENTRIES ) {
@@ -292,7 +289,7 @@ bool copy_e820_map(multiboot_info_t *mbi)
             current_base = combine64b(new_entry->base_addr_low,
                                       new_entry->base_addr_high);
 
-            // If not ordered, order it
+            /* If not ordered, order it */
             for(int i=0; i<g_nr_map; i++)
             {
               check_base = combine64b(g_copy_e820_map[i].base_addr_low,
@@ -301,9 +298,27 @@ bool copy_e820_map(multiboot_info_t *mbi)
               if(current_base < check_base)
               {
                 memory_map_t *to, *from;
+                memory_map_t temp;
+
                 printk("Fixing out of order\n");
                 printk("Current base = %016Lx\n", current_base);
                 printk("Checked base = %016Lx\n", check_base);
+
+                temp = g_copy_e820_map[g_nr_map];
+
+                /* not overlapping */
+                if ( (i > 0)
+                  && (combine64b(g_copy_e820_map[i-1].base_addr_low,
+                                 g_copy_e820_map[i-1].base_addr_high)
+                    + combine64b(g_copy_e820_map[i-1].length_low,
+                                 g_copy_e820_map[i-1].length_high)
+                    > combine64b(temp.base_addr_low, temp.base_addr_high)) )
+                    return false;
+                if ( combine64b(temp.base_addr_low, temp.base_addr_high)
+                   + combine64b(temp.length_low, temp.length_high)
+                   > combine64b(g_copy_e820_map[i].base_addr_low,
+                                g_copy_e820_map[i].base_addr_high) )
+                    return false;
 
                 for(int j=g_nr_map; j>i; j--)
                 {
@@ -311,23 +326,22 @@ bool copy_e820_map(multiboot_info_t *mbi)
                   to = &g_copy_e820_map[j];
                   *to = *from;
                 }
-                from = entry;
-                to = &g_copy_e820_map[i];
-                *to = *from;
+
+                g_copy_e820_map[i] = temp;
 
                 current_base = combine64b(g_copy_e820_map[g_nr_map].base_addr_low,
                                           g_copy_e820_map[g_nr_map].base_addr_high);
               }
             }
 
-//            /* check g_copy_e820_map is ordered and not overlapping */
-//            if ( previous_base + previous_length > current_base )
-//                return false;
-
-            /* remember previous entry before going to the next one */
-            previous_base = current_base;
-            previous_length = combine64b(new_entry->length_low,
-                                         new_entry->length_high);
+            /* not overlapping */
+            if ( (g_nr_map > 0)
+                && (combine64b(g_copy_e820_map[g_nr_map-1].base_addr_low,
+                               g_copy_e820_map[g_nr_map-1].base_addr_high)
+                    + combine64b(g_copy_e820_map[g_nr_map-1].length_low,
+                                 g_copy_e820_map[g_nr_map-1].length_high)
+                    > current_base) )
+                return false;
 
             g_nr_map++;
 
