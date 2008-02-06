@@ -73,15 +73,17 @@ static uint32_t vmcs_revision_id;
 extern void print_cr0(const char *s);
 extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 
+extern void apply_policy(tb_error_t error);
+
 static uint32_t adjust_vmx_controls(uint32_t ctrls, uint32_t msr)
 {
     uint32_t vmx_msr_low, vmx_msr_high;
 
     rdmsr(msr, vmx_msr_low, vmx_msr_high);
 
-    /* TBD: need to handle this error */
     /* Bit == 0 means must be zero. */
-    BUG_ON(ctrls & ~vmx_msr_high);
+    if ( ctrls & ~vmx_msr_high )
+        apply_policy(TB_ERR_FATAL);
 
     /* Bit == 1 means must be one. */
     ctrls |= vmx_msr_low;
@@ -128,10 +130,11 @@ static void vmx_init_vmcs_config(void)
             (vmx_vmentry_control != _vmx_vmentry_control) )
         printk("vmx_init_config different on different AP.\n");
 
-    /* TBD: handle this as an error */
     /* IA-32 SDM Vol 3B: VMCS size is never greater than 4kB. */
-    if ( (vmx_msr_high & 0x1fff) > PAGE_SIZE )
+    if ( (vmx_msr_high & 0x1fff) > PAGE_SIZE ) {
         printk("vmcs size wrong.\n");
+        apply_policy(TB_ERR_FATAL);
+    }
 }
 
 extern uint32_t idle_pg_table[PAGE_SIZE / 4];
@@ -355,8 +358,7 @@ static void construct_vmcs(void)
     /* IDT */
     __asm__ __volatile__ ("sidt (%0) \n" :: "a"(&xdt) : "memory");
     printk("idt.base=0x%x, limit=0x%x.\n", xdt.base, xdt.limit);
-    /* TBD: tboot's idt base is not cannonical, so use 0 */
-    __vmwrite(GUEST_IDTR_BASE, 0);
+    __vmwrite(GUEST_IDTR_BASE, xdt.base);
     __vmwrite(GUEST_IDTR_LIMIT, xdt.limit);
 
     __vmwrite(HOST_IDTR_BASE, xdt.base);
@@ -447,6 +449,7 @@ static void launch_mini_guest(void)
     /* should not reach here */
     error = __vmread(VM_INSTRUCTION_ERROR);
     printk("<vm_launch_fail> error code %lx\n", error);
+    apply_policy(TB_ERR_FATAL);
 }
 
 static void vmx_failed_vmentry(unsigned int exit_reason)
@@ -534,6 +537,7 @@ void vmx_vmexit_handler(void)
     /* should not reach here */
     error = __vmread(VM_INSTRUCTION_ERROR);
     printk("<vm_resume_fail> error code %lx\n", error);
+    apply_policy(TB_ERR_FATAL);
 }
 
 /* Launch a mini guest to handle the physical INIT-SIPI-SIPI from BSP */
@@ -557,6 +561,7 @@ void handle_init_sipi_sipi(int cpuid)
     launch_mini_guest();
 
     printk("control should not return here from launch_mini_guest\n");
+    apply_policy(TB_ERR_FATAL);
     return;
 }
 

@@ -99,7 +99,7 @@ static const tb_policy_map_t g_policy_map[] = {
     { TB_POLTYPE_CONT_VERIFY_FAIL, TB_POLACT_HALT,
       {
           {TB_ERR_POLICY_VMM_VERIFY_FAILED,  TB_POLACT_CONTINUE},
-          {TB_ERR_POLICY_DOM0_VERIFY_FAILED, TB_POLACT_CONTINUE}, 
+          {TB_ERR_POLICY_DOM0_VERIFY_FAILED, TB_POLACT_CONTINUE},
           {TB_ERR_POLICY_NOT_PRESENT,        TB_POLACT_CONTINUE},
           {TB_ERR_POLICY_INVALID,            TB_POLACT_CONTINUE},
           {TB_ERR_NONE,                      TB_POLACT_CONTINUE},

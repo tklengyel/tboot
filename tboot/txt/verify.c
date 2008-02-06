@@ -428,8 +428,7 @@ static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
     if ( size > heap_size ) {
         printk("SINIT to MLE data size is larger than heap size\n"
                "(%Lx, heap size=%Lx)\n", size, heap_size);
-        /* TBD: un-comment this when have fixed SINIT
-           return false; */
+        return false;
     }
 
     sinit_mle_data = get_sinit_mle_data_start(txt_heap);
@@ -592,8 +591,7 @@ bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_os_data_only)
         printk("TXT heap data sizes (%Lx, %Lx, %Lx, %Lx) are larger than\n"
                "heap total size (%Lx)\n", size1, size2, size3, size4,
                read_priv_config_reg(TXTCR_HEAP_SIZE));
-        /* TBD:  un-comment this when have fixed SINIT
-           return false; */
+        return false;
     }
 
     /* verify OS to MLE data */

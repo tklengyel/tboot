@@ -231,7 +231,7 @@ tss_descr:	/* tss */
 	.word	0xffff		/* limit = 4GB */
 	.word	0x00		/* base = 0 */
 	.word	0x8900		/* system segment, 32b available TSS */
-	.word	0x008f		/* granularity = 4096 TBD: need set D/B? */
+	.word	0x008f		/* granularity = 4096 */
 cs16_desc:	/* cs16 */
 	.word	0xffff		/* limit = 4GB */
 	.word   0x0000      /* base = 0 */

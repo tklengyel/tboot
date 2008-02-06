@@ -55,17 +55,17 @@
 #define TXTCR_CMD_SYS_RESET         0x0038
 #define TXTCR_CMD_OPEN_PRIVATE      0x0040
 #define TXTCR_CMD_CLOSE_PRIVATE     0x0048
-#define TXTCR_DIDVID                0x0110   /* TBD: need to publish */
+#define TXTCR_DIDVID                0x0110
 #define TXTCR_CMD_FLUSH_WB          0x0258
 #define TXTCR_SINIT_BASE            0x0270
 #define TXTCR_SINIT_SIZE            0x0278
 #define TXTCR_MLE_JOIN              0x0290
 #define TXTCR_HEAP_BASE             0x0300
 #define TXTCR_HEAP_SIZE             0x0308
-#define TXTCR_CMD_OPEN_LOCALITY1    0x0380   /* TBD: need to publish */
-#define TXTCR_CMD_CLOSE_LOCALITY1   0x0388   /* TBD: need to publish */
-#define TXTCR_CMD_OPEN_LOCALITY2    0x0390   /* TBD: need to publish */
-#define TXTCR_CMD_CLOSE_LOCALITY2   0x0398   /* TBD: need to publish */
+#define TXTCR_CMD_OPEN_LOCALITY1    0x0380
+#define TXTCR_CMD_CLOSE_LOCALITY1   0x0388
+#define TXTCR_CMD_OPEN_LOCALITY2    0x0390
+#define TXTCR_CMD_CLOSE_LOCALITY2   0x0398
 #define TXTCR_CMD_SECRETS           0x08e0
 #define TXTCR_CMD_NO_SECRETS        0x08e8
 #define TXTCR_E2STS                 0x08f0

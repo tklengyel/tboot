@@ -400,8 +400,9 @@ bool replace_policy(const uuid_t *uuid, tb_hash_type_t hash_type,
 
     /* if none found, then need to add at first empty slot */
     /* which will be current value of i */
-    /* TBD: we always have enough space for these fixed # of UUIDs */
     if ( i == g_policy_index.num_policies ) {
+        if ( g_policy_index.num_policies >= MAX_TB_POLICIES )
+            return false;
         info_msg("adding a new policy\n");
         policy = &(g_policy_index.policies[i]);
         policy->uuid = *uuid;
