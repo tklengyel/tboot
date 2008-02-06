@@ -149,6 +149,9 @@ static void post_launch(void)
         /* restore backuped s3 wakeup page */
         restore_saved_s3_wakeup_page();
 
+        /* remove DMAR table if necessary */
+        remove_vtd_dmar_table();
+
         /* bring RLPs into environment */
         txt_wakeup_cpus();
 
@@ -159,6 +162,10 @@ static void post_launch(void)
         print_tboot_shared(&_tboot_shared);
 
         _prot_to_real(_tboot_shared.s3_k_wakeup_entry);
+    }
+    else {
+        /* backup DMAR table */
+        save_vtd_dmar_table();
     }
 
     /* make copy of e820 map that we will adjust */
@@ -361,8 +368,12 @@ static void cap_pcrs(void)
 
 void shutdown(void)
 {
-    if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 )
+    if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
         tpm_save_state(2);
+
+        /* restore DMAR table if needed */
+        restore_vtd_dmar_table();
+    }
 
     /* cap dynamic PCRs (17, 18, 19) */
     cap_pcrs();

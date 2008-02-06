@@ -27,6 +27,7 @@
 
 #include <config.h>
 #include <types.h>
+#include <stdbool.h>
 #include <printk.h>
 #include <acpi.h>
 #include <compiler.h>
@@ -223,6 +224,80 @@ static uint32_t get_acpi_table_entry(uint32_t start, uint32_t size, int type)
 uint32_t get_acpi_dmar_table(void)
 {
     return get_acpi_table(ACPI_DMAR_TABLE_SIG);
+}
+
+static acpi_table_header_t *g_dmar_table;
+static bool g_hide_dmar;
+
+bool save_vtd_dmar_table(void)
+{
+    /* find DMAR table and save it */
+    g_dmar_table = (acpi_table_header_t *) get_acpi_dmar_table();
+
+    printk("DMAR table @ 0x%p saved.\n", g_dmar_table);
+    return true;
+}
+
+bool restore_vtd_dmar_table(void)
+{
+    acpi_table_header_t *hdr;
+
+    /* find DMAR table first */
+    hdr = (acpi_table_header_t *) get_acpi_dmar_table();
+    if ( hdr != NULL ) {
+        printk("DMAR table @ 0x%p is still there, skip restore step.\n", hdr);
+        return true;
+    }
+
+    /* check saved DMAR table */
+    if ( g_dmar_table == NULL ) {
+        printk("No DMAR table saved, abort restore step.\n");
+        return false;
+    }
+
+    /* restore DMAR if needed */
+    memcpy(g_dmar_table->signature, ACPI_DMAR_TABLE_SIG, 4);
+
+    /* find DMAR again to ensure restoring successfully */
+    hdr = (acpi_table_header_t *) get_acpi_dmar_table();
+    if ( hdr == NULL ) {
+        printk("Failed to restore DMAR table, please FIX it.\n");
+        return false;
+    }
+
+    /* checksum DMAR table */
+    if ( acpi_table_compute_checksum((uint8_t *)hdr, hdr->length) ){
+        printk("Checksum error for restored DMAR table, abort restore step.\n");
+        return false;
+    }
+
+    /* need to hide DMAR table while resume from S3*/
+    g_hide_dmar = true;
+    printk("DMAR table @ 0x%p restored.\n", hdr);
+    return true;
+}
+
+bool remove_vtd_dmar_table(void)
+{
+    acpi_table_header_t *hdr;
+
+    /* check whether it is needed */
+    if ( !g_hide_dmar ) {
+        printk("No need to hide DMAR table.\n");
+        return true;
+    }
+
+    /* find DMAR table */
+    hdr = (acpi_table_header_t *) get_acpi_dmar_table();
+    if ( hdr == NULL ) {
+        printk("No DMAR table, skip remove step.\n");
+        return true;
+    }
+
+    /* remove DMAR table */
+    hdr->signature[0] = '\0';
+    printk("DMAR table @ 0x%p removed.\n", hdr);
+    return true;
 }
 
 uint32_t get_acpi_mcfg_table(void)

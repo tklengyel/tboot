@@ -124,6 +124,10 @@ extern uint32_t get_acpi_dmar_table(void);
 extern uint32_t get_acpi_mcfg_table(void);
 extern uint32_t get_acpi_ioapic_table(void);
 
+extern bool save_vtd_dmar_table(void);
+extern bool restore_vtd_dmar_table(void);
+extern bool remove_vtd_dmar_table(void);
+
 /* used to pass info when xen trap into tboot for shutdown */
 typedef struct {
     uint16_t pm1a_cnt;
