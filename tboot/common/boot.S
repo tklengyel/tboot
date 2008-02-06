@@ -172,7 +172,7 @@ ENTRY(_prot_to_real)
 	and     $0xffff0, %eax
 	shr     $4, %eax
 	mov     %ax, _real_mode_entry_point + 4
-	and     $0xf, %ebx
+	and     $0xfff0000f, %ebx
 	mov     %ebx, _real_mode_entry_point
 
 	/* load proper segments for real mode */
