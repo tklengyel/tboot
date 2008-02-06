@@ -83,14 +83,12 @@ ENTRY(__start)
         pushl   $0
         popf
 
-#if 0
         /* Initialize BSS (no nasty surprises!) */
         mov     $__bss_start,%edi
         mov     $_end,%ecx
         sub     %edi,%ecx
         xor     %eax,%eax
         rep     stosb
-#endif
 
         /* Load IDT */
         lidt    idt_descr
@@ -313,6 +311,8 @@ ENTRY(vmcs_end)
 _real_mode_entry_point:
 	.long   0
 	.word   0
+
+.section ".data"
 
 ENTRY(s3_flag)
 	.long 0

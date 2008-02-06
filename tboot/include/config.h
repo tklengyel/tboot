@@ -71,4 +71,6 @@
         compile_time_assert_failed[0] = 0;                       \
     }
 
+#define __data __attribute__ ((__section__ (".data")))
+
 #endif /* __CONFIG_H__ */

@@ -227,7 +227,7 @@ uint32_t get_acpi_dmar_table(void)
 }
 
 static acpi_table_header_t *g_dmar_table;
-static bool g_hide_dmar;
+static bool g_hide_dmar __data;
 
 bool save_vtd_dmar_table(void)
 {
@@ -241,6 +241,8 @@ bool save_vtd_dmar_table(void)
 bool restore_vtd_dmar_table(void)
 {
     acpi_table_header_t *hdr;
+
+    g_hide_dmar = false;
 
     /* find DMAR table first */
     hdr = (acpi_table_header_t *) get_acpi_dmar_table();

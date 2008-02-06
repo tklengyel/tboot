@@ -38,6 +38,7 @@ SECTIONS
 
   .data : {			/* Data */
 	*(.data)
+	*(.tboot_shared)
 	CONSTRUCTORS
 	}
 
@@ -48,7 +49,6 @@ SECTIONS
 	*(.bss.stack_aligned)
 	*(.bss.page_aligned)
 	*(.bss)
-	*(.tboot_shared)
 	}
 
   _end = . ;

@@ -73,7 +73,7 @@ extern char s3_wakeup_16[];
 extern char s3_wakeup_end[];
 
 /* multiboot struct saved so that post_launch() can use it */
-multiboot_info_t *g_mbi = NULL;
+multiboot_info_t *g_mbi __data = NULL;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
@@ -82,7 +82,7 @@ extern tboot_shared_t _tboot_shared;
  * caution: must make sure the total wakeup entry code length
  * (s3_wakeup_end - s3_wakeup_16) can fit into one page.
  */
-static uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
+static uint8_t g_saved_s3_wakeup_page[PAGE_SIZE] __data;
 
 static tb_error_t verify_platform(void)
 {
@@ -146,6 +146,9 @@ static void post_launch(void)
     err = txt_post_launch();
     apply_policy(err);
 
+    /* backup DMAR table */
+    save_vtd_dmar_table();
+
     if ( s3_flag  ) {
         /* restore backuped s3 wakeup page */
         restore_saved_s3_wakeup_page();
@@ -163,10 +166,6 @@ static void post_launch(void)
         print_tboot_shared(&_tboot_shared);
 
         _prot_to_real(_tboot_shared.s3_k_wakeup_entry);
-    }
-    else {
-        /* backup DMAR table */
-        save_vtd_dmar_table();
     }
 
     /* make copy of e820 map that we will adjust */
