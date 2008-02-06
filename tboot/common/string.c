@@ -10,6 +10,40 @@
 #include <string2.h>
 #include <ctype.h>
 
+#ifndef __HAVE_ARCH_STRCMP
+/**
+ * strcmp - Compare two strings
+ * @cs: One string
+ * @ct: Another string
+ */
+int strcmp(const char * cs,const char * ct)
+{
+    register signed char __res;
+
+    while (1) {
+        if ((__res = *cs - *ct++) != 0 || !*cs++)
+            break;
+    }
+
+    return __res;
+}
+#endif
+
+#ifndef __HAVE_ARCH_STRCHR
+/**
+ * strchr - Find the first occurrence of a character in a string
+ * @s: The string to be searched
+ * @c: The character to search for
+ */
+char * strchr(const char * s, int c)
+{
+    for(; *s != (char) c; ++s)
+        if (*s == '\0')
+            return NULL;
+    return (char *) s;
+}
+#endif
+
 #ifndef __HAVE_ARCH_STRNLEN
 /**
  * strnlen - Find the length of a length-limited string
@@ -52,11 +86,10 @@ size_t strlen(const char * s)
  * NUL-terminated string that fits in the buffer (unless,
  * of course, the buffer size is zero). It does not pad
  * out the result like strncpy() does.
- */ 
+ */
 size_t strlcpy(char *dest, const char *src, size_t size)
 {
 	size_t ret = strlen(src);
-
 	if (size) {
 		size_t len = (ret >= size) ? size-1 : ret;
 		memcpy(dest, src, len);

@@ -128,6 +128,8 @@ void print_log(void)
 #define DLL             0       /*  Divisor Latch Low         */
 #define DLH             1       /*  Divisor latch High        */
 
+int loglevel = 1; /* default is to print all */
+
 static int early_serial_putc(unsigned char ch) 
 { 
     unsigned timeout = 0xffff; 
@@ -153,6 +155,9 @@ void early_serial_printk(const char *fmt, ...)
 	int n;
 	va_list ap;
     static bool last_line_cr = true;
+
+    if ( !loglevel )
+        return;
 
     memset(buf, '\0', sizeof(buf));
 	va_start(ap, fmt);

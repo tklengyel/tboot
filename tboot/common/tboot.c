@@ -62,6 +62,8 @@ extern void _prot_to_real(uint32_t dist_addr);
 extern bool load_policy(void);
 extern void evaluate_all_policies(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
+extern void cmdline_parse(char *cmdline);
+extern void parse_loglvl(void);
 
 extern long s3_flag;
 
@@ -81,7 +83,6 @@ extern tboot_shared_t _tboot_shared;
  * (s3_wakeup_end - s3_wakeup_16) can fit into one page.
  */
 static uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
-
 
 static tb_error_t verify_platform(void)
 {
@@ -264,15 +265,25 @@ void begin_launch(multiboot_info_t *mbi)
     unsigned long apicbase;
     tb_error_t err;
 
+    if ( !s3_flag )
+    {
+        /* save for post launch */
+        g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;
+
+        /* parse command line */
+        if ( g_mbi->flags & MBI_CMDLINE ) {
+            cmdline_parse((char *)g_mbi->cmdline);
+
+            /* parse loglvl from string to int */
+            parse_loglvl();
+        }
+    }
+
     init_log();
     early_serial_init();
 
     printk("***************************************\n");
     printk("begin launch()\n");
-
-    /* save for post launch */
-    g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;
-
     /* we should only be executing on the BSP */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
     if ( !(apicbase & MSR_IA32_APICBASE_BSP) ) {
@@ -313,7 +324,7 @@ void begin_launch(multiboot_info_t *mbi)
         printk("we should never get here\n");
         apply_policy(TB_ERR_FATAL);
     }
-        
+
     /* check for error from previous boot */
     printk("checking previous errors on the last boot.\n\t");
     if ( was_last_boot_error() )
