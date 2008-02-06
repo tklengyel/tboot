@@ -93,6 +93,11 @@ ENTRY(__start)
         /* Load IDT */
         lidt    idt_descr
 
+        /* enable MCE */
+        mov     %cr4,%eax
+        or      $X86_CR4_MCE,%eax
+        mov     %eax,%cr4
+
         /* pass multiboot info struct and call measured launch code */
         push    %ebx
         call    begin_launch
@@ -128,6 +133,11 @@ ENTRY(_txt_wakeup)
 
         /* Load IDT */
 1:	lidt    idt_descr
+
+        /* enable MCE */
+        mov     %cr4,%eax
+        or      $X86_CR4_MCE,%eax
+        mov     %eax,%cr4
 
 	# get initial APIC ID for this processor
 	mov	$0x01, %eax
@@ -252,7 +262,18 @@ idt_descr:
 	.align	8
 
 idt_table:
-	.rept 256
+	.rept 18
+		.word	int_handler - _start
+		.word	cs_sel
+		.word	0x8e00   /* present, DPL=0, 32b, interrupt */
+		.word	(int_handler - _start + TBOOT_BASE_ADDR) >> 16
+	.endr
+	/* for machine-check exception */
+		.word	int_handler - _start
+		.word	cs_sel
+		.word	0x8f00   /* present, DPL=0, 32b, trap */
+		.word	(int_handler - _start + TBOOT_BASE_ADDR) >> 16
+	.rept 237
 		.word	int_handler - _start
 		.word	cs_sel
 		.word	0x8e00   /* present, DPL=0, 32b, interrupt */
