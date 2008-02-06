@@ -475,7 +475,6 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
 
 bool txt_prepare_platform(void)
 {
-    tpm_unit_test_before_senter();
     if ( is_tpm_ready(0) )
         return true;
     else
@@ -579,8 +578,6 @@ tb_error_t txt_post_launch(void)
     /* clear error config registers so that we start fresh */
     write_priv_config_reg(TXTCR_ERRORCODE, 0x00000000);
     write_priv_config_reg(TXTCR_ESTS, 0xffffffff);  /* write 1's to clear */
-
-    tpm_unit_test_after_senter();
 
     /* always set the LT.CMD.SECRETS flag */
     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);

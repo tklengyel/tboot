@@ -256,18 +256,8 @@ extern uint32_t tpm_get_nvindex_size(uint32_t locality,
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  */
 extern uint32_t tpm_save_state(uint32_t locality);
-/* #define TPM_UNIT_TEST 1 */
-
-#ifdef TPM_UNIT_TEST
-void tpm_unit_test_before_senter(void);
-void tpm_unit_test_after_senter(void);
-#else
-#define tpm_unit_test_before_senter()
-#define tpm_unit_test_after_senter()
-#endif   /* TPM_UNIT_TEST */
 
 #endif   /* __TPM_H__ */
-
 
 /*
  * Local variables:
