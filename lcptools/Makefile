@@ -24,7 +24,7 @@ UTIL_OBJS := lcptools.o lcputils.o
 
 
 # libraries
-LIBS += -lssl -ltspi
+LIBS += -lcrypto -ltspi
 
 
 #

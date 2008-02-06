@@ -10,7 +10,7 @@ include $(ROOTDIR)/Config.mk
 TARGET = tb_polgen
 
 # libraries
-LIBS += -lssl
+LIBS += -lcrypto
 
 
 #
