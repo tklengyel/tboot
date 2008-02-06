@@ -83,9 +83,9 @@ extern bool is_tpm_ready(uint32_t locality);
 extern uint32_t tpm_get_version(uint8_t *major, uint8_t *minor);
 
 #define TPM_DIGEST_SIZE          20
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     uint8_t     digest[TPM_DIGEST_SIZE];
-} __attribute__ ((packed)) tpm_digest_t;
+} tpm_digest_t;
 typedef tpm_digest_t tpm_pcr_value_t;
 
 /* 

@@ -78,8 +78,7 @@ extern char _txt_wakeup[];      /* RLP join address for GETSEC[WAKEUP] */
  * this is the structure whose addr we'll put in TXT heap
  * it needs to be within the MLE pages, so force it to the .text section
  */
-static const mle_hdr_t g_mle_hdr
-__attribute__ ((__section__ (".text"))) = {
+static __attribute__ ((__section__ (".text"))) const mle_hdr_t g_mle_hdr = {
     guid              :  MLE_HDR_GUID,
     length            :  sizeof(mle_hdr_t),
     version           :  0x00010001,

@@ -234,10 +234,10 @@ extern void _mini_guest(void);
  */
 static void construct_vmcs(void)
 {
-    struct {
+    struct __attribute__ ((packed)) {
         uint16_t  limit;
         uint32_t  base;
-    } __attribute__ ((packed)) xdt;
+    } xdt;
     unsigned long cr0, cr3, cr4, eflags, rsp;
     unsigned int tr;
     union vmcs_arbytes arbytes;

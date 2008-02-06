@@ -227,7 +227,7 @@ uint32_t get_acpi_dmar_table(void)
 }
 
 static acpi_table_header_t *g_dmar_table;
-static bool g_hide_dmar __data;
+static __data bool g_hide_dmar;
 
 bool save_vtd_dmar_table(void)
 {

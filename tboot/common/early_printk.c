@@ -257,7 +257,7 @@ static const int max_xpos = 80;
 void early_vga_printk(const char *str)
 {
     static int current_ypos = 25;
-    static int current_xpos __data = 0;
+    static __data int current_xpos = 0;
     char c;
     int  i, k, j;
 

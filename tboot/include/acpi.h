@@ -28,15 +28,15 @@
 
 /* Root System Description Pointer (RSDP) */
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     char        signature[8];
     uint8_t     checksum;
     char        oem_id[6];
     uint8_t     revision;
     uint32_t    rsdt_address;
-} __attribute__ ((packed)) acpi_table_rsdp_t;
+} acpi_table_rsdp_t;
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     char        signature[8];
     uint8_t     checksum;
     char        oem_id[6];
@@ -46,14 +46,14 @@ typedef struct {
     uint64_t    xsdt_address;
     uint8_t     ext_checksum;
     uint8_t     reserved[3];
-} __attribute__ ((packed)) acpi20_table_rsdp_t;
+} acpi20_table_rsdp_t;
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     uint8_t     type;
     uint8_t     length;
-} __attribute__ ((packed)) acpi_table_entry_header_t;
+} acpi_table_entry_header_t;
 
-typedef struct {               /* ACPI common table header */
+typedef struct __attribute__ ((packed)) { /* ACPI common table header */
     char        signature[4];  /* ACPI signature (4 ASCII characters) */
     uint32_t    length;        /* Length of table, in bytes, including header */
     uint8_t     revision;      /* ACPI Specification minor version # */
@@ -63,41 +63,41 @@ typedef struct {               /* ACPI common table header */
     uint32_t    oem_revision;           /* OEM revision number */
     char        asl_compiler_id [4];    /* ASL compiler vendor ID */
     uint32_t    asl_compiler_revision;  /* ASL compiler revision number */
-} __attribute__ ((packed)) acpi_table_header_t;
+} acpi_table_header_t;
 
 /* Root System Description Table (RSDT) */
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     acpi_table_header_t header;
     uint32_t            entry[8];
-} __attribute__ ((packed)) acpi_table_rsdt_t;
+} acpi_table_rsdt_t;
 
 /* Extended System Description Table (XSDT) */
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     acpi_table_header_t header;
     uint64_t            entry[1];
-} __attribute__ ((packed)) acpi_table_xsdt_t;
+} acpi_table_xsdt_t;
 
 /* PCI MMCONFIG */
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     acpi_table_header_t header;
     uint8_t             reserved[8];
     uint32_t            base_address;
     uint32_t            base_reserved;
-} __attribute__ ((packed)) acpi_table_mcfg_t ;
+} acpi_table_mcfg_t ;
 
 /* Multiple APIC Description Table (MADT) */
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     acpi_table_header_t header;
     uint32_t            lapic_address;
     struct {
         uint32_t        pcat_compat:1;
         uint32_t        reserved:31;
     } flags;
-} __attribute__ ((packed)) acpi_table_madt_t;
+} acpi_table_madt_t;
 
 enum acpi_madt_entry_id {
     ACPI_MADT_LAPIC = 0,
@@ -112,13 +112,13 @@ enum acpi_madt_entry_id {
     ACPI_MADT_ENTRY_COUNT
 };
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
     acpi_table_entry_header_t   header;
     uint8_t                     id;
     uint8_t                     reserved;
     uint32_t                    address;
     uint32_t                    global_irq_base;
-} __attribute__ ((packed)) acpi_table_ioapic_t;
+} acpi_table_ioapic_t;
 
 extern uint32_t get_acpi_dmar_table(void);
 extern uint32_t get_acpi_mcfg_table(void);

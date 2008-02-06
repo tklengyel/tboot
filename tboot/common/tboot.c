@@ -73,7 +73,7 @@ extern char s3_wakeup_16[];
 extern char s3_wakeup_end[];
 
 /* multiboot struct saved so that post_launch() can use it */
-multiboot_info_t *g_mbi __data = NULL;
+__data multiboot_info_t *g_mbi = NULL;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
@@ -82,7 +82,7 @@ extern tboot_shared_t _tboot_shared;
  * caution: must make sure the total wakeup entry code length
  * (s3_wakeup_end - s3_wakeup_16) can fit into one page.
  */
-static uint8_t g_saved_s3_wakeup_page[PAGE_SIZE] __data;
+static __data uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
 
 static tb_error_t verify_platform(void)
 {
