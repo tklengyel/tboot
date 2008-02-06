@@ -56,7 +56,6 @@ ENTRY(s3_wakeup_16)
 real_gdt_desc:
 	.word	real_gdt_table_end - real_gdt_table - 1
 	.long	TBOOT_S3_WAKEUP_ADDR + real_gdt_table - s3_wakeup_16
-	.word	0
 
         .align 8
 

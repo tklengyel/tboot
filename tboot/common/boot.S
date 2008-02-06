@@ -211,7 +211,6 @@ int_handler:
 gdt_descr:
 	.word	gdt_table_end - gdt_table - 1
 	.long	gdt_table
-	.word	0
 
         .align PAGE_SIZE, 0
 
@@ -251,7 +250,9 @@ gdt_table_end:
 idt_descr:
 	.word	idt_table_end - idt_table - 1
 	.long	idt_table
-	.word	0
+
+	.align	8
+
 idt_table:
 	.rept 256
 		.word	int_handler - _start
@@ -265,8 +266,6 @@ idt_table_end:
 real_idt_desc:
 	.word   0x03ff
 	.long   0
-	.word   0
-
 
 #include "wakeup.S"
 
