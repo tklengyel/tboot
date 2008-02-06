@@ -39,7 +39,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <zlib.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #define PRINT   printf
 #include "../include/uuid.h"
 #include "../include/hash.h"
@@ -51,20 +51,22 @@ static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
 {
     FILE *f;
     static char buf[1024];
-    SHA_CTX ctx;
+    EVP_MD_CTX ctx;
+    const EVP_MD *md;
     int read_cnt;
 
     if ( unzip )
         f = gzopen(filename, "rb");
     else
         f = fopen(filename, "rb");
-    
+
     if ( f == NULL ) {
         error_msg("File %s does not exist\n", filename);
         return false;
     }
 
-    SHA1_Init(&ctx);
+    md = EVP_sha1();
+    EVP_DigestInit(&ctx, md);
     do {
         if ( unzip )
             read_cnt = gzread(f, buf, sizeof(buf));
@@ -73,9 +75,9 @@ static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
         if ( read_cnt == 0 )
             break;
 
-        SHA1_Update(&ctx, buf, read_cnt);
+        EVP_DigestUpdate(&ctx, buf, read_cnt);
     } while ( true );
-    SHA1_Final(hash->sha1, &ctx);
+    EVP_DigestFinal(&ctx, hash->sha1, NULL);
 
     if ( unzip )
         gzclose(f);
@@ -125,10 +127,15 @@ bool do_create(const param_data_t *params)
     /* hash command line and files */
     if ( params->hash_type != TB_HTYPE_ANY ) {
         if ( strlen(params->cmdline) > 0 ) {
+            EVP_MD_CTX ctx;
+            const EVP_MD *md;
             /* hash command line */
             info_msg("hashing command line \"%s\"...", params->cmdline);
-            SHA1((unsigned char *)params->cmdline, strlen(params->cmdline),
-                 (unsigned char *)&final_hash);
+            md = EVP_sha1();
+            EVP_DigestInit(&ctx, md);
+            EVP_DigestUpdate(&ctx, (unsigned char *)params->cmdline,
+                             strlen(params->cmdline));
+            EVP_DigestFinal(&ctx, (unsigned char *)&final_hash, NULL);
             if ( verbose ) print_hash(&final_hash, TB_HALG_SHA1);
             is_cmdline = true;
         }

@@ -42,7 +42,7 @@
 #include <getopt.h>
 #include <zlib.h>
 #include <sys/stat.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #define PRINT   printf
 #include "../include/elf_defns.h"
 #include "../include/mle.h"
@@ -335,6 +335,8 @@ int main(int argc, char* argv[])
     bool help = false;
     char *mle_file;
     extern int optind;    /* current index of get_opt() */
+    EVP_MD_CTX ctx;
+    const EVP_MD *md;
 
     while ((c = getopt(argc, (char ** const)argv, options)) != -1) {
         switch (c) {
@@ -386,9 +388,12 @@ int main(int argc, char* argv[])
     }
 
     /* SHA-1 the MLE portion of the image */
-    SHA1(exp_start + mle_hdr->mle_start_off,
-         mle_hdr->mle_end_off - mle_hdr->mle_start_off,
-         (unsigned char *)hash);
+    md = EVP_sha1();
+    EVP_DigestInit(&ctx, md);
+    EVP_DigestUpdate(&ctx,
+                     exp_start + mle_hdr->mle_start_off,
+                     mle_hdr->mle_end_off - mle_hdr->mle_start_off);
+    EVP_DigestFinal(&ctx, (unsigned char *)hash, NULL);
     log_info("SHA-1 = ");
 
     /* we always print the hash regardless of verbose mode */

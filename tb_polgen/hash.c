@@ -38,7 +38,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #define PRINT   printf
 #include "../include/uuid.h"
 #include "../include/hash.h"
@@ -83,7 +83,13 @@ bool hash_buffer(const unsigned char* buf, int size, tb_hash_t *hash,
     }
 
     if ( hash_alg == TB_HALG_SHA1 ) {
-        SHA1(buf, size, hash->sha1);
+        EVP_MD_CTX ctx;
+        const EVP_MD *md;
+
+        md = EVP_sha1();
+        EVP_DigestInit(&ctx, md);
+        EVP_DigestUpdate(&ctx, buf, size);
+        EVP_DigestFinal(&ctx, hash->sha1, NULL);
         return true;
     }
     else {
@@ -108,9 +114,15 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint8_t hash_alg)
     }
 
     if ( hash_alg == TB_HALG_SHA1 ) {
+        EVP_MD_CTX ctx;
+        const EVP_MD *md;
+
         memcpy(buf, &(hash1->sha1), sizeof(hash1->sha1));
         memcpy(buf + sizeof(hash1->sha1), &(hash2->sha1), sizeof(hash1->sha1));
-        SHA1(buf, 2*sizeof(hash1->sha1), hash1->sha1);
+        md = EVP_sha1();
+        EVP_DigestInit(&ctx, md);
+        EVP_DigestUpdate(&ctx, buf, 2*sizeof(hash1->sha1));
+        EVP_DigestFinal(&ctx, hash1->sha1, NULL);
         return true;
     }
     else {
