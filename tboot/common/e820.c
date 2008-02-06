@@ -264,6 +264,8 @@ bool copy_e820_map(multiboot_info_t *mbi)
 
     if ( mbi->flags & MBI_MEMMAP ) {
         uint64_t previous_base, previous_length, current_base;
+        uint64_t check_base;
+
         printk("original e820 map:\n");
         print_map((memory_map_t *)mbi->mmap_addr,
                   mbi->mmap_length/sizeof(memory_map_t));
@@ -290,9 +292,37 @@ bool copy_e820_map(multiboot_info_t *mbi)
             current_base = combine64b(new_entry->base_addr_low,
                                       new_entry->base_addr_high);
 
-            /* check g_copy_e820_map is ordered and not overlapping */
-            if ( previous_base + previous_length > current_base )
-                return false;
+            // If not ordered, order it
+            for(int i=0; i<g_nr_map; i++)
+            {
+              check_base = combine64b(g_copy_e820_map[i].base_addr_low,
+                                      g_copy_e820_map[i].base_addr_high);
+
+              if(current_base < check_base)
+              {
+                memory_map_t *to, *from;
+                printk("Fixing out of order\n");
+                printk("Current base = %016Lx\n", current_base);
+                printk("Checked base = %016Lx\n", check_base);
+
+                for(int j=g_nr_map; j>i; j--)
+                {
+                  from = &g_copy_e820_map[j-1];
+                  to = &g_copy_e820_map[j];
+                  *to = *from;
+                }
+                from = entry;
+                to = &g_copy_e820_map[i];
+                *to = *from;
+
+                current_base = combine64b(g_copy_e820_map[g_nr_map].base_addr_low,
+                                          g_copy_e820_map[g_nr_map].base_addr_high);
+              }
+            }
+
+//            /* check g_copy_e820_map is ordered and not overlapping */
+//            if ( previous_base + previous_length > current_base )
+//                return false;
 
             /* remember previous entry before going to the next one */
             previous_base = current_base;
