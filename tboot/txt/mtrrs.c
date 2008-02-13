@@ -817,7 +817,7 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
      * map all AC module pages as mem_type
      */
 
-    num_pages = (size + PAGE_SIZE) >> PAGE_SHIFT;
+    num_pages = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
     ndx = 0;
 
     printk("setting MTRRs for acmod: base=%p, size=%x, num_pages=%d\n",
