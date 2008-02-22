@@ -435,7 +435,11 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
         printk("\n");
     }
 #endif
-    
+
+    memset(&reg_sts, 0, sizeof(reg_sts));
+    reg_sts.command_ready = 1;
+    write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
+
 RelinquishControl:
     /* deactivate current locality */
     reg_acc._raw[0] = 0;
