@@ -733,32 +733,6 @@ uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
     return ret;
 }
 
-/* ensure TPM is ready to accept commands */
-bool is_tpm_ready(uint32_t locality)
-{
-    tpm_reg_access_t reg_acc;
-
-    if ( !tpm_validate_locality(locality) ) {
-        printk("TPM is not available.\n");
-        return false;
-    }
-
-    /*
-     * must ensure TPM_ACCESS_0.activeLocality bit is clear
-     * (: locality is not active)
-     */
-    read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
-    if ( reg_acc.active_locality != 0 ) {
-        /* make inactive by writing a 1 */
-        reg_acc.active_locality = 1;
-        write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
-    }
-
-    printk("TPM is ready\n");
-
-    return true;
-}
-
 #define TPM_CAP_VERSION_VAL 0x1A
 
 typedef uint16_t tpm_structure_tag_t;
@@ -1680,6 +1654,140 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
     LOAD_INTEGER(resp, offset, *size);
 
     return ret;
+}
+
+typedef struct __attribute__ ((packed)) {
+    tpm_structure_tag_t tag;
+    uint8_t disable;
+    uint8_t ownership;
+    uint8_t deactivated;
+    uint8_t read_pubek;
+    uint8_t disable_owner_clear;
+    uint8_t allow_maintenance;
+    uint8_t physical_presence_lifetime_lock;
+    uint8_t physical_presence_hw_enable;
+    uint8_t physical_presence_cmd_enable;
+    uint8_t cekp_used;
+    uint8_t tpm_post;
+    uint8_t tpm_post_lock;
+    uint8_t fips;
+    uint8_t operator;
+    uint8_t enable_revoke_ek;
+    uint8_t nv_locked;
+    uint8_t read_srk_pub;
+    uint8_t tpm_established;
+    uint8_t maintenance_done;
+    uint8_t disable_full_da_logic_info;
+} tpm_permanent_flags_t;
+
+typedef struct __attribute__ ((packed)) {
+    tpm_structure_tag_t tag;
+    uint8_t deactivated;
+    uint8_t disable_force_clear;
+    uint8_t physical_presence;
+    uint8_t phycical_presence_lock;
+    uint8_t b_global_lock;
+} tpm_stclear_flags_t;
+
+#define TPM_CAP_FLAG            0x00000004
+#define TPM_CAP_FLAG_PERMANENT  0x00000108
+#define TPM_CAP_FLAG_VOLATILE   0x00000109
+
+static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
+                       uint8_t *flags, uint32_t flag_size)
+{
+    uint32_t ret, offset, resp_size;
+    uint8_t sub_cap[sizeof(flag_id)];
+    tpm_structure_tag_t tag;
+
+    if ( flags == NULL )
+        return TPM_BAD_PARAMETER;
+
+    offset = 0;
+    UNLOAD_INTEGER(sub_cap, offset, flag_id);
+
+    resp_size = flag_size;
+    ret = tpm_get_capability(locality, TPM_CAP_FLAG, sizeof(sub_cap),
+                             sub_cap, &resp_size, flags);
+
+    printk("TPM: get flags %08X, return value = %08X\n", flag_id, ret);
+    if ( ret != TPM_SUCCESS )
+        return ret;
+
+#ifdef TPM_TRACE
+    {
+        printk("TPM: ");
+        for ( uint32_t i = 0; i < resp_size; i++ )
+            printk("%02X ", (uint32_t)flags[i]);
+        printk("\n");
+    }
+#endif
+
+    /* 1.2 spec, main part 2, rev 103 add one more byte to permanent flags,
+       to be compatible backward, not assume all expected bytes can be gotten */
+    if ( resp_size > flag_size )
+        return TPM_FAIL;
+
+    offset = 0;
+    LOAD_INTEGER(flags, offset, tag);
+    offset = 0;
+    UNLOAD_BLOB_TYPE(flags, offset, &tag);
+
+    return ret;
+}
+
+/* ensure TPM is ready to accept commands */
+bool is_tpm_ready(uint32_t locality)
+{
+    tpm_reg_access_t reg_acc;
+    tpm_permanent_flags_t pflags;
+    tpm_stclear_flags_t vflags;
+    uint32_t ret;
+
+    if ( !tpm_validate_locality(locality) ) {
+        printk("TPM is not available.\n");
+        return false;
+    }
+
+    /*
+     * must ensure TPM_ACCESS_0.activeLocality bit is clear
+     * (: locality is not active)
+     */
+    read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
+    if ( reg_acc.active_locality != 0 ) {
+        /* make inactive by writing a 1 */
+        reg_acc.active_locality = 1;
+        write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
+    }
+
+    /* make sure tpm is not disabled/deactivated */
+    memset(&pflags, 0, sizeof(pflags));
+    ret = tpm_get_flags(locality, TPM_CAP_FLAG_PERMANENT,
+                        (uint8_t *)&pflags, sizeof(pflags));
+    if ( ret != TPM_SUCCESS ) {
+        printk("TPM is disabled or deactivated.\n");
+        return false;
+    }
+    if ( pflags.disable ) {
+        printk("TPM is disabled.\n");
+        return false;
+    }
+    
+    memset(&vflags, 0, sizeof(vflags));
+    ret = tpm_get_flags(locality, TPM_CAP_FLAG_VOLATILE,
+                        (uint8_t *)&vflags, sizeof(vflags));
+    if ( ret != TPM_SUCCESS ) {
+        printk("TPM is disabled or deactivated.\n");
+        return false;
+    }
+    if ( vflags.deactivated ) {
+        printk("TPM is deactivated.\n");
+        return false;
+    }
+
+    printk("TPM is ready\n");
+
+    return true;
 }
 
 uint32_t tpm_save_state(uint32_t locality)
