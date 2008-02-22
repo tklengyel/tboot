@@ -176,12 +176,16 @@ static bool tpm_validate_locality(uint32_t locality)
     return false;
 }
 
-#define TPM_ACTIVE_LOCALITY_TIME_OUT    0x800
-#define TPM_STS_VALID_TIME_OUT          0x100
-#define TPM_CMD_READY_TIME_OUT          0x100
-#define TPM_CMD_WRITE_TIME_OUT          0x100
-#define TPM_DATA_AVAIL_TIME_OUT         0x100
-#define TPM_RSP_READ_TIME_OUT           0x100
+#define TIMEOUT_UNIT    (0x100000 / 330) /* ~1ms, 1 tpm r/w need > 330ns */
+#define TIMEOUT_A       (TIMEOUT_UNIT * 750)  /* 750ms */
+#define TIMEOUT_B       (TIMEOUT_UNIT * 2000) /* 2s */
+#define TIMEOUT_C       (TIMEOUT_UNIT * 750)  /* 750ms */
+#define TIMEOUT_D       (TIMEOUT_UNIT * 750)  /* 750ms */
+#define TPM_ACTIVE_LOCALITY_TIME_OUT    TIMEOUT_A   /* according to spec */ 
+#define TPM_CMD_READY_TIME_OUT          TIMEOUT_B   /* according to spec */
+#define TPM_CMD_WRITE_TIME_OUT          TIMEOUT_A   /* let it long enough */
+#define TPM_DATA_AVAIL_TIME_OUT         TIMEOUT_B   /* let it long enough */
+#define TPM_RSP_READ_TIME_OUT           TIMEOUT_A   /* let it long enough */
 
 static uint32_t tpm_wait_cmd_ready(uint32_t locality)
 {
@@ -213,20 +217,6 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
     if ( i <= 0 ) {
         printk("TPM: request use timeout\n");
         return TPM_FAIL;
-    }
-
-    /* ensure the contents of the STATUS register are valid */
-    for ( i = TPM_STS_VALID_TIME_OUT; i > 0; i-- ) {
-        read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
-        if ( reg_sts.sts_valid == 1 )
-            break;
-        else
-            cpu_relax();
-    }
-    
-    if ( i <= 0 ) {
-        printk("TPM: status register not valid\n");
-        goto RelinquishControl;
     }
 
     /* write 1 to TPM_STS_x.commandReady to let TPM enter the ready status */
@@ -369,7 +359,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     /* check for data available */
     for ( i = TPM_DATA_AVAIL_TIME_OUT; i > 0; i-- ) {
         read_tpm_reg(locality,TPM_REG_STS, &reg_sts);
-        if ( reg_sts.data_avail == 1 )
+        if ( reg_sts.sts_valid == 1 && reg_sts.data_avail == 1 )
             break;
         else
             cpu_relax();
