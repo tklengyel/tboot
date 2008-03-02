@@ -400,7 +400,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
             }
 
             /* get outgoing data size */
-            if ( offset == RSP_RST_OFFSET ) {
+            if ( offset == RSP_RST_OFFSET - 1 ) {
                 reverse_copy(&rsp_size, &out[RSP_SIZE_OFFSET],
                              sizeof(rsp_size));
             }
