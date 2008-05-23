@@ -99,11 +99,6 @@ static bool prepare_cpu(void)
     return txt_prepare_cpu();
 }
 
-static bool prepare_platform(void)
-{
-    return txt_prepare_platform();
-}
-
 static tb_error_t launch_environment(multiboot_info_t *mbi)
 {
     return txt_launch_environment(mbi);
@@ -295,7 +290,7 @@ void begin_launch(multiboot_info_t *mbi)
     /* has already been launched */
 
     /* make TPM ready for measured launch */
-    if ( !prepare_platform() )
+    if ( !is_tpm_ready(0) )
         apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
@@ -334,10 +329,6 @@ void begin_launch(multiboot_info_t *mbi)
     /* launch the measured environment */
     err = launch_environment(mbi);
     apply_policy(err);
-
-    /* for Intel(r) TXT, we will never get here */
-    printk("we should never get here\n");
-    apply_policy(TB_ERR_FATAL);
 }
 
 static void shutdown_system(uint32_t shutdown_type)
@@ -384,7 +375,8 @@ void shutdown(void)
     }
 
     /* cap dynamic PCRs (17, 18, 19) */
-    cap_pcrs();
+    if ( is_launched() )
+        cap_pcrs();
 
     /* scrub any secrets by clearing their memory, then flush cache */
     /* we don't have any secrets to scrub, however */
