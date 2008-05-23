@@ -219,14 +219,16 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
         return TPM_FAIL;
     }
 
-    /* write 1 to TPM_STS_x.commandReady to let TPM enter the ready status */
-    memset((void *)&reg_sts, 0, sizeof(reg_sts));
-    reg_sts.command_ready = 1;
-    write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
-
     /* ensure the TPM is ready to accept a command */
     printk("TPM: wait for cmd ready ");
     for ( i = TPM_CMD_READY_TIME_OUT; i > 0; i-- ) {
+        /* write 1 to TPM_STS_x.commandReady to let TPM enter ready state */
+        memset((void *)&reg_sts, 0, sizeof(reg_sts));
+        reg_sts.command_ready = 1;
+        write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
+        cpu_relax();
+
+        /* then see if it has */
         read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
         printk(".");
         if ( reg_sts.command_ready == 1 )
