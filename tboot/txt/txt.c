@@ -65,7 +65,7 @@
 #include <txt/vmcs.h>
 
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
-#define AP_WFS_TIMEOUT     0x20000000
+#define AP_WFS_TIMEOUT     0x01000000
 
 extern char _start[];           /* start of module */
 extern char _end[];             /* end of module */
@@ -343,7 +343,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
 
 void txt_wakeup_cpus(void)
 {
-    struct {
+    struct __attribute__ ((packed)) {
         uint16_t  limit;
         uint32_t  base;
     } gdt;
@@ -381,8 +381,12 @@ void txt_wakeup_cpus(void)
     /* least 2 cores) */
     txt_heap_t *txt_heap = get_txt_heap();
     bios_os_data_t *bios_os_data = get_bios_os_data_start(txt_heap);
-    if ( bios_os_data->version >= 0x02 )
-        ap_wakeup_count = bios_os_data->v2.num_logical_procs - 1;
+    if ( bios_os_data->version >= 0x02 ) {
+        if ( bios_os_data->v2.num_logical_procs < 2 )
+            ap_wakeup_count = 1;
+        else
+            ap_wakeup_count = bios_os_data->v2.num_logical_procs - 1;
+    }
     else
         ap_wakeup_count = 1;
 
@@ -391,10 +395,19 @@ void txt_wakeup_cpus(void)
     /* wait for all APs that woke up to have entered wait-for-sipi */
     uint32_t timeout = AP_WFS_TIMEOUT;
     do {
-        cpu_relax();
+        if ( timeout % 0x8000 == 0 )
+            printk(".");
+        else
+            cpu_relax();
+        if ( timeout % 0x4b000 == 0 )
+            printk("\n");
         timeout--;
     } while ( (atomic_read(&ap_wfs_count) < ap_wakeup_count) && timeout > 0 );
-    printk("all APs in wait-for-sipi\n");
+    printk("\n");
+    if ( timeout == 0 )
+        printk("wait-for-sipi loop timed-out\n");
+    else
+        printk("all APs in wait-for-sipi\n");
 
     /* enable SMIs (do this after APs have been awakened and sync'ed w/ BSP) */
     printk("enabling SMIs on BSP\n");
@@ -470,14 +483,6 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
     printk("ERROR--we should not get here!\n");
     return TB_ERR_FATAL;
-}
-
-bool txt_prepare_platform(void)
-{
-    if ( is_tpm_ready(0) )
-        return true;
-    else
-        return false;
 }
 
 bool txt_prepare_cpu(void)
@@ -728,7 +733,13 @@ void txt_shutdown(void)
     read_priv_config_reg(TXTCR_E2STS);   /* fence */
     printk("secrets flag cleared\n");
 
+    /* unlock memory configuration */
+    write_priv_config_reg(TXTCR_CMD_UNLOCK_MEM_CONFIG, 0x01);
+    read_pub_config_reg(TXTCR_E2STS);    /* fence */
+    printk("memory configuration unlocked\n");
+
     /* close TXT private config space */
+    /* implicitly closes TPM localities 1 + 2 */
     read_priv_config_reg(TXTCR_E2STS);   /* fence */
     write_priv_config_reg(TXTCR_CMD_CLOSE_PRIVATE, 0x01);
     read_pub_config_reg(TXTCR_E2STS);    /* fence */

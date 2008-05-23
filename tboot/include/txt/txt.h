@@ -42,7 +42,6 @@ extern bool txt_is_launched(void);
 extern bool txt_get_error(void);
 extern tb_error_t txt_verify_platform(void);
 extern bool txt_prepare_cpu(void);
-extern bool txt_prepare_platform(void);
 extern void txt_wakeup_cpus(void);
 extern tb_error_t txt_launch_environment(multiboot_info_t *mbi);
 extern tb_error_t txt_post_launch(void);
