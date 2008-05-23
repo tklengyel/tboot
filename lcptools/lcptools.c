@@ -215,15 +215,9 @@ lcp_define_index(in_nv_definespace_t *p_in_defspace,
         }
 
         result = Tspi_NV_DefineSpace(hnvstore, hrdpcrcomp, hwrtpcrcomp);
+	CHECK_TSS_RETURN_VALUE("Tspi_NV_DefineSpace failed", result, ret);
     }
 
-    /*
-     * Print error massage for Tspi_NV_DefineSpace.
-     */
-    if ( result != TSS_SUCCESS ) {
-        log_error("Tspi_NV_DefineSpace failed: %s \n",
-                    Trspi_Error_String(result));
-    }
     ret = convert_error(result);
 
 exit:
@@ -282,14 +276,9 @@ lcp_release_index(uint32_t index,
      * Release the space according to the parameters: index and datasize.
      */
     result = Tspi_NV_ReleaseSpace(hnvstore);
+    CHECK_TSS_RETURN_VALUE("Tspi_NV_ReleaseSpace for deleting NV index",
+            result, ret);
 
-    /*
-     * Print error massage for Tspi_NV_ReleaseSpace.
-     */
-    if ( result != TSS_SUCCESS ) {
-        log_error("Tspi_NV_ReleaseSpace failed: %s \n",
-                    Trspi_Error_String(result));
-    }
     ret = convert_error(result);
 
 exit:
