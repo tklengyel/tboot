@@ -158,7 +158,7 @@ extern char host_vmcs[PAGE_SIZE];
 extern char ap_vmcs[NR_CPUS-1][PAGE_SIZE];
 static int exit_state[NR_CPUS-1];
 
-static bool start_vmx(void)
+static bool start_vmx(int cpuid)
 {
     struct vmcs_struct *vmcs;
     static bool init_done = false;
@@ -171,7 +171,7 @@ static bool start_vmx(void)
     spin_lock(&ap_init_lock);
 
     if ( !init_done ) {
-        printk("one-time initializing VMX mini-guest\n");
+        /*printk("one-time initializing VMX mini-guest\n");*/
 
         memset(vmcs, 0, PAGE_SIZE);
 
@@ -189,7 +189,7 @@ static bool start_vmx(void)
     }
     spin_unlock(&ap_init_lock);
 
-    printk("per-cpu initializing VMX mini-guest\n");
+    /*printk("per-cpu initializing VMX mini-guest\n");*/
 
     write_cr3((unsigned long)idle_pg_table);
     set_in_cr4(X86_CR4_PSE);
@@ -199,11 +199,11 @@ static bool start_vmx(void)
         clear_in_cr4(X86_CR4_VMXE);
         clear_in_cr4(X86_CR4_PSE);
         write_cr0(read_cr0() & ~X86_CR0_PG);
-        printk("VMXON failed\n");
+        printk("VMXON failed for cpu %d\n", cpuid);
         return false;
     }
 
-    printk("VMXON done.\n");
+    printk("VMXON done for cpu %d\n", cpuid);
     return true;
 }
 
@@ -357,7 +357,7 @@ static void construct_vmcs(void)
 
     /* IDT */
     __asm__ __volatile__ ("sidt (%0) \n" :: "a"(&xdt) : "memory");
-    printk("idt.base=0x%x, limit=0x%x.\n", xdt.base, xdt.limit);
+    /*printk("idt.base=0x%x, limit=0x%x.\n", xdt.base, xdt.limit);*/
     __vmwrite(GUEST_IDTR_BASE, xdt.base);
     __vmwrite(GUEST_IDTR_LIMIT, xdt.limit);
 
@@ -415,7 +415,7 @@ static void construct_vmcs(void)
 
     __vmwrite(EXCEPTION_BITMAP, MONITOR_DEFAULT_EXCEPTION_BITMAP);
 
-    printk("vmcs setup done.\n");
+    /*printk("vmcs setup done.\n");*/
 }
 
 static void vmx_create_vmcs(int cpuid)
@@ -434,12 +434,11 @@ static void vmx_create_vmcs(int cpuid)
     construct_vmcs();
 }
 
-static void launch_mini_guest(void)
+static void launch_mini_guest(int cpuid)
 {
     unsigned long error;
 
-    unsigned int apicid = cpuid_ebx(1) >> 24;
-    printk("launching mini-guest for cpu %d\n", apicid);
+    printk("launching mini-guest for cpu %d\n", cpuid);
 
     /* this is close enough to entering wait-for-sipi, so inc counter */
     atomic_inc(&ap_wfs_count);
@@ -448,7 +447,7 @@ static void launch_mini_guest(void)
 
     /* should not reach here */
     error = __vmread(VM_INSTRUCTION_ERROR);
-    printk("<vm_launch_fail> error code %lx\n", error);
+    printk("vmlaunch failed for cpu %d, error code %lx\n", cpuid, error);
     apply_policy(TB_ERR_FATAL);
 }
 
@@ -489,7 +488,7 @@ void vmx_vmexit_handler(void)
     int *state = NULL;
 
     exit_reason = __vmread(VM_EXIT_REASON);
-/*    printk("vmx_vmexit_handler, exit_reason=%x.\n", exit_reason);*/
+    /*printk("vmx_vmexit_handler, exit_reason=%x.\n", exit_reason);*/
 
     if ( (exit_reason & VMX_EXIT_REASONS_FAILED_VMENTRY) ) {
         printk("failed vmentry.\n");
@@ -500,39 +499,34 @@ void vmx_vmexit_handler(void)
     apicid = cpuid_ebx(1) >> 24;
     state = &exit_state[apicid-1];
 
-    switch ( exit_reason )
-        {
-        case EXIT_REASON_INIT:
-            if ( *state == AP_WAIT_INIT ) {
-                *state = AP_WAIT_SIPI1;
-                __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
-            }
-            break;
-        case EXIT_REASON_SIPI:
-            if ( *state == AP_WAIT_SIPI1 ) {
-                *state = AP_WAIT_SIPI2;
-                __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
-            }
-            else if ( *state == AP_WAIT_SIPI2 )
-                *state = AP_WAIT_DONE;
-            exit_qual = __vmread(EXIT_QUALIFICATION);
-            sipi_vec = (exit_qual & 0xffUL) << PAGE_SHIFT;
-            /* printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
-            break;
-        default:
-            printk("can't handle vmexit due to 0x%x.\n", exit_reason);
-        }
-
-    if ( *state == AP_WAIT_DONE ) { /* disable VT then jump to xen code */
-/*        printk("sucessfully handle INIT-SIPI-SIPI on AP.\n");*/
-        stop_vmx();
-        *state = AP_WAIT_INIT;
-        cpu_wakeup(apicid, sipi_vec);
-        return; 
+    if ( exit_reason == EXIT_REASON_INIT ) {
+        if ( *state == AP_WAIT_INIT ) {
+	    *state = AP_WAIT_SIPI1;
+	    __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
+	}
+	__vmresume();
     }
-
-    /* resume mini guest to handle following signal */
-    __vmresume();
+    else if ( exit_reason == EXIT_REASON_SIPI ) {
+        /* even though standard MP sequence is INIT-SIPI-SIPI */
+        /* there is no need to wait for second SIPI (which may not */
+        /* always be delivered) */
+        /* but we should expect there to already have been INIT */
+        if ( *state == AP_WAIT_SIPI1 ) {
+	    /* disable VT then jump to xen code */
+	    exit_qual = __vmread(EXIT_QUALIFICATION);
+	    sipi_vec = (exit_qual & 0xffUL) << PAGE_SHIFT;
+	    /* printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
+	    stop_vmx();
+	    *state = AP_WAIT_INIT;
+	    cpu_wakeup(apicid, sipi_vec);
+	    return; 
+	}
+	__vmresume();
+    }
+    else {
+        printk("can't handle vmexit due to 0x%x.\n", exit_reason);
+	__vmresume();
+    }
 
     /* should not reach here */
     error = __vmread(VM_INSTRUCTION_ERROR);
@@ -551,14 +545,14 @@ void handle_init_sipi_sipi(int cpuid)
     
     /* prepare a guest for INIT-SIPI-SIPI handling */
     /* 1: setup VMX environment and VMXON */
-    if ( !start_vmx() )
+    if ( !start_vmx(cpuid) )
         return;
 
     /* 2: setup VMCS */
     vmx_create_vmcs(cpuid);
 
     /* 3: launch VM */
-    launch_mini_guest();
+    launch_mini_guest(cpuid);
 
     printk("control should not return here from launch_mini_guest\n");
     apply_policy(TB_ERR_FATAL);
