@@ -146,6 +146,14 @@ static const tb_policy_index_t* g_policy_index = &_def_policy;
 /* hashes that are used to restore DRTM PCRs in S3 resume */
 tcb_hashes_t g_tcb_hashes;
 
+static void display_tcb_hashes(void)
+{
+    printk("g_tcb_hashes:\n");
+    printk("\t vmm: "); print_hash(&g_tcb_hashes.vmm, TB_HALG_SHA1);
+    printk("\t dom0: "); print_hash(&g_tcb_hashes.dom0, TB_HALG_SHA1);
+    printk("\t policy: "); print_hash(&g_tcb_hashes.policy, TB_HALG_SHA1);
+}
+
 /*
  * verify policy
  */
@@ -265,7 +273,7 @@ static tb_policy_t* get_policy(const tb_policy_index_t *tb_policy_index, int i)
  *
  * policy_index_size is in/out
  */
-static bool read_policy(void* policy_index, int *policy_index_size)
+static bool read_policy(void* policy_index, unsigned int *policy_index_size)
 {
     int offset = 0;
     unsigned int data_size = 0;
@@ -324,13 +332,20 @@ static bool read_policy(void* policy_index, int *policy_index_size)
 tb_error_t load_policy(void)
 {
     tb_error_t err = TB_ERR_FATAL;
-    int policy_index_size = MAX_TB_POL_INDEX_SIZE;
+    unsigned int policy_index_size = MAX_TB_POL_INDEX_SIZE;
 
     if ( read_policy(_policy_index_buf, &policy_index_size) ) {
-        g_policy_index = (tb_policy_index_t *)_policy_index_buf;
-        err = TB_ERR_NONE;
+        if ( !verify_policy((tb_policy_index_t *)_policy_index_buf,
+                            policy_index_size) )
+            err = TB_ERR_POLICY_INVALID;
+        else {
+            g_policy_index = (tb_policy_index_t *)_policy_index_buf;
+            printk("read TCB policy (%u) from TPM NV\n", policy_index_size);
+            err = TB_ERR_NONE;
+        }
     }
-    else {    /* use default policy */
+
+    if ( err != TB_ERR_NONE ) {    /* use default policy */
         printk("failed to read policy from TPM NV, using default\n");
         g_policy_index = &_def_policy;
         policy_index_size = sizeof(_def_policy);
@@ -342,11 +357,12 @@ tb_error_t load_policy(void)
             policy_index_size += _def_policy.policies[i].num_hashes *
                 sizeof(_def_policy.policies[i].hashes[0]);
         }
-        err = TB_ERR_POLICY_NOT_PRESENT;
+        /* sanity check; but if it fails something is really wrong */
+        if ( !verify_policy(g_policy_index, policy_index_size) )
+            err = TB_ERR_FATAL;
+        else
+            err = TB_ERR_POLICY_NOT_PRESENT;
     }
-
-    if ( !verify_policy(g_policy_index, policy_index_size) )
-        err = TB_ERR_POLICY_INVALID;
 
     return err;
 }
@@ -543,11 +559,13 @@ static unsigned int calc_tcb_policy_size(void)
 
     /* tb_policy_index_t has empty array, which isn't counted in size */
     /* so add size of each policy */
+    const tb_policy_t *policy = g_policy_index->policies;
     for ( int i = 0; i < g_policy_index->num_policies; i++ ) {
-        size += sizeof(g_policy_index->policies[i]);
+        size += sizeof(*policy);
         /* and each policy has empty hash array, so count those */
-        size += g_policy_index->policies[i].num_hashes *
-                sizeof(g_policy_index->policies[i].hashes[0]);
+        size += policy->num_hashes * sizeof(policy->hashes[0]);
+        policy = (void *)policy + sizeof(tb_policy_t) +
+            policy->num_hashes * sizeof(tb_hash_t);
     }
 
     return size;
@@ -690,6 +708,8 @@ void evaluate_all_policies(multiboot_info_t *mbi)
      */
     hash_buffer((unsigned char *)g_policy_index, calc_tcb_policy_size(),
          &g_tcb_hashes.policy, TB_HALG_SHA1);
+
+    display_tcb_hashes();
 }
 
 void re_evaluate_all_policies(void)
