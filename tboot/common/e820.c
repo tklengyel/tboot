@@ -61,6 +61,17 @@ static inline uint64_t combine64b(uint32_t val_lo, uint32_t val_hi)
     return ((uint64_t)val_hi << 32) | (uint64_t)val_lo;
 }
 
+static inline uint64_t e820_base_64(memory_map_t *entry)
+{
+    return combine64b(entry->base_addr_low, entry->base_addr_high);
+}
+
+static inline uint64_t e820_length_64(memory_map_t *entry)
+{
+    return combine64b(entry->length_low, entry->length_high);
+}
+
+
 /*
  * print_e820_map
  *
@@ -73,8 +84,8 @@ static void print_map(memory_map_t *e820, int nr_map)
         memory_map_t *entry = &e820[i];
         uint64_t base_addr, length;
 
-        base_addr = combine64b(entry->base_addr_low, entry->base_addr_high);
-        length = combine64b(entry->length_low, entry->length_high);
+        base_addr = e820_base_64(entry);
+        length = e820_length_64(entry);
 
         printk("\t%016Lx - %016Lx  (%d)\n",
                (unsigned long long)base_addr,
@@ -134,8 +145,8 @@ static bool protect_region(memory_map_t *e820map, int *nr_map,
 
     /* find where our region belongs in the table and insert it */
     for ( i = 0; i < *nr_map; i++ ) {
-        addr = combine64b(e820map[i].base_addr_low, e820map[i].base_addr_high);
-        size = combine64b(e820map[i].length_low, e820map[i].length_high);
+        addr = e820_base_64(&e820map[i]);
+        size = e820_length_64(&e820map[i]);
         type = e820map[i].type;
         /* is our region at the beginning of the current map region? */
         if ( new_addr == addr ) {
@@ -150,8 +161,7 @@ static bool protect_region(memory_map_t *e820map, int *nr_map,
                                       new_type) )
                 return false;
             /* fixup current region */
-            tmp_addr = combine64b(e820map[i].base_addr_low,
-                                  e820map[i].base_addr_high);
+            tmp_addr = e820_base_64(&e820map[i]);
             split64b(new_addr - tmp_addr, &(e820map[i].length_low),
                      &(e820map[i].length_high));
             i++;   /* adjust to always be that of our region */
@@ -182,8 +192,8 @@ static bool protect_region(memory_map_t *e820map, int *nr_map,
 
     i++;     /* move to entry after our inserted one (we're not at end yet) */
 
-    tmp_addr = combine64b(e820map[i].base_addr_low, e820map[i].base_addr_high);
-    tmp_size = combine64b(e820map[i].length_low, e820map[i].length_high);
+    tmp_addr = e820_base_64(&e820map[i]);
+    tmp_size = e820_length_64(&e820map[i]);
 
     /* did we split the (formerly) previous region? */
     if ( (new_addr >= tmp_addr) &&
@@ -200,17 +210,15 @@ static bool protect_region(memory_map_t *e820map, int *nr_map,
     while ( (i < *nr_map) && ((new_addr + new_size) >=
                               (tmp_addr + tmp_size)) ) {
         remove_region(e820map, nr_map, i);
-        tmp_addr = combine64b(e820map[i].base_addr_low,
-                              e820map[i].base_addr_high);
-        tmp_size = combine64b(e820map[i].length_low, e820map[i].length_high);
+        tmp_addr = e820_base_64(&e820map[i]);
+        tmp_size = e820_length_64(&e820map[i]);
     }
 
     /* finally, if our region partially overlaps an existing region, */
     /* then truncate the existing region */
     if ( i < *nr_map ) {
-        tmp_addr = combine64b(e820map[i].base_addr_low,
-                              e820map[i].base_addr_high);
-        tmp_size = combine64b(e820map[i].length_low, e820map[i].length_high);
+        tmp_addr = e820_base_64(&e820map[i]);
+        tmp_size = e820_length_64(&e820map[i]);
         if ( (new_addr + new_size) > tmp_addr ) {
             split64b((tmp_addr + tmp_size) - (new_addr + new_size),
                         &(e820map[i].length_low), &(e820map[i].length_high));
@@ -263,9 +271,6 @@ bool copy_e820_map(multiboot_info_t *mbi)
     uint32_t entry_offset;
 
     if ( mbi->flags & MBI_MEMMAP ) {
-        uint64_t current_base;
-        uint64_t check_base;
-
         printk("original e820 map:\n");
         print_map((memory_map_t *)mbi->mmap_addr,
                   mbi->mmap_length/sizeof(memory_map_t));
@@ -275,76 +280,16 @@ bool copy_e820_map(multiboot_info_t *mbi)
 
         while ( entry_offset < mbi->mmap_length &&
                 g_nr_map < MAX_E820_ENTRIES ) {
-            memory_map_t *entry, *new_entry;
+            memory_map_t *entry = (memory_map_t *)
+                                       (mbi->mmap_addr + entry_offset);
 
-            entry = (memory_map_t *)(mbi->mmap_addr + entry_offset);
-            new_entry = &g_copy_e820_map[g_nr_map];
-
-            /* make exact copy except fix size to size of entry struct */
-            /* (Xen ignores any extra data above this anyway) */
-            *new_entry = *entry;
-            new_entry->size = sizeof(*new_entry) - sizeof(new_entry->size);
-
-            /* get base address of current entry */
-            current_base = combine64b(new_entry->base_addr_low,
-                                      new_entry->base_addr_high);
-
-            /* If not ordered, order it */
-            for(int i=0; i<g_nr_map; i++)
-            {
-              check_base = combine64b(g_copy_e820_map[i].base_addr_low,
-                                      g_copy_e820_map[i].base_addr_high);
-
-              if(current_base < check_base)
-              {
-                memory_map_t *to, *from;
-                memory_map_t temp;
-
-                printk("Fixing out of order\n");
-                printk("Current base = %016Lx\n", current_base);
-                printk("Checked base = %016Lx\n", check_base);
-
-                temp = g_copy_e820_map[g_nr_map];
-
-                /* not overlapping */
-                if ( (i > 0)
-                  && (combine64b(g_copy_e820_map[i-1].base_addr_low,
-                                 g_copy_e820_map[i-1].base_addr_high)
-                    + combine64b(g_copy_e820_map[i-1].length_low,
-                                 g_copy_e820_map[i-1].length_high)
-                    > combine64b(temp.base_addr_low, temp.base_addr_high)) )
-                    return false;
-                if ( combine64b(temp.base_addr_low, temp.base_addr_high)
-                   + combine64b(temp.length_low, temp.length_high)
-                   > combine64b(g_copy_e820_map[i].base_addr_low,
-                                g_copy_e820_map[i].base_addr_high) )
-                    return false;
-
-                for(int j=g_nr_map; j>i; j--)
-                {
-                  from = &g_copy_e820_map[j-1];
-                  to = &g_copy_e820_map[j];
-                  *to = *from;
-                }
-
-                g_copy_e820_map[i] = temp;
-
-                current_base = combine64b(g_copy_e820_map[g_nr_map].base_addr_low,
-                                          g_copy_e820_map[g_nr_map].base_addr_high);
-              }
-            }
-
-            /* not overlapping */
-            if ( (g_nr_map > 0)
-                && (combine64b(g_copy_e820_map[g_nr_map-1].base_addr_low,
-                               g_copy_e820_map[g_nr_map-1].base_addr_high)
-                    + combine64b(g_copy_e820_map[g_nr_map-1].length_low,
-                                 g_copy_e820_map[g_nr_map-1].length_high)
-                    > current_base) )
+            /* we want to support unordered and/or overlapping entries */
+            /* so use protect_region() to insert into existing map, since */
+            /* it handles these cases */
+            if ( !protect_region(g_copy_e820_map, &g_nr_map,
+                                 e820_base_64(entry), e820_length_64(entry),
+                                 entry->type) )
                 return false;
-
-            g_nr_map++;
-
             entry_offset += entry->size + sizeof(entry->size);
         }
         if ( g_nr_map == MAX_E820_ENTRIES ) {
@@ -422,16 +367,13 @@ uint32_t e820_check_region(uint64_t base, uint64_t length)
         if ( gap ) {
             /* deal with the gap in e820 map */
             e820_base = e820_base + e820_length;
-            e820_length = combine64b(e820_entry->base_addr_low,
-                                     e820_entry->base_addr_high) - e820_base;
+            e820_length = e820_base_64(e820_entry) - e820_base;
             type = E820_GAP;
         }
         else {
             /* deal with the normal item in e820 map */
-            e820_base = combine64b(e820_entry->base_addr_low,
-                                   e820_entry->base_addr_high);
-            e820_length = combine64b(e820_entry->length_low,
-                                     e820_entry->length_high);
+            e820_base = e820_base_64(e820_entry);
+            e820_length = e820_length_64(e820_entry);
             type = e820_entry->type;
         }
 
@@ -524,10 +466,8 @@ bool e820_reserve_ram(uint64_t base, uint64_t length)
     /* find where our region should cover the ram in e820 */
     for ( int i = 0; i < g_nr_map; i++ ) {
         e820_entry = &g_copy_e820_map[i];
-        e820_base = combine64b(e820_entry->base_addr_low,
-                               e820_entry->base_addr_high);
-        e820_length = combine64b(e820_entry->length_low,
-                                 e820_entry->length_high);
+        e820_base = e820_base_64(e820_entry);
+        e820_length = e820_length_64(e820_entry);
         e820_end = e820_base + e820_length;
 
         /* if not ram, no need to deal with */
@@ -630,8 +570,8 @@ uint64_t get_max_ram(multiboot_info_t *mbi)
         while ( entry_offset < mbi->mmap_length ) {
             entry = (memory_map_t *)(mbi->mmap_addr + entry_offset);
             if ( entry->type == E820_RAM ) {
-                base = combine64b(entry->base_addr_low, entry->base_addr_high);
-                len = combine64b(entry->length_low, entry->length_high);
+                base = e820_base_64(entry);
+                len = e820_length_64(entry);
                 if ( base + len > max_ram )
                     max_ram = base + len;
             }
@@ -646,6 +586,7 @@ uint64_t get_max_ram(multiboot_info_t *mbi)
         return 0;
     }
 }
+
 
 /*
  * Local variables:
