@@ -83,6 +83,11 @@ void seal_tcb(void)
     tpm_pcr_read(2, 18, &saved_pcr18);
     tpm_pcr_read(2, 19, &saved_pcr19);
 
+    printk("saved PCRs:\n");
+    printk("PCR 17: "); print_hash((tb_hash_t *)&saved_pcr17, TB_HALG_SHA1);
+    printk("PCR 18: "); print_hash((tb_hash_t *)&saved_pcr18, TB_HALG_SHA1);
+    printk("PCR 19: "); print_hash((tb_hash_t *)&saved_pcr19, TB_HALG_SHA1);
+
     /* seal to locality 2, pcr 17/18, generate sealed blob 1 */
     tpm_seal(2, TPM_LOC_TWO, 2, pcr_indcs_create,
              2, pcr_indcs_release, pcr_values_release, 
