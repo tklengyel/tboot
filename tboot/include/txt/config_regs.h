@@ -53,10 +53,9 @@
 #define TXTCR_ESTS                  0x0008
 #define TXTCR_ERRORCODE             0x0030
 #define TXTCR_CMD_SYS_RESET         0x0038
-#define TXTCR_CMD_OPEN_PRIVATE      0x0040
 #define TXTCR_CMD_CLOSE_PRIVATE     0x0048
 #define TXTCR_DIDVID                0x0110
-#define TXTCR_CMD_FLUSH_WB          0x0258
+#define TXTCR_CMD_UNLOCK_MEM_CONFIG 0x0218
 #define TXTCR_SINIT_BASE            0x0270
 #define TXTCR_SINIT_SIZE            0x0278
 #define TXTCR_MLE_JOIN              0x0290
