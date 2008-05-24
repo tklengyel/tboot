@@ -26,6 +26,8 @@
 #ifndef __ACPI_H__
 #define __ACPI_H__
 
+#include <tboot.h>
+
 /* Root System Description Pointer (RSDP) */
 
 typedef struct __attribute__ ((packed)) {
@@ -128,18 +130,6 @@ extern bool save_vtd_dmar_table(void);
 extern bool restore_vtd_dmar_table(void);
 extern bool remove_vtd_dmar_table(void);
 
-/* used to pass info when xen trap into tboot for shutdown */
-typedef struct {
-    uint16_t pm1a_cnt;
-    uint16_t pm1b_cnt;
-    uint16_t pm1a_evt;
-    uint16_t pm1b_evt;
-    uint16_t pm1a_cnt_val;
-    uint16_t pm1b_cnt_val;
-    uint32_t sleep_state;
-    uint64_t old_wakevec;
-} acpi_sinfo_t;
-
-extern void machine_sleep(const acpi_sinfo_t *acpi_info);
+extern void machine_sleep(const tboot_acpi_sleep_info *acpi_info);
 
 #endif /* __ACPI_H__ */

@@ -326,7 +326,7 @@ uint32_t get_acpi_ioapic_table(void)
 #define ACPI_BITMASK_WAKE_STATUS                0x8000
 #define ACPI_BITPOSITION_WAKE_STATUS            0x0F
 
-static int acpi_get_wake_status(const acpi_sinfo_t* acpi_info)
+static int acpi_get_wake_status(const tboot_acpi_sleep_info* acpi_info)
 {
     uint16_t val;
 
@@ -337,7 +337,7 @@ static int acpi_get_wake_status(const acpi_sinfo_t* acpi_info)
     return val;
 }
 
-void machine_sleep(const acpi_sinfo_t* acpi_info)
+void machine_sleep(const tboot_acpi_sleep_info* acpi_info)
 {
     wbinvd();
 

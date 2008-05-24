@@ -357,9 +357,7 @@ static void shutdown_system(uint32_t shutdown_type)
             copy_s3_wakeup_entry();
         case TB_SHUTDOWN_S4:
         case TB_SHUTDOWN_S5:
-            COMPILE_TIME_ASSERT(sizeof(_tboot_shared.acpi_sinfo)
-                                 >= sizeof(acpi_sinfo_t));
-            machine_sleep((acpi_sinfo_t *)_tboot_shared.acpi_sinfo);
+            machine_sleep(&_tboot_shared.acpi_sinfo);
 
         case TB_SHUTDOWN_HALT:
         default:
