@@ -26,3 +26,21 @@
 	    *** setting 'vtd=1' will cause S3 resume to fail ***
 	Updated trousers sub-directory to download 0.3.1 version from TrouSerS
 	    SourceForge site and build it
+
+20080523:
+	Updated TrouSerS version to 0.3.1 and to download it from its SF site
+	Fixed several items regarding TPM:
+	      call TPM_SaveState in case launching kernel that does not, so
+	          that S3 resume will restore SRTM PCRs
+	      support for TPMs with an Idle state
+	      fixed timeout values per TCG spec
+	      enforce that TPM is activated and enabled (or fail launch)
+	      misc. fixes
+	Fixed failure paths to apply policy
+	Enhancements to and cleanup of policy support
+	Cap PCRs on exit
+	Added txt-stat app to display TXT config registers and status info
+	S3 fixes
+	Added 'loglvl' command line option to control serial output
+	Handle unordered and overlapping e820 tables
+	Misc. fixes and code cleanup
