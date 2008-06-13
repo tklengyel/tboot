@@ -276,7 +276,9 @@ void begin_launch(multiboot_info_t *mbi)
     init_log();
     early_serial_init();
 
-    printk("***************************************\n");
+    printk("******************* TBOOT *******************\n");
+    printk("   %s\n", TBOOT_CHANGESET);
+    printk("*********************************************\n");
     printk("begin launch()\n");
     /* we should only be executing on the BSP */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
