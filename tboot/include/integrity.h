@@ -37,7 +37,7 @@
 #ifndef _TBOOT_INTEGRITY_H_
 #define _TBOOT_INTEGRITY_H_
 
-extern void seal_tcb(void);
+extern bool seal_tcb(void);
     
 extern bool verify_mem_integrity(void);
 
