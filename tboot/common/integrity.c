@@ -48,53 +48,69 @@
 #include <tb_policy.h>
 #include <tb_error.h>
 
-/* MLE/kernel shared data page (in boot.S) */
-extern tboot_shared_t _tboot_shared;
-
 /* tcb hashes (in policy.c) */
 extern tcb_hashes_t g_tcb_hashes;
 
 /* defined in policy.c */
 extern void re_evaluate_all_policies(void);
 
-static uint8_t  sealed_tcb[512];
-static uint32_t sealed_tcb_size;
+/* put in .data section to that they aren't cleared on launch */
+static __data uint8_t  sealed_tcb[512];
+static __data uint32_t sealed_tcb_size;
 
-static tpm_pcr_value_t saved_pcr17, saved_pcr18, saved_pcr19;
-
-static void extend_pcrs(void)
+static bool extend_pcrs(void)
 {
-    tpm_pcr_extend(2, 17, (tpm_pcr_value_t *)&g_tcb_hashes.policy, NULL);
-    tpm_pcr_extend(2, 18, (tpm_pcr_value_t *)&g_tcb_hashes.vmm, NULL);
-    tpm_pcr_extend(2, 19, (tpm_pcr_value_t *)&g_tcb_hashes.dom0, NULL);
+    if ( tpm_pcr_extend(2, 17, (tpm_pcr_value_t *)&g_tcb_hashes.policy, NULL)
+         != TPM_SUCCESS )
+        return false;
+    if ( tpm_pcr_extend(2, 18, (tpm_pcr_value_t *)&g_tcb_hashes.vmm, NULL)
+         != TPM_SUCCESS )
+        return false;
+    if ( tpm_pcr_extend(2, 19, (tpm_pcr_value_t *)&g_tcb_hashes.dom0, NULL)
+         != TPM_SUCCESS )
+        return false;
+
+    return true;
 }
 
-void seal_tcb(void)
+bool seal_tcb(void)
 {  
     uint8_t pcr_indcs_create[2]  = {17, 18};
     uint8_t pcr_indcs_release[2] = {17, 18};
-    const tpm_pcr_value_t *pcr_values_release[2] = 
-            {&saved_pcr17, &saved_pcr18};
+    tpm_pcr_value_t pcr17, pcr18, pcr19;
+    const tpm_pcr_value_t *pcr_values_release[2] = {&pcr17, &pcr18};
 
     sealed_tcb_size = sizeof(sealed_tcb);
 
     /* read PCR 17/18/19 */
-    tpm_pcr_read(2, 17, &saved_pcr17);
-    tpm_pcr_read(2, 18, &saved_pcr18);
-    tpm_pcr_read(2, 19, &saved_pcr19);
-
-    printk("saved PCRs:\n");
-    printk("PCR 17: "); print_hash((tb_hash_t *)&saved_pcr17, TB_HALG_SHA1);
-    printk("PCR 18: "); print_hash((tb_hash_t *)&saved_pcr18, TB_HALG_SHA1);
-    printk("PCR 19: "); print_hash((tb_hash_t *)&saved_pcr19, TB_HALG_SHA1);
+    tpm_pcr_read(2, 17, &pcr17);
+    tpm_pcr_read(2, 18, &pcr18);
+    tpm_pcr_read(2, 19, &pcr19);
+    printk("PCRs before extending:\n");
+    printk("PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk("PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk("PCR 19: "); print_hash((tb_hash_t *)&pcr19, TB_HALG_SHA1);
 
     /* seal to locality 2, pcr 17/18, generate sealed blob 1 */
-    tpm_seal(2, TPM_LOC_TWO, 2, pcr_indcs_create,
-             2, pcr_indcs_release, pcr_values_release, 
-             sizeof(g_tcb_hashes), (const uint8_t *)&g_tcb_hashes,
-             &sealed_tcb_size, sealed_tcb);
+    if ( tpm_seal(2, TPM_LOC_TWO, 2, pcr_indcs_create,
+                  2, pcr_indcs_release, pcr_values_release, 
+                  sizeof(g_tcb_hashes), (const uint8_t *)&g_tcb_hashes,
+                  &sealed_tcb_size, sealed_tcb) != TPM_SUCCESS )
+        return false;
 
-    extend_pcrs();
+    if ( !extend_pcrs() )
+        return false;
+
+    /* read PCR 17/18/19 */
+    tpm_pcr_read(2, 17, &pcr17);
+    tpm_pcr_read(2, 18, &pcr18);
+    tpm_pcr_read(2, 19, &pcr19);
+    printk("PCRs after extending:\n");
+    printk("PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk("PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk("PCR 19: "); print_hash((tb_hash_t *)&pcr19, TB_HALG_SHA1);
+
+    return true;
 }
     
 bool verify_mem_integrity(void)
@@ -104,25 +120,30 @@ bool verify_mem_integrity(void)
 
     /* Unseal the blobs */
     data_size = sizeof(g_tcb_hashes);
-    tpm_unseal(2, sealed_tcb_size, sealed_tcb,
-               &data_size, (uint8_t *)&g_tcb_hashes);
+    if ( tpm_unseal(2, sealed_tcb_size, sealed_tcb,
+                    &data_size, (uint8_t *)&g_tcb_hashes) != TPM_SUCCESS )
+        return false;
 
     /* Read PCR17~19 into temp var */
     tpm_pcr_read(2, 17, (tpm_pcr_value_t *)&pcr17.sha1);
     tpm_pcr_read(2, 18, (tpm_pcr_value_t *)&pcr18.sha1);
     tpm_pcr_read(2, 19, (tpm_pcr_value_t *)&pcr19.sha1);
-
-    /* Extend tmp_pcr17~19 with saved hashes in blob 1 */
-    extend_hash(&pcr17, &g_tcb_hashes.policy, TB_HALG_SHA1);
-    extend_hash(&pcr18, &g_tcb_hashes.vmm,    TB_HALG_SHA1);
-    extend_hash(&pcr19, &g_tcb_hashes.dom0,   TB_HALG_SHA1);
-    printk("Next values for pcr 17/18/19:\n");
+    printk("PCRs before S3 extending:\n");
     print_hash(&pcr17, TB_HALG_SHA1);
     print_hash(&pcr18, TB_HALG_SHA1);
     print_hash(&pcr19, TB_HALG_SHA1);
 
     /* Extend PCR 17~19 with saved hashes */
-    extend_pcrs();
+    if ( !extend_pcrs() )
+        return false;
+
+    tpm_pcr_read(2, 17, (tpm_pcr_value_t *)&pcr17.sha1);
+    tpm_pcr_read(2, 18, (tpm_pcr_value_t *)&pcr18.sha1);
+    tpm_pcr_read(2, 19, (tpm_pcr_value_t *)&pcr19.sha1);
+    printk("PCRs after S3 extending:\n");
+    print_hash(&pcr17, TB_HALG_SHA1);
+    print_hash(&pcr18, TB_HALG_SHA1);
+    print_hash(&pcr19, TB_HALG_SHA1);
 
     return true;
 }
