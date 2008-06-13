@@ -2,7 +2,7 @@
  * tboot.h: shared data structure with MLE and kernel and functions
  *          used by kernel for runtime support
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,10 +63,9 @@ typedef struct __attribute__ ((__packed__)) {
 } tboot_acpi_sleep_info;
 
 typedef struct __attribute__ ((__packed__)) {
-    /* version 0x01+ fields: */
     uuid_t    uuid;              /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
-    uint32_t  version;           /* 0x02 */
-    uint32_t  log_addr;          /* physical addr of tb_log_t log */
+    uint32_t  version;           /* currently 0.2 */
+    uint32_t  log_addr;          /* physical addr of log or NULL if none */
     uint32_t  shutdown_entry32;  /* entry point for tboot shutdown from 32b */
     uint32_t  shutdown_entry64;  /* entry point for tboot shutdown from 64b */
     uint32_t  shutdown_type;     /* type of shutdown (TB_SHUTDOWN_*) */
@@ -75,7 +74,6 @@ typedef struct __attribute__ ((__packed__)) {
     tboot_acpi_sleep_info
               acpi_sinfo;        /* where kernel put acpi sleep info in Sx */
     uint8_t   reserved[52];      /* this pad is for compat with old field */
-    /* version 0x02+ fields: */
     uint32_t  tboot_base;        /* starting addr for tboot */
     uint32_t  tboot_size;        /* size of tboot */
 } tboot_shared_t;
@@ -87,8 +85,8 @@ typedef struct __attribute__ ((__packed__)) {
 #define TB_SHUTDOWN_HALT        4
 
 /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
-#define TBOOT_SHARED_UUID    { 0x663c8dff, 0xe8b3, 0x4b82, 0xaabf, \
-                               { 0x19, 0xea, 0x4d, 0x5, 0x7a, 0x8 } };
+#define TBOOT_SHARED_UUID    {0x663c8dff, 0xe8b3, 0x4b82, 0xaabf, \
+                                 {0x19, 0xea, 0x4d, 0x5, 0x7a, 0x8 }}
 
 /*
  * used to log tboot printk output
@@ -103,8 +101,8 @@ typedef struct {
 } tboot_log_t;
 
 /* {C0192526-6B30-4db4-844C-A3E953B88174} */
-#define TBOOT_LOG_UUID   { 0xc0192526, 0x6b30, 0x4db4, 0x844c, \
-                           { 0xa3, 0xe9, 0x53, 0xb8, 0x81, 0x74 } }
+#define TBOOT_LOG_UUID   {0xc0192526, 0x6b30, 0x4db4, 0x844c, \
+                             {0xa3, 0xe9, 0x53, 0xb8, 0x81, 0x74 }}
 
 
 extern tboot_shared_t *g_tboot_shared;

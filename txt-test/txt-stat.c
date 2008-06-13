@@ -77,11 +77,7 @@ static void display_config_regs(void *txt_config_base)
     /* ESTS */
     ests._raw = read_txt_config_reg(txt_config_base, TXTCR_ESTS);
     printf("\tESTS: 0x%lx\n", ests._raw);
-    printf("\t    txt_rogue: %s\n", bit_to_str(ests.txt_rogue_sts));
-    printf("\t    bm_write_attack: %s\n", bit_to_str(ests.bm_write_attack));
-    printf("\t    bm_read_attack: %s\n", bit_to_str(ests.bm_read_attack));
-    printf("\t    fsb_write_attack: %s\n", bit_to_str(ests.fsb_write_attack));
-    printf("\t    fsb_read_attack: %s\n", bit_to_str(ests.fsb_read_attack));
+    printf("\t    txt_reset: %s\n", bit_to_str(ests.txt_reset_sts));
     printf("\t    txt_wake_error: %s\n", bit_to_str(ests.txt_wake_error_sts));
 
     /* E2STS */

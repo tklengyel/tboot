@@ -3,6 +3,9 @@
 
 #ifndef __ASSEMBLY__
 
+#define __FIXUP_ALIGN ".align 4"
+#define __FIXUP_WORD  ".long"
+
 #define rdmsr(msr,val1,val2) \
      __asm__ __volatile__("rdmsr" \
 			  : "=a" (val1), "=d" (val2) \
@@ -182,6 +185,7 @@ static inline void wrmsrl(unsigned int msr, __u64 val)
 #define MSR_IA32_MISC_ENABLE_PERF_AVAIL   (1<<7)
 #define MSR_IA32_MISC_ENABLE_BTS_UNAVAIL  (1<<11)
 #define MSR_IA32_MISC_ENABLE_PEBS_UNAVAIL (1<<12)
+#define MSR_IA32_MISC_ENABLE_MONITOR_FSM  (1<<18)
 
 #define MSR_IA32_DEBUGCTLMSR		0x1d9
 #define MSR_IA32_LASTBRANCHFROMIP	0x1db

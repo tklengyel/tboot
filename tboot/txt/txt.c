@@ -57,9 +57,9 @@
 #include <lcp.h>
 #include <txt/txt.h>
 #include <txt/config_regs.h>
+#include <txt/mtrrs.h>
 #include <txt/heap.h>
 #include <txt/acmod.h>
-#include <txt/mtrrs.h>
 #include <txt/smx.h>
 #include <txt/verify.h>
 #include <txt/vmcs.h>
@@ -79,13 +79,14 @@ extern char _txt_wakeup[];      /* RLP join address for GETSEC[WAKEUP] */
  * it needs to be within the MLE pages, so force it to the .text section
  */
 static __attribute__ ((__section__ (".text"))) const mle_hdr_t g_mle_hdr = {
-    guid              :  MLE_HDR_GUID,
+    uuid              :  MLE_HDR_UUID,
     length            :  sizeof(mle_hdr_t),
-    version           :  0x00010001,
+    version           :  MLE_HDR_VER,
     entry_point       :  (uint32_t)&__start - TBOOT_BASE_ADDR,
     first_valid_page  :  0,
     mle_start_off     :  (uint32_t)&_mle_start - TBOOT_BASE_ADDR,
     mle_end_off       :  (uint32_t)&_mle_end - TBOOT_BASE_ADDR,
+    capabilities      :  { MLE_HDR_CAPS },
 };
 
 /*
@@ -109,13 +110,14 @@ static void print_file_info(void)
 static void print_mle_hdr(const mle_hdr_t *mle_hdr)
 {
     printk("MLE header:\n");
-    printk("\t guid="); print_uuid((uuid_t *)mle_hdr->guid); printk("\n");
+    printk("\t uuid="); print_uuid(&mle_hdr->uuid); printk("\n");
     printk("\t length=%x\n", mle_hdr->length);
     printk("\t version=%08x\n", mle_hdr->version);
     printk("\t entry_point=%08x\n", mle_hdr->entry_point);
     printk("\t first_valid_page=%08x\n", mle_hdr->first_valid_page);
     printk("\t mle_start_off=%x\n", mle_hdr->mle_start_off);
     printk("\t mle_end_off=%x\n", mle_hdr->mle_end_off);
+    print_txt_caps("\t ", mle_hdr->capabilities);
 }
 
 /*
@@ -261,7 +263,6 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     os_sinit_data_t *os_sinit_data;
     os_mle_data_t *os_mle_data;
     uint64_t *size;
-    uint32_t os_sinit_data_ver;
     uint64_t max_ram;
     void *lcp_base = NULL;
     uint32_t lcp_size = 0;
@@ -269,7 +270,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     txt_heap = get_txt_heap();
 
     /*
-     * BIOS to OS/loader data already setup by BIOS
+     * BIOS data already setup by BIOS
      */
     if ( !verify_txt_heap(txt_heap, true) )
         return NULL;
@@ -288,50 +289,51 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /*
      * OS/loader to SINIT data
      */
-    os_sinit_data_ver = get_supported_os_sinit_data_ver(sinit);
-    printk("SINIT supports os_sinit_data version %x\n",
-           os_sinit_data_ver);
-    /* warn if SINIT supports more recent OS to SINIT data version than us */
-    if ( os_sinit_data_ver > 0x03 )
-        printk("SINIT's os_sinit_data version unsupported (%x)\n",
-               os_sinit_data_ver);
     os_sinit_data = get_os_sinit_data_start(txt_heap);
     size = (uint64_t *)((uint32_t)os_sinit_data - sizeof(uint64_t));
     *size = sizeof(*os_sinit_data) + sizeof(uint64_t);
     memset(os_sinit_data, 0, sizeof(*os_sinit_data));
-    /* common to all versions */
+    /* we only support version 4 (verify_acmod() will ensure SINIT supports */
+    /* at least this) even if SINIT supports newer version */
+    os_sinit_data->version = 0x04;
     /* this is phys addr */
     os_sinit_data->mle_ptab = (uint64_t)(unsigned long)ptab_base;
     os_sinit_data->mle_size = g_mle_hdr.mle_end_off - g_mle_hdr.mle_start_off;
     /* this is linear addr (offset from MLE base) of mle header */
     os_sinit_data->mle_hdr_base = (uint64_t)&g_mle_hdr - (uint64_t)&_mle_start;
-    /* SINIT supports more recent version than we do, so use our most recent */
-    if ( os_sinit_data_ver >= 0x03 ) {
-        os_sinit_data->version = 0x03;     /* 0x03 is the max we support */
-
-        max_ram = get_max_ram(mbi);
-        if ( max_ram == 0 ) {
-            printk("max_ram is 0\n");
+    /* VT-d PMRs */
+    max_ram = get_max_ram(mbi);
+    if ( max_ram == 0 ) {
+        printk("max_ram is 0\n");
+        return NULL;
+    }
+    set_vtd_pmrs(os_sinit_data, max_ram);
+    /* LCP manifest */
+    find_lcp_manifest(mbi, &lcp_base, &lcp_size);
+    os_sinit_data->lcp_po_base = (unsigned long)lcp_base;
+    os_sinit_data->lcp_po_size = lcp_size;
+    /* if we found a manifest, remove it from module list so that */
+    /* VMM/kernel doesn't see an extra file */
+    if ( lcp_base != NULL ) {
+        if ( remove_module(mbi, lcp_base) == NULL ) {
+            printk("failed to remove LCP manifest from module list\n");
             return NULL;
         }
-
-        set_vtd_pmrs(os_sinit_data, max_ram);
-
-        find_lcp_manifest(mbi, &lcp_base, &lcp_size);
-        os_sinit_data->v3.lcp_po_base = (unsigned long)lcp_base;
-        os_sinit_data->v3.lcp_po_size = lcp_size;
-
-        /* if we found a manifest, remove it from module list so that */
-        /* VMM/kernel doesn't see an extra file */
-        if ( lcp_base != NULL ) {
-            if ( remove_module(mbi, lcp_base) == NULL ) {
-                printk("failed to remove LCP manifest from module list\n");
-                return NULL;
-            }
-        }
     }
-    else
-        os_sinit_data->version = 0x01;
+    /* capabilities : choose monitor wake mechanism first */
+    txt_caps_t sinit_caps = get_sinit_capabilities(sinit);
+    txt_caps_t caps_mask = { 0 };
+    caps_mask.rlp_wake_getsec = caps_mask.rlp_wake_monitor = 1;
+    os_sinit_data->capabilities._raw = MLE_HDR_CAPS & ~caps_mask._raw;
+    if ( sinit_caps.rlp_wake_monitor )
+        os_sinit_data->capabilities.rlp_wake_monitor = 1;
+    else if ( sinit_caps.rlp_wake_getsec )
+        os_sinit_data->capabilities.rlp_wake_getsec = 1;
+    else {     /* should have been detected in verify_acmod() */
+        printk("SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
+        return NULL;
+    }
+
     print_os_sinit_data(os_sinit_data);
 
     /*
@@ -341,7 +343,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     return txt_heap;
 }
 
-void txt_wakeup_cpus(void)
+static void txt_wakeup_cpus(void)
 {
     struct __attribute__ ((packed)) {
         uint16_t  limit;
@@ -369,26 +371,32 @@ void txt_wakeup_cpus(void)
 
     write_priv_config_reg(TXTCR_MLE_JOIN, (uint64_t)(unsigned long)&mle_join);
 
-    printk("joining RLPs to MLE with GETSEC[WAKEUP]\n");
-    __getsec_wakeup();
+    txt_heap_t *txt_heap = get_txt_heap();
+    sinit_mle_data_t *sinit_mle_data = get_sinit_mle_data_start(txt_heap);
+    os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
 
-    printk("GETSEC[WAKEUP] completed\n");
+    /* choose wakeup mechanism based on capabilities used */
+    if ( os_sinit_data->capabilities.rlp_wake_monitor ) {
+        printk("joining RLPs to MLE with MONITOR wakeup\n");
+        printk("rlp_wakeup_addr = 0x%x\n", sinit_mle_data->rlp_wakeup_addr);
+        *((uint32_t *)(unsigned long)(sinit_mle_data->rlp_wakeup_addr)) = 0x01;
+    }
+    else {
+        printk("joining RLPs to MLE with GETSEC[WAKEUP]\n");
+        __getsec_wakeup();
+        printk("GETSEC[WAKEUP] completed\n");
+    }
 
     /* assume BIOS isn't lying to us about # CPUs, else some CPUS may not */
-    /* have entered wait-for-sipi before we launch xen *or* we have to wait */
-    /* for timeout before launching xen */
-    /* if BIOS doesn't tell us, assume 1 (all TXT-capable CPUs have at */
-    /* least 2 cores) */
-    txt_heap_t *txt_heap = get_txt_heap();
-    bios_os_data_t *bios_os_data = get_bios_os_data_start(txt_heap);
-    if ( bios_os_data->version >= 0x02 ) {
-        if ( bios_os_data->v2.num_logical_procs < 2 )
-            ap_wakeup_count = 1;
-        else
-            ap_wakeup_count = bios_os_data->v2.num_logical_procs - 1;
+    /* have entered wait-for-sipi before we launch *or* we have to wait */
+    /* for timeout before launching */
+    /* (all TXT-capable CPUs have at least 2 cores) */
+    bios_data_t *bios_data = get_bios_data_start(txt_heap);
+    ap_wakeup_count = bios_data->num_logical_procs - 1;
+    if ( ap_wakeup_count >= NR_CPUS ) {
+        printk("there are too many CPUs (%u)\n", ap_wakeup_count);
+        ap_wakeup_count = NR_CPUS - 1;
     }
-    else
-        ap_wakeup_count = 1;
 
     printk("waiting for all APs (%d) to enter wait-for-sipi...\n",
            ap_wakeup_count);
@@ -399,10 +407,11 @@ void txt_wakeup_cpus(void)
             printk(".");
         else
             cpu_relax();
-        if ( timeout % 0x4b000 == 0 )
+        if ( timeout % 0x200000 == 0 )
             printk("\n");
         timeout--;
-    } while ( (atomic_read(&ap_wfs_count) < ap_wakeup_count) && timeout > 0 );
+    } while ( ( atomic_read(&ap_wfs_count) < ap_wakeup_count ) &&
+              timeout > 0 );
     printk("\n");
     if ( timeout == 0 )
         printk("wait-for-sipi loop timed-out\n");
@@ -579,24 +588,30 @@ tb_error_t txt_post_launch(void)
         return err;
     }
 
-    /* clear error config registers so that we start fresh */
+    /* get saved OS state (os_mvmm_data_t) from LT heap */
+    txt_heap = get_txt_heap();
+    os_mle_data = get_os_mle_data_start(txt_heap);
+
+    /* restore pre-SENTER IA32_MISC_ENABLE_MSR (no verification needed) */
+    printk("saved IA32_MISC_ENABLE = 0x%08x\n",
+           os_mle_data->saved_misc_enable_msr);
+    wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
+
+    /* clear error registers so that we start fresh */
     write_priv_config_reg(TXTCR_ERRORCODE, 0x00000000);
     write_priv_config_reg(TXTCR_ESTS, 0xffffffff);  /* write 1's to clear */
+
+    /* bring RLPs into environment (do this before restoring MTRRs to ensure */
+    /* SINIT area is mapped WB for MONITOR-based RLP wakeup) */
+    txt_wakeup_cpus();
+
+    /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
+    restore_mtrrs(&(os_mle_data->saved_mtrr_state));
 
     /* always set the LT.CMD.SECRETS flag */
     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
     printk("set LT.CMD.SECRETS flag\n");
-
-    /* get saved OS state (os_mvmm_data_t) from LT heap */
-    txt_heap = get_txt_heap();
-    os_mle_data = get_os_mle_data_start(txt_heap);
-
-    /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
-    restore_mtrrs(&(os_mle_data->saved_mtrr_state));
-
-    /* restore pre-SENTER IA32_MISC_ENABLE_MSR (no verification needed) */
-    wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
 
     /* open TPM locality 1 */
     write_priv_config_reg(TXTCR_CMD_OPEN_LOCALITY1, 0x01);
@@ -663,48 +678,15 @@ tb_error_t txt_protect_mem_regions(void)
        the e820 table */
     txt_heap = get_txt_heap();
     sinit_mle_data = get_sinit_mle_data_start(txt_heap);
-    if ( sinit_mle_data->version <= 0x01 ) {
-        num_mdrs = sinit_mle_data->v1.num_mdrs;
-        mdrs_base = sinit_mle_data->v1.mdrs;
-    }
-    else {
-        num_mdrs = sinit_mle_data->v5.num_mdrs;
-        mdrs_base = (sinit_mdr_t *)(((void *)sinit_mle_data -
-                                     sizeof(uint64_t)) +
-                                    sinit_mle_data->v5.mdrs_off);
-    }
+    num_mdrs = sinit_mle_data->num_mdrs;
+    mdrs_base = (sinit_mdr_t *)(((void *)sinit_mle_data - sizeof(uint64_t)) +
+                                sinit_mle_data->mdrs_off);
     printk("verifying e820 table against SINIT MDRs: ");
     if ( !verify_e820_map(mdrs_base, num_mdrs) ) {
         printk("verification failed.\n");
         return TB_ERR_POST_LAUNCH_VERIFICATION;
     }
     printk("verification succeeded.\n");
-
-#if 0
-    /*
-     * some BIOSes mark the TPM and LT public space as reserved
-     * this will cause xen to give these regions to dom_io instead of dom0
-     * however, if we mark them as protected, then they won't be given
-     * to dom_io and dom0 will be allowed to map them as MMIO (not as RAM)
-     * this should have no effect on system's whose BIOS doesn't do this
-     */
-
-    /* TPM localities */
-    base = TPM_LOCALITY_BASE;
-    size = NR_TPM_LOCALITY_PAGES * PAGE_SIZE;
-    printk("protecting TPM localities (%Lx - %Lx) in e820 table\n",
-           base, (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_PROTECTED) )
-        return false;
-
-    /* TXT public space */
-    base = TXT_PUB_CONFIG_REGS_BASE;
-    size = NR_TXT_CONFIG_PAGES * PAGE_SIZE;
-    printk("protecting TXT Public Space (%Lx - %Lx) in e820 table\n",
-           base, (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_PROTECTED) )
-        return false;
-#endif
 
     /* TXT private space */
     base = TXT_PRIV_CONFIG_REGS_BASE;
@@ -721,6 +703,7 @@ void txt_shutdown(void)
 {
     unsigned long apicbase;
 
+    /* shutdown shouldn't be called on APs, but if it is then just hlt */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
     if ( !(apicbase & MSR_IA32_APICBASE_BSP) ) {
         printk("calling txt_shutdown on AP\n");
@@ -737,6 +720,14 @@ void txt_shutdown(void)
     write_priv_config_reg(TXTCR_CMD_UNLOCK_MEM_CONFIG, 0x01);
     read_pub_config_reg(TXTCR_E2STS);    /* fence */
     printk("memory configuration unlocked\n");
+
+    /* if some APs are still in wait-for-sipi then SEXIT will hang */
+    /* so TXT reset the platform instead */
+    if ( atomic_read(&ap_wfs_count) > 0 ) {
+        printk("exiting with some APs still in wait-for-sipi state (%u)\n",
+               atomic_read(&ap_wfs_count));
+        write_priv_config_reg(TXTCR_CMD_RESET, 0x01);
+    }
 
     /* close TXT private config space */
     /* implicitly closes TPM localities 1 + 2 */
@@ -771,6 +762,81 @@ bool txt_s3_launch_environment(void)
     printk("ERROR--we should not get here!\n");
     return false;
 }
+
+bool txt_is_powercycle_required(void)
+{
+    /* a powercycle is required to clear the TXT_RESET.STS flag */
+    txt_ests_t ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
+    return ests.txt_reset_sts;
+}
+
+#define ACM_MEM_TYPE_UC                 0x0100
+#define ACM_MEM_TYPE_WC                 0x0200
+#define ACM_MEM_TYPE_WT                 0x1000
+#define ACM_MEM_TYPE_WP                 0x2000
+#define ACM_MEM_TYPE_WB                 0x4000
+
+#define DEF_ACM_MAX_SIZE                0x8000
+#define DEF_ACM_VER_MASK                0xffffffff
+#define DEF_ACM_VER_SUPPORTED           0x00
+#define DEF_ACM_MEM_TYPES               ACM_MEM_TYPE_UC
+#define DEF_SENTER_CTRLS                0x00
+
+bool get_parameters(getsec_parameters_t *params)
+{
+    unsigned long cr4;
+    uint32_t index, eax, ebx, ecx;
+    int param_type;
+
+    /* sanity check because GETSEC[PARAMETERS] will fail if not set */
+    cr4 = read_cr4();
+    if ( !(cr4 & X86_CR4_SMXE) ) {
+        printk("SMXE not enabled, can't read parameters\n");
+        return false;
+    }
+
+    memset(params, 0, sizeof(*params));
+    params->acm_max_size = DEF_ACM_MAX_SIZE;
+    params->acm_mem_types = DEF_ACM_MEM_TYPES;
+    params->senter_controls = DEF_SENTER_CTRLS;
+    index = 0;
+    do {
+        __getsec_parameters(index++, &param_type, &eax, &ebx, &ecx);
+        /* the code generated for a 'switch' statement doesn't work in this */
+        /* environment, so use if/else blocks instead */
+        if ( param_type == 0 )
+            ;
+        else if ( param_type == 1 ) {
+            if ( params->n_versions == MAX_SUPPORTED_ACM_VERSIONS )
+                printk("number of supported ACM version exceeds "
+                       "MAX_SUPPORTED_ACM_VERSIONS\n");
+            else {
+                params->acm_versions[params->n_versions].mask = ebx;
+                params->acm_versions[params->n_versions].version = ecx;
+                params->n_versions++;
+            }
+        }
+        else if ( param_type == 2 )
+            params->acm_max_size = eax & 0xffffffe0;
+        else if ( param_type == 3 )
+            params->acm_mem_types = eax & 0xffffffe0;
+        else if ( param_type == 4 )
+            params->senter_controls = (eax & 0x00007fff) >> 8;
+        else {
+            printk("unknown GETSEC[PARAMETERS] type: %d\n", param_type);
+            param_type = 0;    /* set so that we break out of the loop */
+        }
+    } while ( param_type != 0 );
+
+    if ( params->n_versions == 0 ) {
+        params->acm_versions[0].mask = DEF_ACM_VER_MASK;
+        params->acm_versions[0].version = DEF_ACM_VER_SUPPORTED;
+        params->n_versions = 1;
+    }
+
+    return true;
+}
+
 
 /*
  * Local variables:

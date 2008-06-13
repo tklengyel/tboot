@@ -1,7 +1,7 @@
 /*
  * mtrrs.c: support functions for manipulating MTRRs
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,12 +36,19 @@
 #include <config.h>
 #include <types.h>
 #include <stdbool.h>
+#include <compiler.h>
+#include <string.h>
+#include <processor.h>
 #include <msr.h>
 #include <printk.h>
 #include <misc.h>
 #include <page.h>
+#include <tboot.h>
 #include <acpi.h>
+#include <mle.h>
+#include <txt/config_regs.h>
 #include <txt/mtrrs.h>
+#include <txt/acmod.h>
 #include <tpm.h>
 
 #define MTRR_TYPE_MIXED         -1
@@ -49,6 +56,65 @@
 #define NR_MMIO_APIC_PAGES      1
 #define NR_MMIO_IOAPIC_PAGES    1
 #define NR_MMIO_PCICFG_PAGES    1
+
+/*
+ * this must be done for each processor so that all have the same
+ * memory types
+ */
+void set_mtrrs_for_acmod(acm_hdr_t *hdr)
+{
+    unsigned long eflags;
+    unsigned long cr0, cr4;
+
+    /*
+     * need to do some things before we start changing MTRRs
+     *
+     * since this will modify some of the MTRRs, they should be saved first
+     * so that they can be restored once the AC mod is done
+     */
+
+    /* disable interrupts */
+    __save_flags(eflags);
+    __cli();
+
+    /* save CR0 then disable cache (CRO.CD=1, CR0.NW=0) */
+    cr0 = read_cr0();
+    write_cr0((cr0 & ~X86_CR0_NW) | X86_CR0_CD);
+
+    /* flush caches */
+    wbinvd();
+
+    /* save CR4 and disable global pages (CR4.PGE=0) */
+    cr4 = read_cr4();
+    write_cr4(cr4 & ~X86_CR4_PGE);
+
+    /* disable MTRRs */
+    set_all_mtrrs(false);
+
+    /*
+     * now set MTRRs for AC mod and rest of memory
+     */
+    set_mem_type(hdr, hdr->size*4, MTRR_TYPE_WRBACK);
+
+    /*
+     * now undo some of earlier changes and enable our new settings
+     */
+
+    /* flush caches */
+    wbinvd();
+
+    /* enable MTRRs */
+    set_all_mtrrs(true);
+
+    /* restore CR0 (cacheing) */
+    write_cr0(cr0);
+
+    /* restore CR4 (global pages) */
+    write_cr4(cr4);
+
+    /* enable interrupts */
+    __restore_flags(eflags);
+}
 
 void save_mtrrs(mtrr_state_t *saved_state)
 {
@@ -162,7 +228,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     acpi_table_mcfg_t *acpi_table_mcfg;
     acpi_table_ioapic_t *acpi_table_ioapic;
     
-    /* mmio space for TXT private config space should be UC*/
+    /* mmio space for TXT private config space should be UC */
     if ( get_region_type(saved_state, TXT_PRIV_CONFIG_REGS_BASE, 
                          NR_TXT_CONFIG_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
@@ -170,7 +236,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
         return false;
     }
 
-    /* mmio space for TXT public config space should be UC*/
+    /* mmio space for TXT public config space should be UC */
     if ( get_region_type(saved_state, TXT_PUB_CONFIG_REGS_BASE, 
                          NR_TXT_CONFIG_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
@@ -349,422 +415,9 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
     return true;
 }
 
-#ifdef MTRR_VALIDATION_UNITTEST
-
-#define RUN_CASE(caseid) {\
-    if ( caseid() )\
-        printk("VALIDATE_MTTR_UNIT_TEST: " #caseid " passed\n");\
-    else\
-        printk("VALIDATE_MTTR_UNIT_TEST: " #caseid " failed\n");\
-}
-
-static mtrr_state_t g_test_state;
-
-static bool UNIT_VM_V_01(void)
-{
-    g_test_state.num_var_mtrrs = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_02(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 0;
-    g_test_state.mtrr_physmasks[0].mask = 0x000000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_03(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0x000000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_04(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFFFFF;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_05(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_06(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x001000;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_07(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x001000;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 0;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_08(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_WRPROT;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000800;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_WRPROT;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x000800;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF800;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_09(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_WRCOMB;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000800;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x000800;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF800;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_10(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_WRTHROUGH;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000800;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_WRBACK;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x000800;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF800;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_V_11(void)
-{
-    g_test_state.num_var_mtrrs = 3;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000800;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_WRTHROUGH;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x000800;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF800;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-    g_test_state.mtrr_physbases[2].type =  MTRR_TYPE_WRPROT;
-    g_test_state.mtrr_physbases[2].reserved1 = 0;
-    g_test_state.mtrr_physbases[2].base = 0x000800;
-    g_test_state.mtrr_physbases[2].reserved2 = 0;
-    g_test_state.mtrr_physmasks[2].reserved1 = 0;
-    g_test_state.mtrr_physmasks[2].v = 1;
-    g_test_state.mtrr_physmasks[2].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[2].reserved2 = 0;
-
-    return validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_01(void)
-{
-    g_test_state.num_var_mtrrs = 17;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_02(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0x000001;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_03(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0x800001;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_04(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0x000002;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_05(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0x00FF00;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_06(void)
-{
-    g_test_state.num_var_mtrrs = 1;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0x400000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_07(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000000;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x001000;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF0F0;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_08(void)
-{
-    g_test_state.num_var_mtrrs = 2;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_WRCOMB;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000800;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_WRTHROUGH;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x000800;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF800;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-static bool UNIT_VM_IV_09(void)
-{
-    g_test_state.num_var_mtrrs = 3;
-    g_test_state.mtrr_physbases[0].type = MTRR_TYPE_UNCACHABLE;
-    g_test_state.mtrr_physbases[0].reserved1 = 0;
-    g_test_state.mtrr_physbases[0].base = 0x000800;
-    g_test_state.mtrr_physbases[0].reserved2 = 0;
-    g_test_state.mtrr_physmasks[0].reserved1 = 0;
-    g_test_state.mtrr_physmasks[0].v = 1;
-    g_test_state.mtrr_physmasks[0].mask = 0xFFF800;
-    g_test_state.mtrr_physmasks[0].reserved2 = 0;
-    g_test_state.mtrr_physbases[1].type =  MTRR_TYPE_WRTHROUGH;
-    g_test_state.mtrr_physbases[1].reserved1 = 0;
-    g_test_state.mtrr_physbases[1].base = 0x000800;
-    g_test_state.mtrr_physbases[1].reserved2 = 0;
-    g_test_state.mtrr_physmasks[1].reserved1 = 0;
-    g_test_state.mtrr_physmasks[1].v = 1;
-    g_test_state.mtrr_physmasks[1].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[1].reserved2 = 0;
-    g_test_state.mtrr_physbases[2].type =  MTRR_TYPE_WRPROT;
-    g_test_state.mtrr_physbases[2].reserved1 = 0;
-    g_test_state.mtrr_physbases[2].base = 0x000800;
-    g_test_state.mtrr_physbases[2].reserved2 = 0;
-    g_test_state.mtrr_physmasks[2].reserved1 = 0;
-    g_test_state.mtrr_physmasks[2].v = 1;
-    g_test_state.mtrr_physmasks[2].mask = 0xFFF000;
-    g_test_state.mtrr_physmasks[2].reserved2 = 0;
-
-    return !validate_mtrrs(&g_test_state);
-}
-
-void unit_test_validate_mtrrs(void)
-{
-    RUN_CASE(UNIT_VM_V_01 ); /* Zero items                                                                                      */
-    RUN_CASE(UNIT_VM_V_02 ); /* 1 invalid item                                                                                  */
-    RUN_CASE(UNIT_VM_V_03 ); /* 1 valid item. Whole region protected.                                                           */
-    RUN_CASE(UNIT_VM_V_04 ); /* 1 valid item. 1 page protected.                                                                 */
-    RUN_CASE(UNIT_VM_V_05 ); /* 1 valid item. 2^n pages protected.                                                              */
-    RUN_CASE(UNIT_VM_V_06 ); /* 2 valid item. 2^n pages protected.                                                              */
-    RUN_CASE(UNIT_VM_V_07 ); /* 2 items, 1 valid, 1 invalid. 2^n pages protected.                                               */
-    RUN_CASE(UNIT_VM_V_08 ); /* 2 overlapped items, with same type.                                                             */
-    RUN_CASE(UNIT_VM_V_09 ); /* 2 overlapped items, 1 MTRR_TYPE_UNCACHABLE (0)                                                  */
-    RUN_CASE(UNIT_VM_V_10 ); /* 2 overlapped items, 1 MTRR_TYPE_WRTHROUGH (4), 1 MTRR_TYPE_WRBACK(6)                            */
-    RUN_CASE(UNIT_VM_V_11 ); /* 3 overlapped items, 1 MTRR_TYPE_UNCACHABLE(0), 1 MTRR_TYPE_WRTHROUGH (4), 1 MTRR_TYPE_WRPROT(5) */
-    RUN_CASE(UNIT_VM_IV_01); /* 17 items, should be larger than mtrr_cap.vcnt                                                   */
-    RUN_CASE(UNIT_VM_IV_02); /* 1 valid item, non-contiguous case 1.                                                            */
-    RUN_CASE(UNIT_VM_IV_03); /* 1 valid item, non-contiguous case 2.                                                            */
-    RUN_CASE(UNIT_VM_IV_04); /* 1 valid item, non-contiguous case 3.                                                            */
-    RUN_CASE(UNIT_VM_IV_05); /* 1 valid item, non-contiguous case 4.                                                            */
-    RUN_CASE(UNIT_VM_IV_06); /* 1 valid item, non-contiguous case 5.                                                            */
-    RUN_CASE(UNIT_VM_IV_07); /* 2 valid items. One with non-contiguous region.                                                  */
-    RUN_CASE(UNIT_VM_IV_08); /* 2 overlapped items, 1 MTRR_TYPE_WRCOMB(1), 1 MTRR_TYPE_WRTHROUGH(4)                             */
-    RUN_CASE(UNIT_VM_IV_09); /* 3 overlapped items, 1 MTRR_TYPE_UNCACHABLE(0), 1 MTRR_TYPE_WRTHROUGH (4), 1 MTRR_TYPE_WRPROT(5) */
-}
-
-#endif /* MTRR_VALIDATION_UNITTEST */
-
 void restore_mtrrs(mtrr_state_t *saved_state)
 {
     int ndx;
-
-#ifdef MTRR_VALIDATION_UNITTEST
-    unit_test_validate_mtrrs();
-#endif /* MTRR_VALIDATION_UNITTEST */
 
     /* disable all MTRRs first */
     set_all_mtrrs(false);

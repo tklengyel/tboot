@@ -64,6 +64,7 @@ extern void evaluate_all_policies(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
 extern void cmdline_parse(char *cmdline);
 extern void parse_loglvl(void);
+void s3_launch(void);
 
 extern long s3_flag;
 
@@ -144,30 +145,18 @@ static void post_launch(void)
     /* backup DMAR table */
     save_vtd_dmar_table();
 
-    if ( s3_flag  ) {
-        /* restore backuped s3 wakeup page */
-        restore_saved_s3_wakeup_page();
+    if ( s3_flag  )
+        s3_launch();
 
-        /* remove DMAR table if necessary */
-        remove_vtd_dmar_table();
-
-        /* bring RLPs into environment */
-        txt_wakeup_cpus();
-
-        /* verify memory integrity */
-        if ( !verify_mem_integrity() )
-            apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
-
-        print_tboot_shared(&_tboot_shared);
-
-        _prot_to_real(_tboot_shared.s3_k_wakeup_entry);
-    }
+    /*
+     * verify e820 table and adjust it to protect our memory regions
+     */
 
     /* make copy of e820 map that we will adjust */
     if ( !copy_e820_map(g_mbi) )
         apply_policy(TB_ERR_FATAL);
 
-    /* ensure the mbi is properly formatted, etc. */
+    /* ensure all modules are in RAM */
     if ( !verify_modules(g_mbi) )
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
@@ -175,15 +164,14 @@ static void post_launch(void)
     err = txt_protect_mem_regions();
     apply_policy(err);
 
-    /* check tboot and the page table */
+    /* verify that tboot is in valid RAM (i.e. E820_RAM) */
     base = (uint64_t)((unsigned long)&_start - 3*PAGE_SIZE);
     size = (uint64_t)((unsigned long)&_end - base);
     printk("verifying tboot and its page table (%Lx - %Lx) in e820 table\n\t",
            base, (base + size - 1));
     if ( e820_check_region(base, size) != E820_RAM ) {
         printk(": failed.\n");
-        /* TBD: un-comment when new SINIT is released */
-        /* apply_policy(TB_ERR_FATAL); */
+        apply_policy(TB_ERR_FATAL);
     }
     else
         printk(": succeeded.\n");
@@ -196,6 +184,7 @@ static void post_launch(void)
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
         apply_policy(TB_ERR_FATAL);
 
+    /* protect the MLE/kernel shared page */
     base = (uint32_t)&_tboot_shared;
     size = PAGE_SIZE;
     printk("protecting MLE/kernel shared (%Lx - %Lx) in e820 table\n",
@@ -217,7 +206,8 @@ static void post_launch(void)
     /*
      * seal hashes of Xen, dom0, TCB policy to current value of PCR17 & 18
      */
-    seal_tcb();
+    if ( !seal_tcb() )
+        apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
 
     /*
      * init MLE/kernel shared data page
@@ -236,15 +226,9 @@ static void post_launch(void)
 
     is_measured_launch = true;
 
-    /* bring RLPs into environment */
-    txt_wakeup_cpus();
-
     launch_xen(g_mbi, is_measured_launch);
     apply_policy(TB_ERR_FATAL);
 }
-
-#define __STR(...)   #__VA_ARGS__
-#define STR(...)      __STR(__VA_ARGS__)
 
 void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec)
 {
@@ -333,24 +317,46 @@ void begin_launch(multiboot_info_t *mbi)
     apply_policy(err);
 }
 
+void s3_launch(void)
+{
+    /* restore backed-up s3 wakeup page */
+    restore_saved_s3_wakeup_page();
+
+    /* remove DMAR table if necessary */
+    remove_vtd_dmar_table();
+
+    /* verify memory integrity */
+    if ( !verify_mem_integrity() )
+        apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
+
+    print_tboot_shared(&_tboot_shared);
+
+    _prot_to_real(_tboot_shared.s3_k_wakeup_entry);
+}
+
 static void shutdown_system(uint32_t shutdown_type)
 {
-    long empty_idt[2] = {0, 0};
-
     printk("shutdown_system() called for shutdown_type=%x\n", shutdown_type);
 
     switch( shutdown_type ) {
-        case TB_SHUTDOWN_REBOOT:
-            /* just triple fault by loading 0-size IDT 
-               then generating intrrupt */
-            __asm__ __volatile__("lidt (%0)" : : "r" (&empty_idt));
-            __asm__ __volatile__("int3");
-
         case TB_SHUTDOWN_S3:
             copy_s3_wakeup_entry();
         case TB_SHUTDOWN_S4:
         case TB_SHUTDOWN_S5:
             machine_sleep(&_tboot_shared.acpi_sinfo);
+
+        case TB_SHUTDOWN_REBOOT:
+            if ( txt_is_powercycle_required() ) {
+                /* powercycle by writing 0x0a+0x0e to port 0xcf9 */
+                /* (supported by all TXT-capable chipsets) */
+                outb(0x0a, 0xcf9);
+                outb(0x0e, 0xcf9);
+            }
+            else {
+                /* soft reset by writing 0x06 to port 0xcf9 */
+                /* (supported by all TXT-capable chipsets) */
+                outb(0x06, 0xcf9);
+            }
 
         case TB_SHUTDOWN_HALT:
         default:
@@ -370,6 +376,7 @@ static void cap_pcrs(void)
 void shutdown(void)
 {
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
+        /* have TPM save static PCRs (in case VMM/kernel didn't) */
         tpm_save_state(2);
 
         /* restore DMAR table if needed */

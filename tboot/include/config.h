@@ -11,9 +11,6 @@
  * build/support flags
  */
 
-/* TBD: remove this when only support BLK A1+ and no SDP3 */
-#define CHIPSET_REVID_BUG
-
 /* only enable this if VT-d has been applied to xen */
 //#define VT_D
 
@@ -54,12 +51,6 @@
   .align 16,0x90;                               \
   name:
 #endif
-
-/* For generic assembly code: use macros to define operation/operand sizes. */
-#define __OS          "l"  /* Operation Suffix */
-#define __OP          "e"  /* Operand Prefix */
-#define __FIXUP_ALIGN ".align 4"
-#define __FIXUP_WORD  ".long"
 
 #ifndef EXPORT_SYMBOL
 #define EXPORT_SYMBOL(var)

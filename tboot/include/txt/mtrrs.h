@@ -129,6 +129,7 @@ typedef struct {
     mtrr_physmask_t     mtrr_physmasks[MAX_VARIABLE_MTRRS];
 } mtrr_state_t;
 
+extern void set_mtrrs_for_acmod(acm_hdr_t *hdr);
 extern void save_mtrrs(mtrr_state_t *saved_state);
 extern void set_all_mtrrs(bool enable);
 extern bool set_mem_type(void *base, uint32_t size, uint32_t mem_type);

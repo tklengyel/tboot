@@ -1,7 +1,7 @@
 #ifndef __X86_STRING_H__
 #define __X86_STRING_H__
 
-#include <config.h>
+#define __OS          "l"  /* Operation Suffix */
 
 static inline void *__variable_memcpy(void *to, const void *from, size_t n)
 {

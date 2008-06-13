@@ -13,9 +13,9 @@ Create LCP policy:
 Create Verified Launch policy:
 -----------------------------
 1.  tb_polgen/tb_polgen --create --policy_type nonfatal --uuid vmm --hash_type
-    hash --file tcb.pol --cmdline "the command line for xen from grub.conf"
+    hash --file vl.pol --cmdline "the command line for xen from grub.conf"
     /boot/xen.gz
-2.  tb_polgen/tb_polgen --create --uuid dom0 --hash_type hash --file tcb.pol
+2.  tb_polgen/tb_polgen --create --uuid dom0 --hash_type hash --file vl.pol
     --cmdline "the command line for dom0 from grub.conf"
     /boot/vmlinuz-2.6.18-xen /boot/initrd-2.6.18-xen.img
 
@@ -30,17 +30,18 @@ Take ownership of the TPM:
 
 Define tboot error TPM NV index:
 -------------------------------
-1.  lcptools/tpmnv_defindex -i 0x20000002 -s 8 -pv 0 -rl 0x07 -wl 0x07 -p TPM-password
+1.  lcptools/tpmnv_defindex -i 0x20000002 -s 8 -pv 0 -rl 0x07 -wl 0x07
+    -p TPM-password
 
 
 Define LCP and Verified Launch policy indices:
 ---------------------------------------------
 1.  lcptools/tpmnv_defindex -i owner -p TPM-password-from-taking-ownership
-2.  lcptools/tpmnv_defindex -i 0x20000001 -s 512 -pv 0x02 -p TPM-password
+2.  lcptools/tpmnv_defindex -i 0x20000001 -s 256 -pv 0x02 -p TPM-password
 
 
 Write LCP and Verified Launch policies to TPM:
 ---------------------------------------------
 (modprobe tpm_tis; tcsd;)
 1.  lcptools/lcp_writepol -i owner -f lcp.pol -p TPM-password
-2.  lcptools/lcp_writepol -i 0x20000001 -f tcb.pol -p TPM-password
+2.  lcptools/lcp_writepol -i 0x20000001 -f vl.pol -p TPM-password

@@ -46,6 +46,8 @@
  */
 #define log_info(fmt, ...)       log_message(stdout, fmt, ##__VA_ARGS__)
 
+#define LCP_DEBUG 1
+
 #ifdef LCP_DEBUG
 #define log_debug(fmt, ...)      log_message(stdout, fmt, ##__VA_ARGS__)
 #else

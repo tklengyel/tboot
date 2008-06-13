@@ -52,7 +52,7 @@
 #define TXTCR_STS                   0x0000
 #define TXTCR_ESTS                  0x0008
 #define TXTCR_ERRORCODE             0x0030
-#define TXTCR_CMD_SYS_RESET         0x0038
+#define TXTCR_CMD_RESET             0x0038
 #define TXTCR_CMD_CLOSE_PRIVATE     0x0048
 #define TXTCR_DIDVID                0x0110
 #define TXTCR_CMD_UNLOCK_MEM_CONFIG 0x0218
@@ -87,12 +87,8 @@ typedef union {
 typedef union {
     uint64_t _raw;
     struct {
-        uint64_t   reserved1          : 1;
-        uint64_t   txt_rogue_sts      : 1;
-        uint64_t   bm_write_attack    : 1;
-        uint64_t   bm_read_attack     : 1;
-        uint64_t   fsb_write_attack   : 1;
-        uint64_t   fsb_read_attack    : 1;
+        uint64_t   txt_reset_sts      : 1;
+        uint64_t   reserved1          : 5;
         uint64_t   txt_wake_error_sts : 1;
         uint64_t   reserved2          : 1;
     };

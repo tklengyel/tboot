@@ -11,8 +11,8 @@ LINUX_BASE_DIR = $(ROOTDIR)/../
 LINUX_BUILD_DIR = $(LINUX_BASE_DIR)/build-linux-2.6.18-xen_$(TARGET_ARCH)
 LINUX_SRC_DIR = $(LINUX_BASE_DIR)/linux-2.6.18-xen.hg
 
-MOD_TARGET := txt-test.ko
-APP_TARGET := txt-stat
+MOD_TARGET  := txt-test.ko
+APP_TARGETS := txt-stat acminfo
 
 
 #
@@ -21,14 +21,14 @@ APP_TARGET := txt-stat
 dist : install
 
 
-build : $(APP_TARGET) $(MOD_TARGET)
+build : $(APP_TARGETS) $(MOD_TARGET)
 
 
 install : build
 
 
 clean :
-	rm -f $(MOD_TARGET) $(APP_TARGET) *~ *.o *.mod.* *.symvers .*
+	rm -f $(MOD_TARGET) $(APP_TARGETS) *~ *.o *.mod.* *.symvers .*
 	rm -rf .*
 
 
@@ -44,7 +44,10 @@ BUILD_DEPS := $(ROOTDIR)/Config.mk $(CURDIR)/Makefile
 $(MOD_TARGET) : $(BUILD_DEPS) txt-test.c
 	$(MAKE) -C $(LINUX_BUILD_DIR) M=$(CURDIR) modules
 
-$(APP_TARGET) : txt-stat.o
+txt-stat : txt-stat.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
+
+acminfo : acminfo.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
 
 %.o : %.c $(BUILD_DEPS)

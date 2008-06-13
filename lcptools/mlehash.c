@@ -1,7 +1,7 @@
 /*
  * mhash.c: tool to determine the SHA-1 hash of a Intel(R) TXT MLE
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 #include <openssl/evp.h>
 #define PRINT   printf
 #include "../include/elf_defns.h"
+#include "../include/uuid.h"
 #include "../include/mle.h"
 
 #define SHA1_LENGTH    20
@@ -307,13 +308,11 @@ error:
 
 static mle_hdr_t *find_mle_hdr(void *start, size_t size)
 {
-    static uint32_t mle_hdr_guid[4] = MLE_HDR_GUID;
-
     while ( size > 0 ) {
-        if ( memcmp(start, mle_hdr_guid, sizeof(mle_hdr_guid)) == 0 )
+        if ( are_uuids_equal((const uuid_t *)start, &((uuid_t)MLE_HDR_UUID)) )
             return (mle_hdr_t *)start;
-        start += sizeof(mle_hdr_guid);
-        size -= sizeof(mle_hdr_guid);
+        start += sizeof(uuid_t);
+        size -= sizeof(uuid_t);
     }
     return NULL;
 }

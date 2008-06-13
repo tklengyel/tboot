@@ -1,7 +1,7 @@
 /*
  * verify.c: verify that platform and processor supports Intel(r) TXT
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,12 +46,15 @@
 #include <multiboot.h>
 #include <tb_error.h>
 #include <e820.h>
+#include <tboot.h>
 #include <acpi.h>
+#include <mle.h>
 #include <txt/txt.h>
 #include <txt/smx.h>
+#include <txt/mtrrs.h>
+#include <txt/config_regs.h>
 #include <txt/heap.h>
 #include <txt/verify.h>
-#include <txt/mtrrs.h>
 
 extern char _start[];           /* start of module */
 extern char _end[];             /* end of module */
@@ -131,8 +134,7 @@ static bool supports_smx(void)
     /* check that the MSR is locked -- BIOS should always lock it */
     if ( !(g_feat_ctrl_msr & IA32_FEATURE_CONTROL_MSR_LOCK) ) {
         printk("ERR: IA32_FEATURE_CONTROL_MSR_LOCK is not locked\n");
-        /* in general this should not happen, as BIOS is required to lock */
-        /* the MSR; but it may be desirable to allow it sometimes */
+        /* this should not happen, as BIOS is required to lock the MSR */
 #ifdef PERMISSIVE_BOOT
         /* we enable VMX outside of SMX as well so that if there was some */
         /* error in the TXT boot, VMX will continue to work */
@@ -197,258 +199,6 @@ static tb_error_t supports_txt(void)
     return TB_ERR_TXT_NOT_SUPPORTED;
 }
 
-static void print_bios_os_data(bios_os_data_t *bios_os_data)
-{
-    printk("bios_os_data (@%p, %Lx):\n", bios_os_data,
-           *((uint64_t *)bios_os_data - 1));
-    printk("\t version=%x\n", bios_os_data->version);
-    printk("\t bios_sinit_size=%x\n", bios_os_data->bios_sinit_size);
-    if ( bios_os_data->version >= 0x02 ) {
-        printk("\t lcp_pd_base=%Lx\n", bios_os_data->v2.lcp_pd_base);
-        printk("\t lcp_pd_size=%Lx\n", bios_os_data->v2.lcp_pd_size);
-        printk("\t num_logical_procs=%x\n",
-               bios_os_data->v2.num_logical_procs);
-    }
-}
-
-static bool verify_bios_os_data(txt_heap_t *txt_heap)
-{
-    uint64_t size, heap_size;
-    bios_os_data_t *bios_os_data;
-
-    /* check size */
-    heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
-    size = get_bios_os_data_size(txt_heap);
-    if ( size == 0 ) {
-        printk("BIOS to OS data size is 0\n");
-        return false;
-    }
-    if ( size > heap_size ) {
-        printk("BIOS to OS data size is larger than heap size "
-               "(%Lx, heap size=%Lx)\n", size, heap_size);
-        return false;
-    }
-
-    bios_os_data = get_bios_os_data_start(txt_heap);
-
-    /* check version */
-    /* we assume backwards compatibility but print a warning */
-    if ( bios_os_data->version > 0x02 )
-        printk("unsupported BIOS to OS data version (%x)\n",
-               bios_os_data->version);
-
-    /* no field checks (bios_sinit_size field can be 0) */
-
-    print_bios_os_data(bios_os_data);
-
-    return true;
-}
-
-static void print_os_mle_data(os_mle_data_t *os_mle_data)
-{
-    printk("os_mle_data (@%p, %Lx):\n", os_mle_data,
-           *((uint64_t *)os_mle_data - 1));
-    printk("\t version=%x\n", os_mle_data->version);
-    /* TBD: perhaps eventually print saved_mtrr_state field */
-    printk("\t mbi=%p\n", os_mle_data->mbi);
-}
-
-static bool verify_os_mle_data(txt_heap_t *txt_heap)
-{
-    uint64_t size, heap_size;
-    os_mle_data_t *os_mle_data;
-
-    /* check size */
-    heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
-    size = get_os_mle_data_size(txt_heap);
-    if ( size == 0 ) {
-        printk("OS to MLE data size is 0\n");
-        return false;
-    }
-    if ( size > heap_size ) {
-        printk("OS to MLE data size is larger than heap size "
-               "(%Lx, heap size=%Lx)\n", size, heap_size);
-        return false;
-    }
-    if ( size < sizeof(os_mle_data_t) ) {
-        printk("OS to MLE data size (%Lx) is smaller than "
-               "os_mle_data_t size (%x)\n", size, sizeof(os_mle_data_t));
-        return false;
-    }
-
-    os_mle_data = get_os_mle_data_start(txt_heap);
-
-    /* check version */
-    /* since this data is from our pre-launch to post-launch code only, it */
-    /* should always be this */
-    if ( os_mle_data->version != 0x01 ) {
-        printk("unsupported OS to MLE data version (%x)\n",
-               os_mle_data->version);
-        return false;
-    }
-
-    /* field checks */
-    if ( os_mle_data->mbi == NULL ) {
-        printk("OS to MLE data mbi field is NULL\n");
-        return false;
-    }
-
-    print_os_mle_data(os_mle_data);
-
-    return true;
-}
-
-void print_os_sinit_data(os_sinit_data_t *os_sinit_data)
-{
-    printk("os_sinit_data (@%p, %Lx):\n", os_sinit_data,
-           *((uint64_t *)os_sinit_data - 1));
-    printk("\t version=%x\n", os_sinit_data->version);
-    printk("\t mle_ptab=%Lx\n", os_sinit_data->mle_ptab);
-    printk("\t mle_size=%Lx\n", os_sinit_data->mle_size);
-    printk("\t mle_hdr_base=%Lx\n", os_sinit_data->mle_hdr_base);
-    if ( os_sinit_data->version >= 0x03 ) {
-        printk("\t vtd_pmr_lo_base=%Lx\n", os_sinit_data->v3.vtd_pmr_lo_base);
-        printk("\t vtd_pmr_lo_size=%Lx\n", os_sinit_data->v3.vtd_pmr_lo_size);
-        printk("\t vtd_pmr_hi_base=%Lx\n", os_sinit_data->v3.vtd_pmr_hi_base);
-        printk("\t vtd_pmr_hi_size=%Lx\n", os_sinit_data->v3.vtd_pmr_hi_size);
-        printk("\t lcp_po_base=%Lx\n", os_sinit_data->v3.lcp_po_base);
-        printk("\t lcp_po_size=%Lx\n", os_sinit_data->v3.lcp_po_size);
-    }
-}
-
-static bool verify_os_sinit_data(txt_heap_t *txt_heap)
-{
-    uint64_t size, heap_size;
-    os_sinit_data_t *os_sinit_data;
-
-    /* check size */
-    heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
-    size = get_os_sinit_data_size(txt_heap);
-    if ( size == 0 ) {
-        printk("OS to SINIT data size is 0\n");
-        return false;
-    }
-    if ( size > heap_size ) {
-        printk("OS to SINIT data size is larger than heap size "
-               "(%Lx, heap size=%Lx)\n", size, heap_size);
-        return false;
-    }
-
-    os_sinit_data = get_os_sinit_data_start(txt_heap);
-
-    /* check version */
-    if ( os_sinit_data->version > 0x03 ) {
-        printk("unsupported OS to SINIT data version (%x)\n",
-               os_sinit_data->version);
-        return false;
-    }
-
-    /* if it is version 0x01 then none of the fields get used post-launch */
-    /* so no need to verify them (SINIT will have done that) */
-    if ( os_sinit_data->version > 0x01 ) {
-        /* only check minimal size */
-        if ( size < sizeof(os_sinit_data_t) ) {
-            printk("OS to SINIT data size (%Lx) is smaller than "
-                   "os_sinit_data_t (%x)\n", size, sizeof(os_sinit_data_t));
-            return false;
-        }
-    }
-
-    print_os_sinit_data(os_sinit_data);
-
-    return true;
-}
-
-static void print_sinit_mdrs(sinit_mdr_t mdrs[], uint32_t num_mdrs)
-{
-    static char *mem_types[] = {"GOOD", "SMRAM OVERLAY", "SMRAM NON-OVERLAY",
-                                "PCIE EXTENDED CONFIG", "PROTECTED"};
-
-    printk("\t sinit_mdrs:\n");
-    for ( int i = 0; i < num_mdrs; i++ ) {
-        printk("\t\t %016Lx - %016Lx ", mdrs[i].base,
-               mdrs[i].base + mdrs[i].length);
-        if ( mdrs[i].mem_type < sizeof(mem_types)/sizeof(mem_types[0]) )
-            printk("(%s)\n", mem_types[mdrs[i].mem_type]);
-        else
-            printk("(%d)\n", (int)mdrs[i].mem_type);
-    }
-}
-
-static void print_hash(sha1_hash_t hash)
-{
-    for ( int i = 0; i < SHA1_SIZE; i++ )
-        printk("%02x ", hash[i]);
-    printk("\n");
-}
-
-static void print_sinit_mle_data(sinit_mle_data_t *sinit_mle_data)
-{
-    printk("sinit_mle_data (@%p, %Lx):\n", sinit_mle_data,
-           *((uint64_t *)sinit_mle_data - 1));
-    printk("\t version=%x\n", sinit_mle_data->version);
-    if ( sinit_mle_data->version == 0x01 )
-        print_sinit_mdrs(sinit_mle_data->v1.mdrs, sinit_mle_data->v1.num_mdrs);
-    else if ( sinit_mle_data->version >= 0x05 ) {
-        printk("\t bios_acm_id=\n\t");
-        print_hash(sinit_mle_data->v5.bios_acm_id);
-        printk("\t edx_senter_flags=%x\n",
-               sinit_mle_data->v5.edx_senter_flags);
-        printk("\t mseg_valid=%Lx\n", sinit_mle_data->v5.mseg_valid);
-        printk("\t sinit_hash=\n\t");
-               print_hash(sinit_mle_data->v5.sinit_hash);
-        printk("\t mle_hash=\n\t");
-        print_hash(sinit_mle_data->v5.mle_hash);
-        printk("\t stm_hash=\n\t");
-               print_hash(sinit_mle_data->v5.stm_hash);
-        printk("\t lcp_policy_hash=\n\t");
-               print_hash(sinit_mle_data->v5.lcp_policy_hash);
-        printk("\t lcp_policy_control=%x\n",
-               sinit_mle_data->v5.lcp_policy_control);
-        printk("\t num_mdrs=%x\n", sinit_mle_data->v5.num_mdrs);
-        printk("\t mdrs_off=%x\n", sinit_mle_data->v5.mdrs_off);
-        printk("\t num_vtd_dmars=%x\n", sinit_mle_data->v5.num_vtd_dmars);
-        printk("\t vtd_dmars_off=%x\n", sinit_mle_data->v5.vtd_dmars_off);
-        print_sinit_mdrs((sinit_mdr_t *)(((void *)sinit_mle_data - sizeof(uint64_t)) + sinit_mle_data->v5.mdrs_off), sinit_mle_data->v5.num_mdrs);
-    }
-}
-
-static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
-{
-    uint64_t size, heap_size;
-    sinit_mle_data_t *sinit_mle_data;
-
-    /* check size */
-    heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
-    size = get_sinit_mle_data_size(txt_heap);
-    if ( size == 0 ) {
-        printk("SINIT to MLE data size is 0\n");
-        return false;
-    }
-    if ( size > heap_size ) {
-        printk("SINIT to MLE data size is larger than heap size\n"
-               "(%Lx, heap size=%Lx)\n", size, heap_size);
-        return false;
-    }
-
-    sinit_mle_data = get_sinit_mle_data_start(txt_heap);
-
-    /* check version */
-    sinit_mle_data = get_sinit_mle_data_start(txt_heap);
-    if ( sinit_mle_data->version > 0x05 ) {
-        printk("unsupported SINIT to MLE data version (%x)\n",
-               sinit_mle_data->version);
-        return false;
-    }
-
-    /* this data is generated by SINIT and so is implicitly trustworthy, */
-    /* so we don't need to validate it's fields */
-
-    print_sinit_mle_data(sinit_mle_data);
-
-    return true;
-}
-
 static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
 {
     uint64_t max_ram;
@@ -471,14 +221,14 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
         tmp_os_sinit_data.version = os_sinit_data->version;
         set_vtd_pmrs(&tmp_os_sinit_data, max_ram);
         /* compare to current values */
-        if ( (tmp_os_sinit_data.v3.vtd_pmr_lo_base !=
-              os_sinit_data->v3.vtd_pmr_lo_base) ||
-             (tmp_os_sinit_data.v3.vtd_pmr_lo_size !=
-              os_sinit_data->v3.vtd_pmr_lo_size) ||
-             (tmp_os_sinit_data.v3.vtd_pmr_hi_base !=
-              os_sinit_data->v3.vtd_pmr_hi_base) ||
-             (tmp_os_sinit_data.v3.vtd_pmr_hi_size !=
-              os_sinit_data->v3.vtd_pmr_hi_size) ) {
+        if ( (tmp_os_sinit_data.vtd_pmr_lo_base !=
+              os_sinit_data->vtd_pmr_lo_base) ||
+             (tmp_os_sinit_data.vtd_pmr_lo_size !=
+              os_sinit_data->vtd_pmr_lo_size) ||
+             (tmp_os_sinit_data.vtd_pmr_hi_base !=
+              os_sinit_data->vtd_pmr_hi_base) ||
+             (tmp_os_sinit_data.vtd_pmr_hi_size !=
+              os_sinit_data->vtd_pmr_hi_size) ) {
             printk("OS to SINIT data VT-d PMR settings do not match:\n");
             print_os_sinit_data(&tmp_os_sinit_data);
             print_os_sinit_data(os_sinit_data);
@@ -496,32 +246,22 @@ static bool verify_vtd_dmar(txt_heap_t *txt_heap)
     uint32_t dmar_size = 0;
     uint32_t acpi_dmar;
     sinit_mle_data_t *sinit_mle_data;
-    
+
     sinit_mle_data = get_sinit_mle_data_start(txt_heap);
     printk("begin verifying vtd_dmar ...\n");
-    if ( sinit_mle_data->version >= 0x05 ) {
-        heap_dmar = (uint32_t)sinit_mle_data - sizeof(uint64_t) + 
-                    sinit_mle_data->v5.vtd_dmars_off;
-        dmar_size = sinit_mle_data->v5.num_vtd_dmars;
-        printk("version = 0x05, heap_dmar = %08x, dmar_size = %08x\n",
-               heap_dmar, dmar_size);
-    }
-    else {
-        printk("version = %d, no dmar info.\n", sinit_mle_data->version);
-        return true;
-    }
+    heap_dmar = (uint32_t)sinit_mle_data - sizeof(uint64_t) +
+        sinit_mle_data->vtd_dmars_off;
+    dmar_size = sinit_mle_data->num_vtd_dmars;
 
     /* get acpi vt-d DMAR table */
     acpi_dmar = get_acpi_dmar_table();
     printk("acpi_dmar = %08x\n", acpi_dmar);
-    
-    if ( heap_dmar == 0 || acpi_dmar == 0 || dmar_size == 0 ) {
-        printk("failed to verify VT-d DMAR table:\n"
-               "\theap_dmar = %08x, acpi_dmar = %08x, dmar_size = %08x\n",
-               heap_dmar, acpi_dmar, dmar_size);
+    if ( acpi_dmar == 0 ) {
+        printk("No ACPI VT-d DMAR table\n");
         return false;
     }
-    if ( memcmp((void *)heap_dmar, (void*)acpi_dmar, dmar_size) != 0 ) {
+
+    if ( memcmp((void *)heap_dmar, (void *)acpi_dmar, dmar_size) != 0 ) {
         printk("failed to verify VT-d DMAR table: not equal\n");
         return false;
     }
@@ -542,71 +282,32 @@ void set_vtd_pmrs(os_sinit_data_t *os_sinit_data, uint64_t max_ram)
      */
     printk("max_ram=%Lx\n", max_ram);
 #ifdef VT_D
-    os_sinit_data->v3.vtd_pmr_lo_base = 0;
+    os_sinit_data->vtd_pmr_lo_base = 0;
     /* since this code DMA protects all of RAM, it will only work if */
     /* xen enables VT-d translation for dom0, so don't use it if */
     /* xen's VT-d is not enabled */
     if ( max_ram & 0xffffffff00000000UL )       /* > 4GB */
-        os_sinit_data->v3.vtd_pmr_lo_size = 0x100000000UL;
+        os_sinit_data->vtd_pmr_lo_size = 0x100000000UL;
     else {
         /* round up since physical mem will always be a multiple of 2M */
         /* so if max_ram is not a multiple it is because there is */
         /* reserved memory above it */
-        os_sinit_data->v3.vtd_pmr_lo_size =
+        os_sinit_data->vtd_pmr_lo_size =
             (max_ram + 0x200000UL - 1UL) & ~0x1fffffUL;
     }
     if ( max_ram & 0xffffffff00000000UL ) {     /* > 4GB */
-        os_sinit_data->v3.vtd_pmr_hi_base = 0x100000000UL;
-        os_sinit_data->v3.vtd_pmr_hi_size =
+        os_sinit_data->vtd_pmr_hi_base = 0x100000000UL;
+        os_sinit_data->vtd_pmr_hi_size =
             (max_ram - 0x100000000UL) & ~0x1fffffUL;
     }
 #else
     /* else just protect the MLE (i.e. tboot) */
-    os_sinit_data->v3.vtd_pmr_lo_base =
+    os_sinit_data->vtd_pmr_lo_base =
         ((uint32_t)&_start - 3*PAGE_SIZE) & ~0x1fffff;
-    os_sinit_data->v3.vtd_pmr_lo_size =
-        ((((uint32_t)&_end - os_sinit_data->v3.vtd_pmr_lo_base)
+    os_sinit_data->vtd_pmr_lo_size =
+        ((((uint32_t)&_end - os_sinit_data->vtd_pmr_lo_base)
           + 0x200000 - 1) & ~0x1fffff);
 #endif   /* VT_D */
-}
-
-bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_os_data_only)
-{
-    uint64_t size1, size2, size3, size4;
-
-    /* verify BIOS to OS data */
-    if ( !verify_bios_os_data(txt_heap) )
-        return false;
-
-    if ( bios_os_data_only )
-        return true;
-
-    /* check that total size is within the heap */
-    size1 = get_bios_os_data_size(txt_heap);
-    size2 = get_os_mle_data_size(txt_heap);
-    size3 = get_os_sinit_data_size(txt_heap);
-    size4 = get_sinit_mle_data_size(txt_heap);
-    if ( (size1 + size2 + size3 + size4) >
-         read_priv_config_reg(TXTCR_HEAP_SIZE) ) {
-        printk("TXT heap data sizes (%Lx, %Lx, %Lx, %Lx) are larger than\n"
-               "heap total size (%Lx)\n", size1, size2, size3, size4,
-               read_priv_config_reg(TXTCR_HEAP_SIZE));
-        return false;
-    }
-
-    /* verify OS to MLE data */
-    if ( !verify_os_mle_data(txt_heap) )
-        return false;
-
-    /* verify OS to SINIT data */
-    if ( !verify_os_sinit_data(txt_heap) )
-        return false;
-
-    /* verify SINIT to MLE data */
-    if ( !verify_sinit_mle_data(txt_heap) )
-        return false;
-
-    return true;
 }
 
 tb_error_t txt_verify_platform(void)
@@ -621,9 +322,17 @@ tb_error_t txt_verify_platform(void)
     if ( err != TB_ERR_NONE )
         return err;
 
+    /* check is TXT_RESET.STS is set, since if it is SENTER will fail */
+    txt_ests_t ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
+    if ( ests.txt_reset_sts ) {
+        printk("TXT_RESET.STS is set and SENTER is disabled (0x%02Lx)\n",
+               ests._raw);
+        return TB_ERR_SMX_NOT_SUPPORTED;
+    }
+
     /* verify BIOS to OS data */
     txt_heap = get_txt_heap();
-    if ( !verify_bios_os_data(txt_heap) )
+    if ( !verify_bios_data(txt_heap) )
         return TB_ERR_FATAL;
 
     return TB_ERR_NONE;
@@ -653,11 +362,11 @@ tb_error_t txt_post_launch_verify_platform(void)
     if ( !verify_saved_mtrrs(txt_heap) )
         return TB_ERR_POST_LAUNCH_VERIFICATION;
             
-    /* verify that VT-d PMRs were really set to protect all of RAM */
+    /* verify that VT-d PMRs were really set as required */
     if ( !verify_vtd_pmrs(txt_heap) )
         return TB_ERR_POST_LAUNCH_VERIFICATION;
 
-    /* verify the VT-d DMAR tables */
+    /* verify the ACPI VT-d DMAR tables */
     if ( !verify_vtd_dmar(txt_heap) )
         return TB_ERR_POST_LAUNCH_VERIFICATION;
 
@@ -716,7 +425,6 @@ bool verify_e820_map(sinit_mdr_t* mdrs_base, uint32_t num_mdrs)
 /*
  * Local variables:
  * mode: C
- * c-set-style: "BSD"
  * c-basic-offset: 4
  * tab-width: 4
  * indent-tabs-mode: nil

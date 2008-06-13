@@ -1,7 +1,7 @@
 /*
  * verify.h: support functions for platform Intel(r) TXT verification
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,8 +36,6 @@
 #ifndef __TXT_VERIFY_H__
 #define __TXT_VERIFY_H__
 
-extern bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_os_data_only);
-extern void print_os_sinit_data(os_sinit_data_t *os_sinit_data);
 extern void set_vtd_pmrs(os_sinit_data_t *os_sinit_data, uint64_t max_ram);
 extern bool verify_e820_map(sinit_mdr_t* mdrs_base, uint32_t num_mdrs);
 

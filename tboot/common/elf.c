@@ -1,7 +1,7 @@
 /*
  * elf.c: support functions for manipulating ELF binaries
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,12 +103,12 @@ static void print_mbi(multiboot_info_t *mbi)
 
 static bool is_mods_valid(multiboot_info_t *mbi)
 {
-    if (mbi == NULL) {
+    if ( mbi == NULL ) {
         printk("Error: Mbi pointer is zero.\n");
         return false;
     }
 
-    if (!((mbi->flags) & (1<<3))) {
+    if ( !((mbi->flags) & (1<<3)) ) {
         printk("Error: Mods in mbi is invalid.\n");
         return false;
     }
@@ -120,13 +120,13 @@ static bool is_elf_image(const void *image, const size_t size)
 {
     elf_header_t *elf;
 
-    if (image == NULL) {
+    if ( image == NULL ) {
         printk("Error: Pointer is zero.\n");
         return false;
     }
 
     /* check size */
-    if (sizeof(elf_header_t) > size) {
+    if ( sizeof(elf_header_t) > size ) {
         printk("Error: Image size is smaller than ELF header size.\n");
         return false;
     }
@@ -134,40 +134,40 @@ static bool is_elf_image(const void *image, const size_t size)
     elf = (elf_header_t *)image;
 
     /* check magic number for ELF */
-    if ((elf->e_ident[EI_MAG0] != ELFMAG0)
-     || (elf->e_ident[EI_MAG1] != ELFMAG1)
-     || (elf->e_ident[EI_MAG2] != ELFMAG2)
-     || (elf->e_ident[EI_MAG3] != ELFMAG3)) {
+    if ( (elf->e_ident[EI_MAG0] != ELFMAG0) ||
+         (elf->e_ident[EI_MAG1] != ELFMAG1) ||
+         (elf->e_ident[EI_MAG2] != ELFMAG2) ||
+         (elf->e_ident[EI_MAG3] != ELFMAG3) ) {
         printk("Error: ELF magic number is not matched.\n");
         return false;
     }
 
     /* check data encoding in ELF */
-    if (elf->e_ident[EI_DATA] != ELFDATA2LSB) {
+    if ( elf->e_ident[EI_DATA] != ELFDATA2LSB ) {
         printk("Error: ELF data encoding is not the least significant "
                "byte occupying the lowest address.\n");
         return false;
     }
 
     /* check ELF image is executable? */
-    if (elf->e_type != ET_EXEC) {
+    if ( elf->e_type != ET_EXEC ) {
         printk("Error: ELF image is not executable.\n");
         return false;
     }
 
     /* check ELF image is for IA? */
-    if (elf->e_machine != EM_386) {
+    if ( elf->e_machine != EM_386 ) {
         printk("Error: ELF image is not for IA.\n");
         return false;
     }
 
     /* check ELF version is valid? */
-    if (elf->e_version != EV_CURRENT) {
+    if ( elf->e_version != EV_CURRENT ) {
         printk("Error: ELF version is invalid.\n");
         return false;
     }
 
-    if (sizeof(elf_program_header_t) > elf->e_phentsize) {
+    if ( sizeof(elf_program_header_t) > elf->e_phentsize ) {
         printk("Error: Program size is smaller than program "
                "header size.\n");
         return false;
@@ -176,98 +176,14 @@ static bool is_elf_image(const void *image, const size_t size)
     return true;
 }
 
-#if 0
-static bool get_elf_image_range(const elf_header_t *elf, void **start,
-                                void **end)
-{
-    uint32_t u_start, u_end;
-
-    if (elf == NULL) {
-        printk("Error: ELF header pointer is zero.\n");
-        return false;
-    }
-
-    /* assumed that already passed is_elf_image() check */
-
-    if ((start == NULL) || (end == NULL)) {
-        printk("Error: Output pointers are zero.\n");
-        return false;
-    }
-
-    u_start = 0;
-    u_end = 0;
-    for ( int i = 0; i < elf->e_phnum; i++ ) {
-        elf_program_header_t *ph = (elf_program_header_t *)
-                         ((void *)elf + elf->e_phoff + i*elf->e_phentsize);
-        if (ph->p_type == PT_LOAD) {
-            if (u_start > ph->p_paddr)
-                u_start = ph->p_paddr;
-            if (u_end < ph->p_paddr+ph->p_memsz)
-                u_end = ph->p_paddr+ph->p_memsz;
-        }
-    }
-
-    if (u_start >= u_end) {
-        printk("Error: PT_LOAD header not found\n");
-        *start = NULL;
-        *end = NULL;
-        return false;
-    }
-    else {
-        *start = (void *)u_start;
-        *end = (void *)u_end;
-        return true;
-    }
-}
-
-static bool move_modules_backward(multiboot_info_t *mbi, void *dest)
-{
-    module_t *m, *first_module, *last_module;
-    size_t size;
-    void *src;
-    uint32_t shift;
-
-    if (mbi == NULL) {
-        printk("Error: Mbi pointer is zero.\n");
-        return false;
-    }
-
-    if (!is_mods_valid(mbi))
-        return false;
-
-    if (mbi->mods_count < 1) {
-        printk("Warning: There is no module need to move.\n");
-        return true;
-    }
-
-    first_module = (module_t *)mbi->mods_addr;
-    src = (void *)first_module->mod_start;
-
-    last_module = (module_t *)(mbi->mods_addr +
-                               (mbi->mods_count - 1)*sizeof(module_t));
-    size = last_module->mod_end - first_module->mod_start;
-    shift = dest - src;
-
-    for ( int i = 0; i<mbi->mods_count; i++ ) {
-        m = (module_t *)(mbi->mods_addr + i*sizeof(module_t));
-
-        m->mod_start += shift;
-        m->mod_end += shift;
-    }
-    memmove(dest, src, size);
-
-    return true;
-}
-#endif
-
 static bool expand_elf_image(const elf_header_t *elf, void **entry_point)
 {
-    if (elf == NULL) {
+    if ( elf == NULL ) {
         printk("Error: ELF header pointer is zero.\n");
         return false;
     }
 
-    if (entry_point == NULL) {
+    if ( entry_point == NULL ) {
         printk("Error: Output pointer is zero.\n");
         return false;
     }
@@ -279,7 +195,7 @@ static bool expand_elf_image(const elf_header_t *elf, void **entry_point)
         elf_program_header_t *ph = (elf_program_header_t *)
                          ((void *)elf + elf->e_phoff + i*elf->e_phentsize);
 
-        if (ph->p_type == PT_LOAD) {
+        if ( ph->p_type == PT_LOAD ) {
             memcpy((void *)ph->p_paddr, (void *)elf + ph->p_offset,
                    ph->p_filesz);
             memset((void *)(ph->p_paddr + ph->p_filesz), 0,
@@ -320,7 +236,7 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
     elf_header_t *xen_as_elf;
     size_t xen_size;
 
-    if (!is_mods_valid(mbi))
+    if ( !is_mods_valid(mbi) )
         return false;
 
     m = (module_t *)mbi->mods_addr;
@@ -328,16 +244,16 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
     xen_base = (void *)m->mod_start;
     xen_size = m->mod_end - m->mod_start;
 
-    if (!is_elf_image(xen_base, xen_size))
+    if ( !is_elf_image(xen_base, xen_size) )
         return false;
 
     xen_base = remove_module(mbi, NULL);
-    if (xen_base == NULL)
+    if ( xen_base == NULL )
         return false;
 
     xen_as_elf = (elf_header_t *)xen_base;
 
-    if (!expand_elf_image(xen_as_elf, &xen_entry_point))
+    if ( !expand_elf_image(xen_as_elf, &xen_entry_point) )
         return false;
 
     if ( is_measured_launch )
@@ -420,10 +336,8 @@ bool verify_modules(multiboot_info_t *mbi)
     uint64_t base, size;
     module_t *m;
 
-    if ( !(( mbi->flags ) & ( 1 << 3 )) ) {
-        printk("Error: Mods in mbi is invalid.\n");
+    if ( !is_mods_valid(mbi) )
         return false;
-    }
 
     /* verify e820 map to make sure each module is OK in e820 map */
     /* check modules in mbi should be in RAM */

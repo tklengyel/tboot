@@ -311,7 +311,7 @@ static inline int __vmxon (uint64_t addr)
     return rc;
 }
 
-extern void handle_init_sipi_sipi(int cpuid);
+extern void handle_init_sipi_sipi(unsigned int cpuid);
 
 #endif      /* __TXT_VMCS_H__ */
 

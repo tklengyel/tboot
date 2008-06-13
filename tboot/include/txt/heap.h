@@ -1,7 +1,7 @@
 /*
  * heap.h: Intel(r) TXT heap definitions
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,64 +36,53 @@
 #ifndef __TXT_HEAP_H__
 #define __TXT_HEAP_H__
 
-#include <types.h>
-#include <multiboot.h>
-#include <txt/mtrrs.h>
-
 /*
  * data-passing structures contained in TXT heap:
- *   - BIOS to OS/loader
+ *   - BIOS
  *   - OS/loader to MLE
  *   - OS/loader to SINIT
  *   - SINIT to MLE
  */
 
 /*
- * BIOS to OS/loader structure
- *   - not used by current Xen
+ * BIOS structure
  */
 typedef struct {
-    uint32_t version;           /* SDP3/TEP=0x00, WB=0x02 */
-    uint32_t bios_sinit_size;
-    union {
-        struct {
-            uint64_t  lcp_pd_base;
-            uint64_t  lcp_pd_size;
-            uint32_t  num_logical_procs;
-        } v2;
-    };
-} bios_os_data_t;
+    uint32_t  version;              /* WB = 2, current = 3 */
+    uint32_t  bios_sinit_size;
+    uint64_t  lcp_pd_base;
+    uint64_t  lcp_pd_size;
+    uint32_t  num_logical_procs;
+    uint64_t  flags;                /* v3+ */
+} bios_data_t;
 
 /*
- * OS/loader to MLE structure v1
- *   - private to Xen (so can be any format we need)
+ * OS/loader to MLE structure
+ *   - private to tboot (so can be any format we need)
  */
 typedef struct {
-    uint32_t          version;           /* will be 0x01 */
+    uint32_t          version;           /* currently 1 */
     mtrr_state_t      saved_mtrr_state;  /* saved prior to changes for SINIT */
     multiboot_info_t* mbi;               /* needs to be restored to ebx */
     uint32_t          saved_misc_enable_msr;  /* saved prior to SENTER */
 } os_mle_data_t;
 
 /*
- * OS/loader to SINIT structure v1
+ * OS/loader to SINIT structure
  */
 typedef struct {
-    uint32_t version;           /* SDP3/TEP=0x01, WB=0x03 */
-    uint32_t reserved;
-    uint64_t mle_ptab;
-    uint64_t mle_size;
-    uint64_t mle_hdr_base;
-    union {
-        struct {
-            uint64_t  vtd_pmr_lo_base;
-            uint64_t  vtd_pmr_lo_size;
-            uint64_t  vtd_pmr_hi_base;
-            uint64_t  vtd_pmr_hi_size;
-            uint64_t  lcp_po_base;
-            uint64_t  lcp_po_size;
-        } v3;
-    };
+    uint32_t    version;           /* currently 4 */
+    uint32_t    reserved;
+    uint64_t    mle_ptab;
+    uint64_t    mle_size;
+    uint64_t    mle_hdr_base;
+    uint64_t    vtd_pmr_lo_base;
+    uint64_t    vtd_pmr_lo_size;
+    uint64_t    vtd_pmr_hi_base;
+    uint64_t    vtd_pmr_hi_size;
+    uint64_t    lcp_po_base;
+    uint64_t    lcp_po_size;
+    txt_caps_t  capabilities;
 } os_sinit_data_t;
 
 /*
@@ -116,28 +105,21 @@ typedef struct __attribute__ ((packed)) {
 typedef uint8_t   sha1_hash_t[SHA1_SIZE];
 
 typedef struct {
-    uint32_t     version;           /* SDP3/TEP=0x01, WB=0x03/0x05 */
-    union {
-        struct {
-            uint32_t     num_mdrs;
-            sinit_mdr_t  mdrs[];
-        } v1;
-        struct {
-            sha1_hash_t  bios_acm_id;
-            uint32_t     edx_senter_flags;
-            uint64_t     mseg_valid;
-            sha1_hash_t  sinit_hash;
-            sha1_hash_t  mle_hash;
-            sha1_hash_t  stm_hash;
-            sha1_hash_t  lcp_policy_hash;
-            uint32_t     lcp_policy_control;
-            uint64_t     reserved;
-            uint32_t     num_mdrs;
-            uint32_t     mdrs_off;
-            uint32_t     num_vtd_dmars;
-            uint32_t     vtd_dmars_off;
-        } v5;
-    };
+    uint32_t     version;             /* currently 6 */
+    sha1_hash_t  bios_acm_id;
+    uint32_t     edx_senter_flags;
+    uint64_t     mseg_valid;
+    sha1_hash_t  sinit_hash;
+    sha1_hash_t  mle_hash;
+    sha1_hash_t  stm_hash;
+    sha1_hash_t  lcp_policy_hash;
+    uint32_t     lcp_policy_control;
+    uint32_t     rlp_wakeup_addr;
+    uint32_t     reserved;
+    uint32_t     num_mdrs;
+    uint32_t     mdrs_off;
+    uint32_t     num_vtd_dmars;
+    uint32_t     vtd_dmars_off;
 } sinit_mle_data_t;
 
 
@@ -148,23 +130,23 @@ typedef struct {
 /*
  * offset                 length                      field
  * ------                 ------                      -----
- *  0                      8                          bios_os_data_size
- *  8                      bios_os_data_size - 8      bios_os_data
+ *  0                      8                          bios_data_size
+ *  8                      bios_data_size - 8      bios_data
  *
- *  bios_os_data_size      8                          os_mle_data_size
- *  bios_os_data_size +    os_mle_data_size - 8       os_mle_data
+ *  bios_data_size      8                          os_mle_data_size
+ *  bios_data_size +    os_mle_data_size - 8       os_mle_data
  *   8
  *
- *  bios_os_data_size +    8                          os_sinit_data_size
+ *  bios_data_size +    8                          os_sinit_data_size
  *   os_mle_data_size
- *  bios_os_data_size +    os_sinit_data_size - 8     os_sinit_data
+ *  bios_data_size +    os_sinit_data_size - 8     os_sinit_data
  *   os_mle_data_size +
  *   8
  *
- *  bios_os_data_size +    8                          sinit_mle_data_size
+ *  bios_data_size +    8                          sinit_mle_data_size
  *   os_mle_data_size +
  *   os_sinit_data_size
- *  bios_os_data_size +    sinit_mle_data_size - 8    sinit_mle_data
+ *  bios_data_size +    sinit_mle_data_size - 8    sinit_mle_data
  *   os_mle_data_size +
  *   os_sinit_data_size +
  *   8
@@ -178,54 +160,58 @@ static inline txt_heap_t *get_txt_heap(void)
     return (txt_heap_t *)(unsigned long)read_pub_config_reg(TXTCR_HEAP_BASE);
 }
 
-static inline uint64_t get_bios_os_data_size(txt_heap_t *heap)
+static inline uint64_t get_bios_data_size(txt_heap_t *heap)
 {
     return *(uint64_t *)heap;
 }
 
-static inline bios_os_data_t *get_bios_os_data_start(txt_heap_t *heap)
+static inline bios_data_t *get_bios_data_start(txt_heap_t *heap)
 {
-    return (bios_os_data_t *)((char*)heap + sizeof(uint64_t));
+    return (bios_data_t *)((char*)heap + sizeof(uint64_t));
 }
 
 static inline uint64_t get_os_mle_data_size(txt_heap_t *heap)
 {
-    return *(uint64_t *)(heap + get_bios_os_data_size(heap));
+    return *(uint64_t *)(heap + get_bios_data_size(heap));
 }
 
 static inline os_mle_data_t *get_os_mle_data_start(txt_heap_t *heap)
 {
-    return (os_mle_data_t *)(heap + get_bios_os_data_size(heap) +
+    return (os_mle_data_t *)(heap + get_bios_data_size(heap) +
                               sizeof(uint64_t));
 }
 
 static inline uint64_t get_os_sinit_data_size(txt_heap_t *heap)
 {
-    return *(uint64_t *)(heap + get_bios_os_data_size(heap) +
+    return *(uint64_t *)(heap + get_bios_data_size(heap) +
                          get_os_mle_data_size(heap));
 }
 
 static inline os_sinit_data_t *get_os_sinit_data_start(txt_heap_t *heap)
 {
-    return (os_sinit_data_t *)(heap + get_bios_os_data_size(heap) +
+    return (os_sinit_data_t *)(heap + get_bios_data_size(heap) +
                                get_os_mle_data_size(heap) +
                                sizeof(uint64_t));
 }
 
 static inline uint64_t get_sinit_mle_data_size(txt_heap_t *heap)
 {
-    return *(uint64_t *)(heap + get_bios_os_data_size(heap) +
+    return *(uint64_t *)(heap + get_bios_data_size(heap) +
                          get_os_mle_data_size(heap) +
                          get_os_sinit_data_size(heap));
 }
 
 static inline sinit_mle_data_t *get_sinit_mle_data_start(txt_heap_t *heap)
 {
-    return (sinit_mle_data_t *)(heap + get_bios_os_data_size(heap) +
+    return (sinit_mle_data_t *)(heap + get_bios_data_size(heap) +
                                 get_os_mle_data_size(heap) +
                                 get_os_sinit_data_size(heap) +
                                 sizeof(uint64_t));
 }
+
+extern bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only);
+extern bool verify_bios_data(txt_heap_t *txt_heap);
+extern void print_os_sinit_data(os_sinit_data_t *os_sinit_data);
 
 #endif      /* __TXT_HEAP_H__ */
 
@@ -233,7 +219,6 @@ static inline sinit_mle_data_t *get_sinit_mle_data_start(txt_heap_t *heap)
 /*
  * Local variables:
  * mode: C
- * c-set-style: "BSD"
  * c-basic-offset: 4
  * tab-width: 4
  * indent-tabs-mode: nil

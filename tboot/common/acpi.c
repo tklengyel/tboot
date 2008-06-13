@@ -2,7 +2,7 @@
  *  from xen/arch/x86/acpi/boot.c
  *       drivers/acpi/tables.c
  *
- *  Copyright(c) 2007 Intel Corporation. All rights reserved.
+ *  Copyright(c) 2008 Intel Corporation. All rights reserved.
  *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.com>
  *  Copyright (C) 2001 Jun Nakajima <jun.nakajima@intel.com>
  *
@@ -29,6 +29,7 @@
 #include <types.h>
 #include <stdbool.h>
 #include <printk.h>
+#include <tboot.h>
 #include <acpi.h>
 #include <compiler.h>
 #include <string2.h>

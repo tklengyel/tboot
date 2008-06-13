@@ -53,11 +53,13 @@
 #include <tboot.h>
 
 extern void shutdown(void);
+extern void s3_launch(void);
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
 extern multiboot_info_t *g_mbi;
+extern long s3_flag;
 
 /*
  * policy actions
@@ -540,7 +542,10 @@ void apply_policy(tb_error_t error)
         case TB_POLACT_CONTINUE:
             return;
         case TB_POLACT_UNMEASURED_LAUNCH:
-            launch_xen(g_mbi, false);
+            if ( s3_flag )
+                s3_launch();
+            else
+                launch_xen(g_mbi, false);
             break; /* if launch xen fails, do halt at the end */
         case TB_POLACT_HALT:
             break; /* do halt at the end */

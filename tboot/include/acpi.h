@@ -26,8 +26,6 @@
 #ifndef __ACPI_H__
 #define __ACPI_H__
 
-#include <tboot.h>
-
 /* Root System Description Pointer (RSDP) */
 
 typedef struct __attribute__ ((packed)) {

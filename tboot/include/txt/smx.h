@@ -1,7 +1,7 @@
 /*
  * smx.h: Intel(r) TXT SMX architecture-related definitions
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,6 +80,24 @@ static inline capabilities_t __getsec_capabilities(uint32_t index)
               : "a"(IA32_GETSEC_CAPABILITIES), "b"(index));
     return (capabilities_t)cap;
 }
+
+/* helper fn. for getsec_capabilities */
+/* this is arbitrary and can be increased when needed */
+#define MAX_SUPPORTED_ACM_VERSIONS      16
+
+typedef struct {
+    struct {
+        uint32_t mask;
+        uint32_t version;
+    } acm_versions[MAX_SUPPORTED_ACM_VERSIONS];
+    int n_versions;
+    uint32_t acm_max_size;
+    uint32_t acm_mem_types;
+    uint32_t senter_controls;
+} getsec_parameters_t;
+
+extern bool get_parameters(getsec_parameters_t *params);
+
 
 static inline void __getsec_senter(uint32_t sinit_base, uint32_t sinit_size) 
 {

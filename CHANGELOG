@@ -1,13 +1,35 @@
-20071026:
-	Initial version.
+20080609:
+	Removed support for Technology Enabling Platform (TEP)
+	Removed support for SINIT AC module versions <16 (i.e. <= 20070910)
+	Updated per changes in May 2008 Intel(R) TXT MLE Developer's Manual:
+	    Updated to MLE (header) version 2.0
+	    Updated OsSinitData, SinitMleData structs
+	    Updated AC module InfoTable struct
+	    Support Capabilities fields
+	    Support MONITOR-based RLP wakeup
+	Added acminfo app to parse and display AC module information
+	Updated for v3 of BiosData struct
+	Reduced TPM-related serial output
+	Fixed sealing of hashes for restoring PCRs after S3 resume
+	Misc. fixes and code cleanup
 
-20071029:
-	Moved build_tools target into top-level Makefile
-	Put 'tboot=0x1234' (where 1234 is the addr of the tboot_shared data)
-	    on VMM/kernel command line, per latest Xen feedback
-	Changed TB_LAUNCH_ERR_IDX to 0x20000002
-	Made TPM detailed debug ouput conditional
-	Changes TBOOT_S3_WAKEUP_ADDR to 0x8a000 to ensure no conflicts
+20080523:
+	Updated TrouSerS version to 0.3.1 and to download it from its SF site
+	Fixed several items regarding TPM:
+	      call TPM_SaveState in case launching kernel that does not, so
+	          that S3 resume will restore SRTM PCRs
+	      support for TPMs with an Idle state
+	      fixed timeout values per TCG spec
+	      enforce that TPM is activated and enabled (or fail launch)
+	      misc. fixes
+	Fixed failure paths to apply policy
+	Enhancements to and cleanup of policy support
+	Cap PCRs on exit
+	Added txt-stat app to display TXT config registers and status info
+	S3 fixes
+	Added 'loglvl' command line option to control serial output
+	Handle unordered and overlapping e820 tables
+	Misc. fixes and code cleanup
 
 20071128:
 	Added '-f' command line option to lcptools/tpmnv_getcap to display the
@@ -27,20 +49,13 @@
 	Updated trousers sub-directory to download 0.3.1 version from TrouSerS
 	    SourceForge site and build it
 
-20080523:
-	Updated TrouSerS version to 0.3.1 and to download it from its SF site
-	Fixed several items regarding TPM:
-	      call TPM_SaveState in case launching kernel that does not, so
-	          that S3 resume will restore SRTM PCRs
-	      support for TPMs with an Idle state
-	      fixed timeout values per TCG spec
-	      enforce that TPM is activated and enabled (or fail launch)
-	      misc. fixes
-	Fixed failure paths to apply policy
-	Enhancements to and cleanup of policy support
-	Cap PCRs on exit
-	Added txt-stat app to display TXT config registers and status info
-	S3 fixes
-	Added 'loglvl' command line option to control serial output
-	Handle unordered and overlapping e820 tables
-	Misc. fixes and code cleanup
+20071029:
+	Moved build_tools target into top-level Makefile
+	Put 'tboot=0x1234' (where 1234 is the addr of the tboot_shared data)
+	    on VMM/kernel command line, per latest Xen feedback
+	Changed TB_LAUNCH_ERR_IDX to 0x20000002
+	Made TPM detailed debug ouput conditional
+	Changes TBOOT_S3_WAKEUP_ADDR to 0x8a000 to ensure no conflicts
+
+20071026:
+	Initial version.

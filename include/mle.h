@@ -1,7 +1,7 @@
 /*
  * mle.h: Intel(r) TXT MLE header definition
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,20 +37,41 @@
 #define __MLE_H__
 
 /*
+ * SINIT/MLE capabilities
+ */
+typedef union {
+    uint32_t  _raw;
+    struct {
+        uint32_t  rlp_wake_getsec     : 1;
+        uint32_t  rlp_wake_monitor    : 1;
+        uint32_t  reserved            : 30;
+    };
+} txt_caps_t;
+
+
+/*
  * MLE header structure
  *   describes an MLE for SINIT and OS/loader SW
  */
 typedef struct {
-    uint32_t  guid[4];
-    uint32_t  length;
-    uint32_t  version;
-    uint32_t  entry_point;
-    uint32_t  first_valid_page;
-    uint32_t  mle_start_off;
-    uint32_t  mle_end_off;
+    uuid_t      uuid;
+    uint32_t    length;
+    uint32_t    version;
+    uint32_t    entry_point;
+    uint32_t    first_valid_page;
+    uint32_t    mle_start_off;
+    uint32_t    mle_end_off;
+    txt_caps_t  capabilities;
 } mle_hdr_t;
 
-#define MLE_HDR_GUID        {0x9082ac5a, 0x74a7476f, 0xa2555c0f, 0x42b651cb}
+#define MLE_HDR_UUID      {0x9082ac5a, 0x476f, 0x74a7, 0x5c0f, \
+                              {0x55, 0xa2, 0xcb, 0x51, 0xb6, 0x42}}
+
+/*
+ * values supported by current version of tboot
+ */
+#define MLE_HDR_VER       0x00020000     /* 2.0 */
+#define MLE_HDR_CAPS      0x00000003     /* rlp_wake_{getsec, monitor} = 1 */
 
 #endif      /* __MLE_H__ */
 

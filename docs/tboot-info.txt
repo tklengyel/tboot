@@ -57,18 +57,19 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
    The existing 'kernel' entry should follow as a 'module'.  The SINIT AC
    module (available with systems that support TXT) must be added to the
    grub.conf boot config as the last module, e.g.:
-       title Xen 3.1.0 w/ Intel(R) Trusted Execution Technology
+       title Xen 3.2 w/ Intel(R) Trusted Execution Technology
            root (hd0,1)
            kernel /tboot.gz
            module /xen.gz vtd=1 dom0_mem=524288 com1=115200,8n1
            module /vmlinuz-2.6.18-xen root=/dev/VolGroup00/LogVol00 ro
            module /initrd-2.6.18-xen.img
-           module /BRLK_SINIT_20070910_release.BIN
+           module /Q35_SINIT_16.BIN
 
 o  It is optional to include 'vtd=1' on Xen's command line, though omitting it
    has been found to cause dom0 to fail to boot on some systems.  In the
    current version of tboot, if it is set then Xen will not be able to resume
-   from S3.
+   from S3.  In newer (than 3.2) versions of Xen, this is enabled by default
+   and is specified by the 'iommu' command line argument.
 
 o  Progress of the launch process is indicated via debug printk's to
    COM1 (hardcoded).  These appear before the normal "(XEN)" output and are
@@ -97,15 +98,8 @@ o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
    order to trap on INIT-SIPI-SIPI.
 
-o  Support for the TEP's NoDMA capability has not been implemented in this
-   patch.  NoDMA has been superseded by VT-d and is used by default on the
-   new TXT platforms.  The VT_D define in tboot/include/config.h is for
-   when Xen fully supports VT-d.  At that time this code can be enabled and it
-   will DMA protect all of the memory until Xen has enabled VT-d
-   translation for the regions that it cares about.  But enabling it before
-   Xen has VT-d support will cause dom0 to fail to boot.
-
-o  The tools/txt-test project is a Linux kernel module that reads some of
+o  The tools/txt-test project contains a Linux kernel module that reads some of
    the TXT registers and also verifies the memory protections.  It
    will also display the tboot boot log, in case a system does not have
-   serial support.
+   serial support.  It also contains a Linux application that will read and
+   display some of the TXT registers and state.
