@@ -47,6 +47,10 @@
 #define cs16_sel    4<<3
 #define ds16_sel    5<<3
 
+/* opcode prefixes for 16bit data and addressing */
+#define DATA16      .byte 0x66
+#define ADDR16      .byte 0x67
+
 	.text
 
 ENTRY(start)
@@ -197,8 +201,8 @@ ENTRY(_prot_to_real)
 
 	.code32
 
-	.byte   0x66
-	.byte   0x67
+	DATA16
+	ADDR16
 	ljmp    *_real_mode_entry_point
 
 /*
