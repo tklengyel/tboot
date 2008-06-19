@@ -161,9 +161,11 @@ static bool supports_smx(void)
     return true;
 }
 
-static tb_error_t supports_txt(void)
+tb_error_t supports_txt(void)
 {
     capabilities_t cap;
+
+    read_processor_info();
 
     /* processor must support SMX */
     if ( !supports_smx() )
@@ -313,14 +315,6 @@ void set_vtd_pmrs(os_sinit_data_t *os_sinit_data, uint64_t max_ram)
 tb_error_t txt_verify_platform(void)
 {
     txt_heap_t *txt_heap;
-    tb_error_t err;
-
-    read_processor_info();
-
-    /* support Intel(r) TXT (this includes TPM support) */
-    err = supports_txt();
-    if ( err != TB_ERR_NONE )
-        return err;
 
     /* check is TXT_RESET.STS is set, since if it is SENTER will fail */
     txt_ests_t ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);

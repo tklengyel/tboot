@@ -535,7 +535,8 @@ void apply_policy(tb_error_t error)
     /* save the error to TPM NV */
     write_tb_error_code(error);
 
-    print_tb_error_msg(error);
+    if ( error != TB_ERR_NONE )
+        print_tb_error_msg(error);
 
     action = evaluate_error(error);
     switch ( action ) {

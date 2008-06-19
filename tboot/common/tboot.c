@@ -283,6 +283,14 @@ void begin_launch(multiboot_info_t *mbi)
     err = load_policy();
     apply_policy(err);
 
+    /* need to verify that platform supports TXT before we can check error */
+    /* (this includes TPM support) */
+    err = supports_txt();
+    apply_policy(err);
+
+    /* print any errors on last boot, which must be from TXT launch */
+    txt_get_error();
+
     /* need to verify that platform can perform measured launch */
     err = verify_platform();
     apply_policy(err);
@@ -290,9 +298,6 @@ void begin_launch(multiboot_info_t *mbi)
     /* this is being called post-measured launch */
     if ( is_launched() )
         post_launch();
-
-    /* print any errors on last boot, which must be from TXT launch */
-    txt_get_error();
 
     /* make the CPU ready for measured launch */
     if ( !prepare_cpu() )
