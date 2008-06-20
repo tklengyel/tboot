@@ -84,6 +84,7 @@ static void display_config_regs(void *txt_config_base)
     txt_sts_t sts;
     txt_ests_t ests;
     txt_e2sts_t e2sts;
+    txt_didvid_t didvid;
     printk("Intel(r) TXT Configuration Registers:\n");
 
     /* STS */
@@ -99,11 +100,7 @@ static void display_config_regs(void *txt_config_base)
     /* ESTS */
     ests._raw = read_txt_config_reg(txt_config_base, TXTCR_ESTS);
     printk("\tESTS: 0x%Lx\n", ests._raw);
-    printk("\t    txt_rogue: %s\n", bit_to_str(ests.txt_rogue_sts));
-    printk("\t    bm_write_attack: %s\n", bit_to_str(ests.bm_write_attack));
-    printk("\t    bm_read_attack: %s\n", bit_to_str(ests.bm_read_attack));
-    printk("\t    fsb_write_attack: %s\n", bit_to_str(ests.fsb_write_attack));
-    printk("\t    fsb_read_attack: %s\n", bit_to_str(ests.fsb_read_attack));
+    printk("\t    txt_reset_sts: %s\n", bit_to_str(ests.txt_reset_sts));
     printk("\t    txt_wake_error: %s\n", bit_to_str(ests.txt_wake_error_sts));
 
     /* E2STS */
@@ -120,7 +117,6 @@ static void display_config_regs(void *txt_config_base)
                                                        TXTCR_ERRORCODE));
 
     /* DIDVID */
-    txt_didvid_t didvid;
     didvid._raw = read_txt_config_reg(txt_config_base, TXTCR_DIDVID);
     printk("\tDIDVID: 0x%Lx\n", didvid._raw);
     printk("\t    vendor_id: 0x%x\n", didvid.vendor_id);
