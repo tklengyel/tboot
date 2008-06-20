@@ -60,7 +60,7 @@ static int dev_major;
 
 #define TBOOT_MEM_BASE      (TBOOT_BASE_ADDR - 3*PAGE_SIZE)
                                /* 0x8c000 is Xen's start of trampoline code */
-#define TBOOT_MEM_SIZE      (0x2f000 + 3*PAGE_SIZE)
+#define TBOOT_MEM_SIZE      (0x4f000 + 3*PAGE_SIZE)
 
 #define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
 #define TPM_LOCALITY_SIZE           (NR_TPM_LOCALITY_PAGES*PAGE_SIZE)
@@ -77,107 +77,6 @@ static inline uint64_t read_txt_config_reg(void *config_regs_base,
 static inline const char * bit_to_str(uint64_t b)
 {
     return b ? "TRUE" : "FALSE";
-}
-
-static void display_config_regs(void *txt_config_base)
-{
-    txt_sts_t sts;
-    txt_ests_t ests;
-    txt_e2sts_t e2sts;
-    txt_didvid_t didvid;
-    printk("Intel(r) TXT Configuration Registers:\n");
-
-    /* STS */
-    sts._raw = read_txt_config_reg(txt_config_base, TXTCR_STS);
-    printk("\tSTS: 0x%Lx\n", sts._raw);
-    printk("\t    senter_done: %s\n", bit_to_str(sts.senter_done_sts));
-    printk("\t    sexit_done: %s\n", bit_to_str(sts.sexit_done_sts));
-    printk("\t    mem_unlock: %s\n", bit_to_str(sts.mem_unlock_sts));
-    printk("\t    mem_config_lock: %s\n", bit_to_str(sts.mem_config_lock_sts));
-    printk("\t    private_open: %s\n", bit_to_str(sts.private_open_sts));
-    printk("\t    mem_config_ok: %s\n", bit_to_str(sts.mem_config_ok_sts));
-
-    /* ESTS */
-    ests._raw = read_txt_config_reg(txt_config_base, TXTCR_ESTS);
-    printk("\tESTS: 0x%Lx\n", ests._raw);
-    printk("\t    txt_reset_sts: %s\n", bit_to_str(ests.txt_reset_sts));
-    printk("\t    txt_wake_error: %s\n", bit_to_str(ests.txt_wake_error_sts));
-
-    /* E2STS */
-    e2sts._raw = read_txt_config_reg(txt_config_base, TXTCR_E2STS);
-    printk("\tE2STS: 0x%Lx\n", e2sts._raw);
-    printk("\t    slp_entry_error: %s\n",
-           bit_to_str(e2sts.slp_entry_error_sts));
-    printk("\t    secrets: %s\n", bit_to_str(e2sts.secrets_sts));
-    printk("\t    block_mem: %s\n", bit_to_str(e2sts.block_mem_sts));
-    printk("\t    reset: %s\n", bit_to_str(e2sts.reset_sts));
-
-    /* ERRORCODE */
-    printk("\tERRORCODE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                       TXTCR_ERRORCODE));
-
-    /* DIDVID */
-    didvid._raw = read_txt_config_reg(txt_config_base, TXTCR_DIDVID);
-    printk("\tDIDVID: 0x%Lx\n", didvid._raw);
-    printk("\t    vendor_id: 0x%x\n", didvid.vendor_id);
-    printk("\t    device_id: 0x%x\n", didvid.device_id);
-    printk("\t    revision_id: 0x%x\n", didvid.revision_id);
-
-    /* SINIT.BASE/SIZE */
-    printk("\tSINIT.BASE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                        TXTCR_SINIT_BASE));
-    printk("\tSINIT.SIZE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                        TXTCR_SINIT_SIZE));
-
-    /* HEAP.BASE/SIZE */
-    printk("\tHEAP.BASE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                       TXTCR_HEAP_BASE));
-    printk("\tHEAP.SIZE: 0x%Lx\n", read_txt_config_reg(txt_config_base,
-                                                       TXTCR_HEAP_SIZE));
-}
-
-static void display_tboot_log(void *txt_config_base)
-{
-    void *tb_base, *curr;
-    tboot_log_t *log;
-    static char buf[512];
-    int curr_pos;
-
-    /* need to map TBOOT's memory before we can search for log */
-    tb_base = (void *)ioremap_nocache(TBOOT_MEM_BASE, TBOOT_MEM_SIZE);
-
-    if ( tb_base == NULL ) {
-        printk(KERN_ALERT
-               "ERROR: unable to map TBOOT to find log\n");
-        return;
-    }
-
-    curr = tb_base;
-    do {
-        if ( are_uuids_equal(curr, &((uuid_t)TBOOT_LOG_UUID)) )
-            break;
-        curr++;
-    } while ( curr < tb_base + TBOOT_MEM_SIZE );
-
-    if ( curr >= tb_base + TBOOT_MEM_SIZE ) {
-        printk("unable to find TBOOT log\n");
-        return;
-    }
-    log = (tboot_log_t *)curr;
-
-    printk("TBOOT log:\n");
-    printk("\t max_size=%x\n", log->max_size);
-    printk("\t curr_pos=%x\n", log->curr_pos);
-    printk("\t buf:\n");
-    /* log is too big for single printk(), so break it up */
-    for ( curr_pos = 0; curr_pos < log->curr_pos; curr_pos += sizeof(buf)-1 ) {
-        strncpy(buf, log->buf + curr_pos, sizeof(buf)-1);
-        buf[sizeof(buf)-1] = '\0';
-        printk(buf);
-    }
-    printk("\n");
-
-    iounmap(tb_base);
 }
 
 static bool test_access_txt_priv_config(void)
@@ -257,16 +156,24 @@ static bool test_access_tpm_localities(void)
     return true;
 }
 
-static bool test_access_txt_heap(void *txt_config_base)
+static bool test_access_txt_heap(void)
 {
-    void *ptr;
+    void *txt_pub, *ptr;
     uint64_t base, size;
 
     printk("testing for access to SINIT and TXT heap memory...\n");
 
+	/* get pointer to TXT public config space */
+    txt_pub = (void *)ioremap_nocache(TXT_PUB_CONFIG_REGS_BASE,
+                                      TXT_CONFIG_REGS_SIZE);
+    if ( txt_pub == NULL ) {
+        printk(KERN_ALERT "ERROR: ioremap_nocache for public space failed\n");
+        return false;
+    }
+
     /* SINIT */
-    base = read_txt_config_reg(txt_config_base, TXTCR_SINIT_BASE);
-    size = read_txt_config_reg(txt_config_base, TXTCR_SINIT_SIZE);
+    base = read_txt_config_reg(txt_pub, TXTCR_SINIT_BASE);
+    size = read_txt_config_reg(txt_pub, TXTCR_SINIT_SIZE);
     ptr = (void *)ioremap_nocache(base, size);
     if ( ptr == NULL ) {
         printk(KERN_ALERT
@@ -274,21 +181,24 @@ static bool test_access_txt_heap(void *txt_config_base)
     }
     else {
         printk(KERN_ALERT "ioremap_nocache for SINIT succeeded\n");
+        iounmap(txt_pub);
         iounmap(ptr);
         return false;
     }
 
     /* TXT heap */
-    base = read_txt_config_reg(txt_config_base, TXTCR_HEAP_BASE);
-    size = read_txt_config_reg(txt_config_base, TXTCR_HEAP_SIZE);
+    base = read_txt_config_reg(txt_pub, TXTCR_HEAP_BASE);
+    size = read_txt_config_reg(txt_pub, TXTCR_HEAP_SIZE);
     ptr = (void *)ioremap_nocache(base, size);
     if ( ptr == NULL ) {
         printk(KERN_ALERT
                "ERROR: ioremap_nocache for TXT heap failed\n");
+        iounmap(txt_pub);
         return true;
     }
     else {
         printk(KERN_ALERT "ioremap_nocache for TXT heap succeeded\n");
+        iounmap(txt_pub);
         iounmap(ptr);
         return false;
     }
@@ -320,8 +230,6 @@ static bool is_txt_supported(void)
 
 static __init int mod_init(void)
 {
-    void *txt_pub = NULL;
-
     if ( !is_txt_supported() ) {
         printk(KERN_ALERT "Intel(r) TXT is not supported\n");
         return 0;
@@ -343,42 +251,16 @@ static __init int mod_init(void)
 	}
 
     /*
-     * display config regs
-     */
-	if ( request_mem_region((unsigned long)TXT_PUB_CONFIG_REGS_BASE,
-                            TXT_CONFIG_REGS_SIZE, DEVICE_NAME) == 0 ) {
-		printk(KERN_ALERT
-               "ERROR: request_mem_region for public space failed\n");
-        goto done;
-	}
-    txt_pub = (void *)ioremap_nocache(TXT_PUB_CONFIG_REGS_BASE,
-                                      TXT_CONFIG_REGS_SIZE);
-    if ( txt_pub == NULL ) {
-		printk(KERN_ALERT "ERROR: ioremap_nocache for public space failed\n");
-        goto done;
-	}
-    display_config_regs(txt_pub);
-
-    /*
-     * display the TBOOT log
-     */
-    display_tboot_log(txt_pub);
-
-    /*
      * begin tests
      */
     test_access_txt_priv_config();
 
     test_access_tpm_localities();
 
-    test_access_txt_heap(txt_pub);
+    test_access_txt_heap();
 
     test_access_tboot();
 
- done:
-    if ( txt_pub != NULL )
-        iounmap(txt_pub);
-    release_mem_region(TXT_PUB_CONFIG_REGS_BASE, TXT_CONFIG_REGS_SIZE);
     unregister_chrdev(dev_major, DEVICE_NAME); 
     return 0;
 }

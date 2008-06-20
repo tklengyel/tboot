@@ -38,9 +38,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <asm/page.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#define printk   printf
+#include "../include/uuid.h"
+#include "../include/tboot.h"
+#include "../tboot/include/config.h"
 #include "../tboot/include/txt/config_regs.h"
 
 #define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
@@ -120,6 +125,34 @@ static void display_config_regs(void *txt_config_base)
     printf("***********************************************************\n");
 }
 
+static void display_tboot_log(void *log_base)
+{
+    static char buf[512];
+
+    tboot_log_t *log = (tboot_log_t *)log_base;
+
+    if ( !are_uuids_equal(&(log->uuid), &((uuid_t)TBOOT_LOG_UUID)) ) {
+        printf("unable to find TBOOT log\n");
+        return;
+    }
+
+    printf("TBOOT log:\n");
+    printf("\t max_size=%x\n", log->max_size);
+    printf("\t curr_pos=%x\n", log->curr_pos);
+    printf("\t buf:\n");
+    /* log->buf is phys addr of buf, which will not match where mmap has */
+    /* map'ed us, but since it is always jsut past end of struct, use that */
+    char *log_buf = (char *)log + sizeof(*log);
+    /* log is too big for single printk(), so break it up */
+    for ( int curr_pos = 0; curr_pos < log->curr_pos;
+          curr_pos += sizeof(buf)-1 ) {
+        strncpy(buf, log_buf + curr_pos, sizeof(buf)-1);
+        buf[sizeof(buf)-1] = '\0';
+        printf(buf);
+    }
+    printf("\n");
+}
+
 static bool is_txt_supported(void)
 {
     return true;
@@ -127,8 +160,6 @@ static bool is_txt_supported(void)
 
 int main(int argc, char *argv[])
 {
-    int fd_mem = -1;
-    void *txt_pub = MAP_FAILED;
     int ret = 1;
 
     if ( !is_txt_supported() ) {
@@ -136,17 +167,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    fd_mem = open("/dev/mem", O_RDONLY);
+    int fd_mem = open("/dev/mem", O_RDONLY);
     if ( fd_mem == -1 ) {
         printf("ERROR: cannot open /dev/mem\n");
-        ret = 1;
-        goto done;
-    }
-
-    txt_pub = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ, MAP_PRIVATE, fd_mem,
-                   TXT_PUB_CONFIG_REGS_BASE);
-    if ( txt_pub == MAP_FAILED ) {
-        printf("ERROR: cannot map /dev/mem\n");
         ret = 1;
         goto done;
     }
@@ -154,13 +177,32 @@ int main(int argc, char *argv[])
     /*
      * display config regs
      */
+    void *txt_pub = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ, MAP_PRIVATE,
+                         fd_mem, TXT_PUB_CONFIG_REGS_BASE);
+    if ( txt_pub == MAP_FAILED ) {
+        printf("ERROR: cannot map config regs\n");
+        ret = 1;
+        goto done;
+    }
     display_config_regs(txt_pub);
+    munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
+
+    /*
+     * display serial log from tboot memory (if exists)
+     */
+    void *tboot_base = mmap(NULL, TBOOT_SERIAL_LOG_SIZE, PROT_READ,
+                            MAP_PRIVATE, fd_mem, TBOOT_SERIAL_LOG_ADDR);
+    if ( tboot_base == MAP_FAILED ) {
+        printf("ERROR: cannot map tboot\n");
+        ret = 1;
+        goto done;
+    }
+    display_tboot_log(tboot_base);
+    munmap(tboot_base, TBOOT_SERIAL_LOG_SIZE);
 
     ret = 0;
 
  done:
-    if ( txt_pub != MAP_FAILED )
-        munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
     if ( fd_mem != -1 )
         close(fd_mem);
 

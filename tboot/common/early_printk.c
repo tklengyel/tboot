@@ -34,34 +34,28 @@
 
 DEFINE_SPINLOCK(print_lock);
 
-#ifdef MEM_LOGGING
-/*
- * logging support
- */
-/* initialize it so that it doesn't get put in bss, which is zero'ed on */
-/* entry to measured environment */
-static tboot_log_t _log = {
-    uuid      : TBOOT_LOG_UUID,
-    max_size  : 0,
-    curr_pos  : 0,
-    buf       : "",
-};
-#endif
+/* memory-based serial log */
 tboot_log_t *g_log = NULL;
 
 void init_log(void)
 {
 #ifdef MEM_LOGGING
-    g_log = &_log;
+    g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
 #endif
 
     if ( g_log == NULL )
         return;
 
-    g_log->max_size = sizeof(g_log->buf);
+    /* only initialize first time (i.e. not after launch) */
+    if ( !are_uuids_equal(&(g_log->uuid), &((uuid_t)TBOOT_LOG_UUID)) ) {
+        g_log->uuid = (uuid_t)TBOOT_LOG_UUID;
+        g_log->curr_pos = 0;
+    }
+    g_log->buf = (char *)(TBOOT_SERIAL_LOG_ADDR + sizeof(*g_log));
+    g_log->max_size = TBOOT_SERIAL_LOG_SIZE - sizeof(*g_log);
 
     /* if we're calling this post-launch, verify that curr_pos is valid */
-    if ( g_log->curr_pos > sizeof(g_log->buf) )
+    if ( g_log->curr_pos > g_log->max_size )
         g_log->curr_pos = 0;
 }
 

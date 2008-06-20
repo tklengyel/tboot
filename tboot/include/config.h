@@ -27,8 +27,13 @@
 /* these addrs must be in low memory so that they are mapped by the */
 /* kernel at startup */
 
+/* address/size for memory-resident serial log (when enabled) */
+#define TBOOT_SERIAL_LOG_ADDR        0x84000
+#define TBOOT_SERIAL_LOG_SIZE        0x04000
+
 /* address/size for modified e820 table */
-#define TBOOT_E820_COPY_ADDR         0x88000
+#define TBOOT_E820_COPY_ADDR         (TBOOT_SERIAL_LOG_ADDR + \
+				      TBOOT_SERIAL_LOG_SIZE)
 #define TBOOT_E820_COPY_SIZE         0x01800
 
 /* address/size for modified VMM/kernel command line */

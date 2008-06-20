@@ -91,13 +91,12 @@ typedef struct __attribute__ ((__packed__)) {
 /*
  * used to log tboot printk output
  */
-#define MAX_TB_LOG_SIZE   12288    /* 3 pages */
 
 typedef struct {
     uuid_t     uuid;
     uint32_t   max_size;
     uint32_t   curr_pos;
-    char       buf[MAX_TB_LOG_SIZE];
+    char       *buf;
 } tboot_log_t;
 
 /* {C0192526-6B30-4db4-844C-A3E953B88174} */
