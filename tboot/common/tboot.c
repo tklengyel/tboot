@@ -132,7 +132,6 @@ static void post_launch(void)
 {
     uint64_t base, size;
     tb_error_t err;
-    bool is_measured_launch = false;
     extern tboot_log_t *g_log;
     extern void shutdown_entry32(void);
     extern void shutdown_entry64(void);
@@ -224,9 +223,7 @@ static void post_launch(void)
     print_tboot_shared(&_tboot_shared);
     print_log();
 
-    is_measured_launch = true;
-
-    launch_xen(g_mbi, is_measured_launch);
+    launch_xen(true);
     apply_policy(TB_ERR_FATAL);
 }
 

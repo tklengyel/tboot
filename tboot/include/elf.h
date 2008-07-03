@@ -40,7 +40,7 @@
 
 extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
                                 size_t *size, const uuid_t *uuid);
-extern bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch);
+extern bool launch_xen(bool is_measured_launch);
 extern bool verify_modules(multiboot_info_t *mbi);
 extern module_t *get_module(multiboot_info_t *mbi, int i);
 extern void *remove_module(multiboot_info_t *mbi, void *mod_start);

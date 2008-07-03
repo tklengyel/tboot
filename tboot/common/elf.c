@@ -52,6 +52,9 @@ static char *new_cmdline = (char *)TBOOT_KERNEL_CMDLINE_ADDR;
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
+/* multiboot struct saved so that post_launch() can use it (in tboot.c) */
+extern multiboot_info_t *g_mbi;
+
 #if 0
 static void print_mbi(multiboot_info_t *mbi)
 {
@@ -229,17 +232,17 @@ static bool adjust_xen_cmdline(multiboot_info_t *mbi,
     return true;
 }
 
-bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
+bool launch_xen(bool is_measured_launch)
 {
     module_t *m;
     void *xen_base, *xen_entry_point;
     elf_header_t *xen_as_elf;
     size_t xen_size;
 
-    if ( !is_mods_valid(mbi) )
+    if ( !is_mods_valid(g_mbi) )
         return false;
 
-    m = (module_t *)mbi->mods_addr;
+    m = (module_t *)g_mbi->mods_addr;
 
     xen_base = (void *)m->mod_start;
     xen_size = m->mod_end - m->mod_start;
@@ -247,7 +250,7 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
     if ( !is_elf_image(xen_base, xen_size) )
         return false;
 
-    xen_base = remove_module(mbi, NULL);
+    xen_base = remove_module(g_mbi, NULL);
     if ( xen_base == NULL )
         return false;
 
@@ -257,7 +260,7 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
         return false;
 
     if ( is_measured_launch )
-        adjust_xen_cmdline(mbi, &_tboot_shared);
+        adjust_xen_cmdline(g_mbi, &_tboot_shared);
 
     printk("transfering control to xen @0x%p...\n", xen_entry_point);
 
@@ -265,7 +268,7 @@ bool launch_xen(multiboot_info_t *mbi, bool is_measured_launch)
     __asm__ __volatile__ (
       "    jmp *%%ecx;    "
       "    ud2;           "
-      :: "a" (MB_MAGIC), "b" (mbi), "c" (xen_entry_point));
+      :: "a" (MB_MAGIC), "b" (g_mbi), "c" (xen_entry_point));
 
     return true;
 }

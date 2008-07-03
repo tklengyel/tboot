@@ -58,7 +58,6 @@ extern void s3_launch(void);
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
-extern multiboot_info_t *g_mbi;
 extern long s3_flag;
 
 /*
@@ -546,7 +545,7 @@ void apply_policy(tb_error_t error)
             if ( s3_flag )
                 s3_launch();
             else
-                launch_xen(g_mbi, false);
+                launch_xen(false);
             break; /* if launch xen fails, do halt at the end */
         case TB_POLACT_HALT:
             break; /* do halt at the end */
