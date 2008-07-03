@@ -34,29 +34,30 @@
 
 DEFINE_SPINLOCK(print_lock);
 
-/* memory-based serial log */
-tboot_log_t *g_log = NULL;
+/* memory-based serial log (ensure in .data section so that not cleared) */
+__data tboot_log_t *g_log = NULL;
 
 void init_log(void)
 {
 #ifdef MEM_LOGGING
-    g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
-#endif
-
-    if ( g_log == NULL )
-        return;
-
-    /* only initialize first time (i.e. not after launch) */
-    if ( !are_uuids_equal(&(g_log->uuid), &((uuid_t)TBOOT_LOG_UUID)) ) {
+    if ( g_log == NULL ) {
+        g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
         g_log->uuid = (uuid_t)TBOOT_LOG_UUID;
         g_log->curr_pos = 0;
     }
+
+    /* initialize these post-launch as well, since bad/malicious values */
+    /* could compromise environment */
+    g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
     g_log->buf = (char *)(TBOOT_SERIAL_LOG_ADDR + sizeof(*g_log));
     g_log->max_size = TBOOT_SERIAL_LOG_SIZE - sizeof(*g_log);
 
     /* if we're calling this post-launch, verify that curr_pos is valid */
     if ( g_log->curr_pos > g_log->max_size )
         g_log->curr_pos = 0;
+#else
+    return;
+#endif
 }
 
 static void write_log(const char *s, unsigned int n)
@@ -95,7 +96,6 @@ void print_log(void)
         printk("\t curr_pos=%x\n", g_log->curr_pos);
     }
 }
-
 
 /*
  * serial support from linux.../arch/x86_64/kernel/early_printk.c
