@@ -1,7 +1,7 @@
 /*
  * hash.c: support functions for tb_hash_t type
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@ bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
  * hash the buffer according to the algorithm
  *
  */
-bool hash_buffer(const unsigned char* buf, int size, tb_hash_t *hash,
+bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
 		 uint8_t hash_alg)
 {
     if ( hash == NULL ) {

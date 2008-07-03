@@ -39,6 +39,7 @@
 #include <printk.h>
 #include <compiler.h>
 #include <string2.h>
+#include <misc.h>
 #include <multiboot.h>
 #include <uuid.h>
 #include <hash.h>

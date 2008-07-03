@@ -51,9 +51,26 @@ typedef union {
 } tb_hash_t;
 
 
+static inline const char *hash_alg_to_string(uint8_t hash_alg)
+{
+    if ( hash_alg == TB_HALG_SHA1 )
+        return "TB_HALG_SHA1";
+    else {
+        static char buf[32];
+        snprintf(buf, sizeof(buf), "unsupported (%u)", hash_alg);
+        return buf;
+    }
+}
+
+
+static inline unsigned int get_hash_size(uint8_t hash_alg)
+{
+    return (hash_alg == TB_HALG_SHA1) ? SHA1_LENGTH : 0;
+}
+
 extern bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
                              uint8_t hash_alg);
-extern bool hash_buffer(const unsigned char* buf, int size, tb_hash_t *hash,
+extern bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
                         uint8_t hash_alg);
 extern bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2,
                         uint8_t hash_alg);

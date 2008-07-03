@@ -1,7 +1,7 @@
 /*
  * hash.c: support functions for tb_hash_t type
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
 #include <printk.h>
 #include <compiler.h>
 #include <string2.h>
+#include <misc.h>
 #include <sha1.h>
 #include <hash.h>
 
@@ -49,7 +50,7 @@
  *
  */
 bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
-		      uint8_t hash_alg)
+                      uint8_t hash_alg)
 {
     if ( ( hash1 == NULL ) || ( hash2 == NULL ) ) {
         printk("Error: hash pointer is zero.\n");
@@ -59,7 +60,7 @@ bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
     if ( hash_alg == TB_HALG_SHA1 )
         return (memcmp(hash1, hash2, SHA1_LENGTH) == 0);
     else {
-        printk("unsupported hash alg (%d)\n", hash_alg);
+        printk("unsupported hash alg (%u)\n", hash_alg);
         return false;
     }
 }
@@ -70,8 +71,8 @@ bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
  * hash the buffer according to the algorithm
  *
  */
-bool hash_buffer(const unsigned char* buf, int size, tb_hash_t *hash,
-		 uint8_t hash_alg)
+bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
+                 uint8_t hash_alg)
 {
     if ( hash == NULL ) {
         printk("Error: There is no space for output hash.\n");
@@ -83,7 +84,7 @@ bool hash_buffer(const unsigned char* buf, int size, tb_hash_t *hash,
         return true;
     }
     else {
-        printk("unsupported hash alg (%d)\n", hash_alg);
+        printk("unsupported hash alg (%u)\n", hash_alg);
         return false;
     }
 }
@@ -96,7 +97,7 @@ bool hash_buffer(const unsigned char* buf, int size, tb_hash_t *hash,
  */
 bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint8_t hash_alg)
 {
-    uint8_t buf[2*sizeof(tb_hash_t)];
+    uint8_t buf[2*get_hash_size(hash_alg)];
 
     if ( hash1 == NULL || hash2 == NULL ) {
         printk("Error: There is no space for output hash.\n");
@@ -110,7 +111,7 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint8_t hash_alg)
         return true;
     }
     else {
-        printk("unsupported hash alg (%d)\n", hash_alg);
+        printk("unsupported hash alg (%u)\n", hash_alg);
         return false;
     }
 }
@@ -128,7 +129,7 @@ void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
         printk("\n");
     }
     else {
-        printk("unsupported hash alg (%d)\n", hash_alg);
+        printk("unsupported hash alg (%u)\n", hash_alg);
         return;
     }
 }
@@ -144,7 +145,7 @@ void copy_hash(tb_hash_t *dest_hash, const tb_hash_t *src_hash,
     if ( hash_alg == TB_HALG_SHA1 )
         memcpy(dest_hash, src_hash, SHA1_LENGTH);
     else
-        printk("unsupported hash alg (%d)\n", hash_alg);
+        printk("unsupported hash alg (%u)\n", hash_alg);
 }
 
 

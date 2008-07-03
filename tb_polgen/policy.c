@@ -314,18 +314,6 @@ static char *policy_type_to_string(tb_policy_type_t policy_type)
     }
 }
 
-static char *hash_alg_to_string(int hash_alg)
-{
-    static char buf[64];
-
-    if ( hash_alg == TB_HALG_SHA1 )
-        return "TB_HALG_SHA1";
-    else {
-        snprintf(buf, sizeof(buf), "unsupported (%d)", hash_alg);
-        return buf;
-    }
-}
-
 static char *hash_type_to_string(tb_hash_type_t hash_type)
 {
     static char buf[64];
