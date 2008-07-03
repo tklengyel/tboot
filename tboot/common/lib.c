@@ -105,7 +105,8 @@ void cmdline_parse(char *cmdline)
         {
             if ( strcmp(g_cmdline_option[i].name, opt ) != 0 )
                 continue;
-            strlcpy(g_cmdline_option[i].val, optval, sizeof(g_cmdline_option[i].val));
+            strncpy(g_cmdline_option[i].val, optval,
+		    sizeof(g_cmdline_option[i].val));
         }
     }
 }

@@ -16,9 +16,9 @@ extern size_t strnlen(const char *, size_t);
 
 extern size_t strlen(const char * s);
 
-extern size_t strlcpy(char *, const char *, size_t);
+extern size_t strncpy(char *, const char *, size_t);
 
-extern size_t strlcat(char *, const char *, size_t);
+extern size_t strncat(char *, const char *, size_t);
 
 extern void * memmove(void *, const void *, size_t);
 

@@ -75,9 +75,9 @@ size_t strlen(const char * s)
 }
 #endif
 
-#ifndef __HAVE_ARCH_STRLCPY
+#ifndef __HAVE_ARCH_STRNCPY
 /**
- * strlcpy - Copy a %NUL terminated string into a sized buffer
+ * strncpy - Copy a %NUL terminated string into a sized buffer
  * @dest: Where to copy the string to
  * @src: Where to copy the string from
  * @size: size of destination buffer
@@ -87,7 +87,7 @@ size_t strlen(const char * s)
  * of course, the buffer size is zero). It does not pad
  * out the result like strncpy() does.
  */
-size_t strlcpy(char *dest, const char *src, size_t size)
+size_t strncpy(char *dest, const char *src, size_t size)
 {
 	size_t ret = strlen(src);
 	if (size) {
@@ -99,9 +99,9 @@ size_t strlcpy(char *dest, const char *src, size_t size)
 }
 #endif
 
-#ifndef __HAVE_ARCH_STRLCAT
+#ifndef __HAVE_ARCH_STRNCAT
 /**
- * strlcat - Append a %NUL terminated string into a sized buffer
+ * strncat - Append a %NUL terminated string into a sized buffer
  * @dest: Where to copy the string to
  * @src: Where to copy the string from
  * @size: size of destination buffer
@@ -110,7 +110,7 @@ size_t strlcpy(char *dest, const char *src, size_t size)
  * NUL-terminated string that fits in the buffer (unless,
  * of course, the buffer size is zero).
  */
-size_t strlcat(char *dest, const char *src, size_t size)
+size_t strncat(char *dest, const char *src, size_t size)
 {
 	size_t slen = strlen(src);
 	size_t dlen = strnlen(dest, size);
