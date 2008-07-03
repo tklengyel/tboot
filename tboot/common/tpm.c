@@ -79,7 +79,7 @@
 #define TPM_REG_ACCESS           0x00
 typedef union {
     u8 _raw[1];                      /* 1-byte reg */
-    struct __attribute__ ((packed)) {
+    struct __packed {
         u8 tpm_establishment   : 1;  /* RO, 0=T/OS has been established
                                         before */
         u8 request_use         : 1;  /* RW, 1=locality is requesting TPM use */
@@ -97,7 +97,7 @@ typedef union {
 #define TPM_REG_STS              0x18
 typedef union {
     u8 _raw[3];                  /* 3-byte reg */
-    struct __attribute__ ((packed)) {
+    struct __packed {
         u8 reserved1       : 1;
         u8 response_retry  : 1;  /* WO, 1=re-send response */
         u8 reserved2       : 1;
@@ -639,7 +639,7 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
     return ret;
 }
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     uint16_t    size_of_select;
     uint8_t     pcr_select[3];
 } tpm_pcr_selection_t;
@@ -765,14 +765,14 @@ uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
 
 typedef uint16_t tpm_structure_tag_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
    uint8_t  major;
    uint8_t  minor;
    uint8_t  rev_major;
    uint8_t  rev_minor;
 } tpm_version_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t tag;
     tpm_version_t       version;
     uint16_t            specLevel;
@@ -865,7 +865,7 @@ static bool hmac(const uint8_t key[HMAC_OUTPUT_SIZE], const uint8_t *msg,
 
 typedef uint16_t tpm_entity_type_t;
 typedef uint32_t tpm_authhandle_t;
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     uint8_t     nonce[20];
 } tpm_nonce_t;
 
@@ -875,7 +875,7 @@ typedef struct __attribute__ ((packed)) {
 typedef uint32_t tpm_key_handle_t;
 
 typedef tpm_digest_t tpm_composite_hash_t;
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t         tag;
     tpm_locality_selection_t    locality_at_creation;
     tpm_locality_selection_t    locality_at_release;
@@ -888,19 +888,19 @@ typedef struct __attribute__ ((packed)) {
 typedef uint8_t tpm_authdata_t[20];
 typedef tpm_authdata_t tpm_encauth_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t         tag;
     tpm_entity_type_t           et;
     uint32_t                    seal_info_size;
 } tpm_stored_data12_header_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_stored_data12_header_t  header;
     uint32_t                    enc_data_size;
     uint8_t                     enc_data[];
 } tpm_stored_data12_short_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_stored_data12_header_t  header;
     tpm_pcr_info_long_t         seal_info;
     uint32_t                    enc_data_size;
@@ -1656,18 +1656,18 @@ static uint32_t tpm_get_capability(
     return ret;
 }
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_pcr_selection_t         pcr_selection;
     tpm_locality_selection_t    locality_at_release;
     tpm_composite_hash_t        digest_at_release;
 } tpm_pcr_info_short_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t tag;
     uint32_t            attributes;
 } tpm_nv_attributes_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t     tag;
     tpm_nv_index_t          nv_index;
     tpm_pcr_info_short_t    pcr_info_read;
@@ -1724,7 +1724,7 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
     return ret;
 }
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t tag;
     uint8_t disable;
     uint8_t ownership;
@@ -1748,7 +1748,7 @@ typedef struct __attribute__ ((packed)) {
     uint8_t disable_full_da_logic_info;
 } tpm_permanent_flags_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     tpm_structure_tag_t tag;
     uint8_t deactivated;
     uint8_t disable_force_clear;
