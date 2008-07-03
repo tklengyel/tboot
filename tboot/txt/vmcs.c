@@ -231,7 +231,7 @@ extern void _mini_guest(void);
  */
 static void construct_vmcs(void)
 {
-    struct __attribute__ ((packed)) {
+    struct __packed {
         uint16_t  limit;
         uint32_t  base;
     } xdt;

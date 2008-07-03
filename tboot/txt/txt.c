@@ -345,7 +345,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
 
 static void txt_wakeup_cpus(void)
 {
-    struct __attribute__ ((packed)) {
+    struct __packed {
         uint16_t  limit;
         uint32_t  base;
     } gdt;
