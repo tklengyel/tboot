@@ -36,7 +36,7 @@
 #ifndef __UUID_H__
 #define __UUID_H__
 
-typedef struct __attribute__ ((__packed__)) {
+typedef struct __packed {
   uint32_t    data1;
   uint16_t    data2;
   uint16_t    data3;

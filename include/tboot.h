@@ -37,10 +37,14 @@
 #ifndef __TBOOT_H__
 #define __TBOOT_H__
 
+#ifndef __packed
+#define __packed   __attribute__ ((packed))
+#endif
+
 /* define uuid_t here in case uuid.h wasn't pre-included */
 /* (i.e. so tboot.h can be self-sufficient) */
 #ifndef __UUID_H__
-typedef struct __attribute__ ((__packed__)) {
+typedef struct __packed {
   uint32_t    data1;
   uint16_t    data2;
   uint16_t    data3;
@@ -53,7 +57,7 @@ typedef struct __attribute__ ((__packed__)) {
  * used to communicate between tboot and the launched kernel (i.e. Xen)
  */
 
-typedef struct __attribute__ ((__packed__)) {
+typedef struct __packed {
     uint16_t pm1a_cnt;
     uint16_t pm1b_cnt;
     uint16_t pm1a_evt;
@@ -62,7 +66,7 @@ typedef struct __attribute__ ((__packed__)) {
     uint16_t pm1b_cnt_val;
 } tboot_acpi_sleep_info;
 
-typedef struct __attribute__ ((__packed__)) {
+typedef struct __packed {
     uuid_t    uuid;              /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
     uint32_t  version;           /* currently 0.2 */
     uint32_t  log_addr;          /* physical addr of log or NULL if none */

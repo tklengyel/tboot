@@ -31,6 +31,10 @@
 #ifndef __TXT_LCP_H__
 #define __TXT_LCP_H__
 
+#ifndef __packed
+#define __packed   __attribute__ ((packed))
+#endif
+
 /*--------- LCP UUID ------------*/
 #define LCP_POLICY_DATA_UUID   {0xab0d1925, 0xeee7, 0x48eb, 0xa9fc, \
                                {0xb, 0xac, 0x5a, 0x26, 0x2d, 0xe}}
@@ -78,7 +82,7 @@ typedef union {
     uint8_t    sha256[SHA256_LENGTH];
 } lcp_hash_t;
 
-typedef struct __attribute__((packed)) {
+typedef struct __packed {
     uint8_t     version;
     uint8_t     hash_alg;        /* one of LCP_POLHALG_* */
     uint8_t     policy_type;     /* one of LCP_POLTYPE_* */
@@ -88,7 +92,7 @@ typedef struct __attribute__((packed)) {
     lcp_hash_t  policy_hash;
 } lcp_policy_t;
 
-typedef struct __attribute__((packed)) {
+typedef struct __packed {
     uint8_t version;
     uint8_t count;
     union{
@@ -97,18 +101,18 @@ typedef struct __attribute__((packed)) {
     };
 } lcp_unsigned_list_t;
 
-typedef struct __attribute__((packed)) {
+typedef struct __packed {
     uint16_t             type;               /* One of LCP_POLDESC_*  */
     lcp_unsigned_list_t  unsigned_list;
 } lcp_policy_list_t;
 
-typedef struct __attribute__((packed)) {
+typedef struct __packed {
     uint8_t            version;
     uint8_t            policy_data_listsize;
     lcp_policy_list_t  policy_data_list[];
 } lcp_unsigned_policy_data_t;
 
-typedef struct __attribute__((packed)) {
+typedef struct __packed {
     uuid_t                      uuid;
     lcp_unsigned_policy_data_t  unsigned_data;
 } lcp_policy_data_t;

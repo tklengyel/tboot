@@ -28,7 +28,7 @@
 
 /* Root System Description Pointer (RSDP) */
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     char        signature[8];
     uint8_t     checksum;
     char        oem_id[6];
@@ -36,7 +36,7 @@ typedef struct __attribute__ ((packed)) {
     uint32_t    rsdt_address;
 } acpi_table_rsdp_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     char        signature[8];
     uint8_t     checksum;
     char        oem_id[6];
@@ -48,12 +48,12 @@ typedef struct __attribute__ ((packed)) {
     uint8_t     reserved[3];
 } acpi20_table_rsdp_t;
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     uint8_t     type;
     uint8_t     length;
 } acpi_table_entry_header_t;
 
-typedef struct __attribute__ ((packed)) { /* ACPI common table header */
+typedef struct __packed {      /* ACPI common table header */
     char        signature[4];  /* ACPI signature (4 ASCII characters) */
     uint32_t    length;        /* Length of table, in bytes, including header */
     uint8_t     revision;      /* ACPI Specification minor version # */
@@ -67,21 +67,21 @@ typedef struct __attribute__ ((packed)) { /* ACPI common table header */
 
 /* Root System Description Table (RSDT) */
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     acpi_table_header_t header;
     uint32_t            entry[8];
 } acpi_table_rsdt_t;
 
 /* Extended System Description Table (XSDT) */
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     acpi_table_header_t header;
     uint64_t            entry[1];
 } acpi_table_xsdt_t;
 
 /* PCI MMCONFIG */
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     acpi_table_header_t header;
     uint8_t             reserved[8];
     uint32_t            base_address;
@@ -90,7 +90,7 @@ typedef struct __attribute__ ((packed)) {
 
 /* Multiple APIC Description Table (MADT) */
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     acpi_table_header_t header;
     uint32_t            lapic_address;
     struct {
@@ -112,7 +112,7 @@ enum acpi_madt_entry_id {
     ACPI_MADT_ENTRY_COUNT
 };
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     acpi_table_entry_header_t   header;
     uint8_t                     id;
     uint8_t                     reserved;

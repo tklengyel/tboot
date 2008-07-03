@@ -63,7 +63,7 @@ typedef enum {
  * policies
  */
 
-typedef struct __attribute__ ((__packed__)) {
+typedef struct __packed {
     uuid_t       uuid;
     uint8_t      hash_alg;            /* TB_HALG_* */
     uint8_t      hash_type;           /* TB_HTYPE_* */
@@ -72,7 +72,7 @@ typedef struct __attribute__ ((__packed__)) {
     tb_hash_t    hashes[];
 } tb_policy_t;
 
-typedef struct __attribute__ ((__packed__)) {
+typedef struct __packed {
     uint8_t             version;      /* applies to this and tb_policy_t */
     uint8_t             policy_type;  /* TB_POLTYPE_* */
     uint32_t            reserved;

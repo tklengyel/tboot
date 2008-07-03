@@ -41,6 +41,7 @@
 #include <string.h>
 #include <getopt.h>
 #define PRINT   printf
+#include "../include/config.h"
 #include "../include/uuid.h"
 #include "../include/hash.h"
 #include "../include/tb_error.h"

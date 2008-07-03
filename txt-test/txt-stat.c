@@ -43,9 +43,9 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #define printk   printf
+#include "../include/config.h"
 #include "../include/uuid.h"
 #include "../include/tboot.h"
-#include "../tboot/include/config.h"
 #include "../tboot/include/txt/config_regs.h"
 
 #define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)

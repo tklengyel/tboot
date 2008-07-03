@@ -67,6 +67,8 @@
         compile_time_assert_failed[0] = 0;                       \
     }
 
-#define __data __attribute__ ((__section__ (".data")))
+#define __data     __attribute__ ((__section__ (".data")))
+
+#define __packed   __attribute__ ((packed))
 
 #endif /* __CONFIG_H__ */
