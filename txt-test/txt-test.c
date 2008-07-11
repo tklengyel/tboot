@@ -46,10 +46,10 @@
 #include <linux/highmem.h>
 #include <asm/io.h>
 #include <asm/page.h>
+#include "../include/config.h"
 #include "../include/uuid.h"
 #include "../include/tboot.h"
 #include "../tboot/include/tpm.h"
-#include "../tboot/include/config.h"
 #include "../tboot/include/txt/config_regs.h"
 
 /* device name for Intel(r) TXT device we create */
