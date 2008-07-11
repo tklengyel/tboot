@@ -81,14 +81,11 @@ void print_tb_error_msg(tb_error_t error)
         case TB_ERR_TXT_NOT_SUPPORTED:
             printk("TXT not supported.\n");
             break;
-        case TB_ERR_POLICY_VMM_VERIFY_FAILED:
-            printk("verifying VMM against policy failed.\n");
-            break;
-        case TB_ERR_POLICY_DOM0_VERIFY_FAILED:
-            printk("verifying dom0 against policy failed.\n");
-            break;
-        case TB_ERR_POLICY_MODULES_NOT_IN_POLICY:
+        case TB_ERR_MODULES_NOT_IN_POLICY:
             printk("modules in mbi but not in policy.\n");
+            break;
+        case TB_ERR_MODULE_VERIFICATION_FAILED:
+            printk("verifying module against policy failed.\n");
             break;
         case TB_ERR_POLICY_INVALID:
             printk("policy invalid.\n");

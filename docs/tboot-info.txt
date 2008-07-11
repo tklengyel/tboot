@@ -40,8 +40,7 @@ o  Intel(R) TXT Launch Control Policy (LCP) tools.  The lcptools project
    create and provision TXT Launch Control policies.  LCP uses TPM
    non-volatile storage (TPM NV) to hold a launch policy, which the SINIT AC
    module reads and uses to enforce which measured launched environments
-   (MLEs) (e.g. tboot) can be launched (based on a SHA-1 hash).  TXT LCP will
-   be documented in a separate specification to be released shortly.  These
+   (MLEs) (e.g. tboot) can be launched (based on a SHA-1 hash).  These
    tools require a TPM Software Stack (TSS) that supports the Tspi_NV_* API.
    Versions of the TrouSerS project >0.3.0 support them.
 
@@ -61,8 +60,8 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
            root (hd0,1)
            kernel /tboot.gz
            module /xen.gz vtd=1 dom0_mem=524288 com1=115200,8n1
-           module /vmlinuz-2.6.18-xen root=/dev/VolGroup00/LogVol00 ro
-           module /initrd-2.6.18-xen.img
+           module /vmlinuz-2.6.18.8-xen root=/dev/VolGroup00/LogVol00 ro
+           module /initrd-2.6.18.8-xen.img
            module /Q35_SINIT_16.BIN
 
 o  It is optional to include 'vtd=1' on Xen's command line, though omitting it
@@ -98,8 +97,6 @@ o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
    order to trap on INIT-SIPI-SIPI.
 
-o  The tools/txt-test project contains a Linux kernel module that reads some of
-   the TXT registers and also verifies the memory protections.  It
-   will also display the tboot boot log, in case a system does not have
-   serial support.  It also contains a Linux application that will read and
-   display some of the TXT registers and state.
+o  The tools/txt-test project contains a Linux application that will read and
+   display some of the TXT registers and state as well as the in-memory log if
+   it was enabled in tboot.

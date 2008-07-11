@@ -1,7 +1,7 @@
 /*
  * policy.c: policy support functions
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,175 +41,49 @@
 #include <string.h>
 #define PRINT   printf
 #include "../include/config.h"
-#include "../include/uuid.h"
 #include "../include/hash.h"
 #include "../include/tb_error.h"
 #include "../include/tb_policy.h"
 #include "tb_polgen.h"
 
-#define MAX_TB_POL_HASHES      3
-#define MAX_TB_POLICIES        6
+/* buffer for policy read/written from/to policy file */
+static uint8_t _policy_buf[MAX_TB_POLICY_SIZE];
 
-/*
- * internal policy structures to facilitate operations
- */
-
-typedef struct {
-    uuid_t       uuid;
-    uint8_t      hash_alg;            /* TB_HALG_* */
-    uint8_t      hash_type;           /* TB_HTYPE_* */
-    uint8_t      num_hashes;
-    tb_hash_t    hashes[MAX_TB_POL_HASHES];
-} _policy_t;
-
-typedef struct {
-    uint8_t        version;      /* applies to this and tb_policy_t */
-    uint8_t        policy_type;  /* TB_POLTYPE_* */
-    uint8_t        num_policies;
-    _policy_t      policies[MAX_TB_POLICIES];
-} _policy_index_t;
+tb_policy_t *g_policy = (tb_policy_t *)_policy_buf;
 
 
-#define MAX_TB_POL_INDEX_SIZE       sizeof(tb_policy_index_t) + \
-                                    MAX_TB_POLICIES * (sizeof(tb_policy_t) +  \
-                                    MAX_TB_POLICIES * MAX_TB_POL_HASHES * \
-                                                       sizeof(tb_hash_t))
-
-/* tb_policy_index_t buffer for data read/written from/to policy file */
-static unsigned char _tb_policy_index_buf[MAX_TB_POL_INDEX_SIZE];
-
-static _policy_index_t g_policy_index;
-
-
-static bool verify_policy(const unsigned char *policy_index_buf, int size)
+bool read_policy_file(const char *policy_filename, bool *file_exists)
 {
-    const tb_policy_index_t *policy_index =
-        (const tb_policy_index_t *)policy_index_buf;
-    const tb_policy_t *policy;
-    int i, j;
-
-    info_msg("policy_index:\n");
-
-    if ( policy_index_buf == NULL ) {
-        info_msg("tb_policy_index pointer is NULL\n");
-        return false;
-    }
-
-    if ( size < sizeof(tb_policy_index_t) ) {
-        info_msg("size of policy is too small (%d)\n", size);
-        return false;
-    }
-
-    if ( policy_index->version != 0x01 ) {
-        info_msg("unsupported version (%d)\n", policy_index->version);
-        return false;
-    }
-    info_msg("\t version = %d\n", policy_index->version);
-
-    if ( policy_index->policy_type >= TB_POLTYPE_MAX ) {
-        info_msg("unsupported policy_type (%d)\n", policy_index->policy_type);
-        return false;
-    }
-    info_msg("\t policy_type = %d\n", policy_index->policy_type);
-
-    info_msg("\t num_policies = %d\n", policy_index->num_policies);
-
-    policy = policy_index->policies;
-    for ( i = 0; i < policy_index->num_policies; i++ ) {
-        /* check header of policy */
-        if ( ((void *)policy - (void *)policy_index + sizeof(tb_policy_t)) >
-             size ) {
-            info_msg("size of policy is too small (%d)\n", size);
-            return false;
-        }
-
-        info_msg("\t policy[%d]:\n", i);
-
-        info_msg("\t\t uuid = "); if ( verbose ) print_uuid(&(policy->uuid));
-        info_msg("\n");
-
-        if ( policy->hash_alg != TB_HALG_SHA1 ) {
-            info_msg("unsupported hash_alg (%d)\n", policy->hash_alg);
-            return false;
-        }
-        info_msg("\t\t hash_alg = %d\n", policy->hash_alg);
-
-        if ( policy->hash_type > TB_HTYPE_HASHONLY ) {
-            info_msg("unsupported hash_type (%d)\n", policy->hash_type);
-            return false;
-        }
-        info_msg("\t\t hash_type = %d\n", policy->hash_type);
-
-        info_msg("\t\t num_hashes = %d\n", policy->num_hashes);
-
-        /* check all of policy */
-        if ( ((void *)policy - (void *)policy_index + sizeof(tb_policy_t) +
-              policy->num_hashes * sizeof(tb_hash_t)) >
-             size ) {
-            info_msg("size of policy is too small (%d)\n", size);
-            return false;
-        }
-
-        for ( j = 0; j < policy->num_hashes; j++ ) {
-            info_msg("\t\t hashes[%d] = ", j);
-            if ( verbose ) print_hash(&(policy->hashes[j]), policy->hash_alg);
-        }
-
-        policy = (void *)policy + sizeof(tb_policy_t) +
-            policy->num_hashes * sizeof(tb_hash_t);
-    }
-
-    return true;
-}
-
-bool read_policy_file(const char *policy_filename)
-{
-    FILE *f;
-    size_t read_cnt;
-    const tb_policy_index_t *tb_policy_index =
-        (const tb_policy_index_t *)_tb_policy_index_buf;
-    const tb_policy_t *tb_policy;
-    _policy_t *policy;
-    int i, j;
-
-    f = fopen(policy_filename, "r");
+    FILE *f = fopen(policy_filename, "r");
     if ( f == NULL ) {
+        if ( file_exists != NULL )
+            *file_exists = (errno != ENOENT);
         info_msg("fopen failed, errno %s\n", strerror(errno));
         return false;
     }
+    if ( file_exists != NULL )
+        *file_exists = true;
 
     /* clear for good measure */
-    memset(_tb_policy_index_buf, sizeof(_tb_policy_index_buf), 0);
+    memset(_policy_buf, 0, sizeof(_policy_buf));
 
-    read_cnt = fread(_tb_policy_index_buf, 1, sizeof(_tb_policy_index_buf), f);
-    if ( !verify_policy(_tb_policy_index_buf, read_cnt) ) {
-        info_msg("fread failed, errno %s\n", strerror(errno));
-        error_msg("Policy file %s is corrupt\n", policy_filename);
+    size_t read_cnt = fread(_policy_buf, 1, sizeof(_policy_buf), f);
+    if ( ferror(f) ) {
+        error_msg("fread failed, errno %s\n", strerror(errno));
+        fclose(f);
+        return false;
+    }
+    if ( read_cnt == 0 ) {
+        error_msg("Policy file %s is empty\n", policy_filename);
+        fclose(f);
         return false;
     }
 
-    /*
-     * de-serialize to internal data struct
-     */
-    memset(&g_policy_index, 0, sizeof(g_policy_index));
-
-    g_policy_index.version = tb_policy_index->version;
-    g_policy_index.policy_type = tb_policy_index->policy_type;
-    g_policy_index.num_policies = tb_policy_index->num_policies;
+    fclose(f);
     
-    tb_policy = tb_policy_index->policies;
-    for ( i = 0; i < g_policy_index.num_policies; i++ ) {
-        policy = &(g_policy_index.policies[i]);
-
-        policy->uuid = tb_policy->uuid;
-        policy->hash_alg = tb_policy->hash_alg;
-        policy->hash_type = tb_policy->hash_type;
-        policy->num_hashes = tb_policy->num_hashes;
-        for ( j = 0; j < policy->num_hashes; j++ )
-            copy_hash(&policy->hashes[j], &tb_policy->hashes[j], TB_HALG_SHA1);
-
-        tb_policy = (void *)tb_policy + sizeof(tb_policy_t) +
-            policy->num_hashes * sizeof(tb_hash_t);
+    if ( !verify_policy(g_policy, read_cnt, verbose) ) {
+        error_msg("Policy file %s is corrupt\n", policy_filename);
+        return false;
     }
 
     return true;
@@ -217,197 +91,134 @@ bool read_policy_file(const char *policy_filename)
 
 bool write_policy_file(const char *policy_filename)
 {
-    FILE *f;
-    size_t write_cnt;
-    tb_policy_index_t *tb_policy_index =
-        (tb_policy_index_t *)_tb_policy_index_buf;
-    tb_policy_t *tb_policy;
-    _policy_t *policy;
-    int i, j;
+    verify_policy(g_policy, sizeof(_policy_buf), verbose);
 
-    /*
-     * serialize from internal data struct
-     */
-    memset(_tb_policy_index_buf, sizeof(_tb_policy_index_buf), 0);
-
-    tb_policy_index->version = g_policy_index.version;
-    tb_policy_index->policy_type = g_policy_index.policy_type;
-    tb_policy_index->num_policies = g_policy_index.num_policies;
-
-    tb_policy = tb_policy_index->policies;
-    for ( i = 0; i < g_policy_index.num_policies; i++ ) {
-        policy = &(g_policy_index.policies[i]);
-
-        tb_policy->uuid = policy->uuid;
-        tb_policy->hash_alg = policy->hash_alg;
-        tb_policy->hash_type = policy->hash_type;
-        tb_policy->num_hashes = policy->num_hashes;
-        for ( j = 0; j < policy->num_hashes; j++ )
-            copy_hash(&tb_policy->hashes[j], &policy->hashes[j], TB_HALG_SHA1);
-
-        tb_policy = (void *)tb_policy + sizeof(tb_policy_t) +
-            tb_policy->num_hashes * sizeof(tb_hash_t);
-    }
-
-    /*
-     * write serialized data to policy file
-     */
-
-    f = fopen(policy_filename, "w");
+    FILE *f = fopen(policy_filename, "w");
     if ( f == NULL ) {
         info_msg("fopen failed, errno %s\n", strerror(errno));
         return false;
     }
 
-    /* write fixed-size part */
-    write_cnt = fwrite(tb_policy_index, 1, sizeof(*tb_policy_index), f);
-    if ( write_cnt != sizeof(*tb_policy_index) ) {
-        info_msg("error writing policy_index, errno %s\n", strerror(errno));
-        goto error;
-    }
-    tb_policy = tb_policy_index->policies;
-    for ( i = 0; i < tb_policy_index->num_policies; i++ ) {
-        /* write fixed-size part */
-        write_cnt = fwrite(tb_policy, 1, sizeof(*tb_policy), f);
-        if ( write_cnt != sizeof(*tb_policy) ) {
-            info_msg("error writing policy, errno %s\n", strerror(errno));
-            goto error;
-        }
-
-        /* write hashes */
-        write_cnt = fwrite(tb_policy->hashes, 1,
-                           tb_policy->num_hashes *
-                           sizeof(tb_policy->hashes[0]), f);
-        if ( write_cnt != tb_policy->num_hashes *
-             sizeof(tb_policy->hashes[0]) ) {
-            info_msg("error writing policy hashes, errno %s\n",
-                     strerror(errno));
-            goto error;
-        }
-
-        tb_policy = (void *)tb_policy + sizeof(tb_policy_t) +
-            tb_policy->num_hashes * sizeof(tb_hash_t);
+    size_t pol_size = calc_policy_size(g_policy);
+    size_t write_cnt = fwrite(_policy_buf, 1, pol_size, f);
+    if ( write_cnt != pol_size ) {
+        info_msg("error writing policy, errno %s\n", strerror(errno));
+        fclose(f);
+        return false;
     }
 
     fclose(f);
 
     return true;
-
- error:
-    fclose(f);
-    return false;
 }
 
-static char *policy_type_to_string(tb_policy_type_t policy_type)
+void new_policy(int policy_type, int policy_control)
 {
-    static char buf[64];
+    /* current version is 2 */
+    g_policy->version = 2;
 
-    switch ( policy_type ) {
-        case TB_POLTYPE_CONT_NON_FATAL:
-            return "TB_POLTYPE_CONT_NON_FATAL";
-        case TB_POLTYPE_CONT_VERIFY_FAIL:
-            return "TB_POLTYPE_CONT_VERIFY_FAIL";
-        case TB_POLTYPE_HALT:
-            return "TB_POLTYPE_HALT";
-        default:
-            snprintf(buf, sizeof(buf), "unsupported (%d)", policy_type);
-            return buf;
-    }
+    g_policy->hash_alg = TB_HALG_SHA1;
+
+    g_policy->num_entries = 0;
+
+    modify_policy(policy_type, policy_control);
 }
 
-static char *hash_type_to_string(tb_hash_type_t hash_type)
+void modify_policy(int policy_type, int policy_control)
 {
-    static char buf[64];
-
-    switch ( hash_type ) {
-        case TB_HTYPE_ANY:
-            return "TB_HTYPE_ANY";
-        case TB_HTYPE_HASHONLY:
-            return "TB_HTYPE_HASHONLY";
-        default:
-            snprintf(buf, sizeof(buf), "unsupported (%d)", hash_type);
-            return buf;
-    }
-}
-
-void display_policy(void)
-{
-    int i, j;
-
-    /* assumes policy_index has already been validated */
-
-    printf("policy_index:\n");
-    printf("\t version = %d\n", g_policy_index.version);
-    printf("\t policy_type = %s\n",
-           policy_type_to_string(g_policy_index.policy_type));
-    printf("\t num_policies = %d\n", g_policy_index.num_policies);
-
-    for ( i = 0; i < g_policy_index.num_policies; i++ ) {
-        _policy_t *policy = &(g_policy_index.policies[i]);
-
-        printf("\t policy[%d]:\n", i);
-        printf("\t\t uuid = ");
-        if ( are_uuids_equal(&policy->uuid, &((uuid_t)TBPOL_VMM_UUID)) )
-            printf("VMM\n");
-        else if ( are_uuids_equal(&policy->uuid, &((uuid_t)TBPOL_DOM0_UUID)) )
-            printf("DOM0\n");
-        else {
-            print_uuid(&(policy->uuid)); printf("\n");
-        }
-        printf("\t\t hash_alg = %s\n", hash_alg_to_string(policy->hash_alg));
-        printf("\t\t hash_type = %s\n",
-               hash_type_to_string(policy->hash_type));
-        printf("\t\t num_hashes = %d\n", policy->num_hashes);
-        for ( j = 0; j < policy->num_hashes; j++ ) {
-            printf("\t\t hashes[%d] = ", j);
-            print_hash(&(policy->hashes[j]), policy->hash_alg);
-        }
-    }
-}
-
-void modify_policy_index(tb_policy_type_t policy_type)
-{
-    /* current version is 1 */
-    g_policy_index.version = 1;
-
     if ( policy_type != -1 )
-        g_policy_index.policy_type = policy_type;
+        g_policy->policy_type = policy_type;
+
+    g_policy->policy_control = (uint32_t)policy_control;
 }
 
-bool replace_policy(const uuid_t *uuid, tb_hash_type_t hash_type,
-                    const tb_hash_t *hash)
+tb_policy_entry_t *add_pol_entry(uint8_t mod_num, uint8_t pcr,
+                                 uint8_t hash_type)
 {
-    _policy_t *policy = NULL;
-    int i;
+    /* assumes check for existing mod_num already done */
 
-    /* find any existing policy with same UUID */
-    for ( i = 0; i < g_policy_index.num_policies; i++ ) {
-        policy = &(g_policy_index.policies[i]);
-        if ( are_uuids_equal(&policy->uuid, uuid) )
-            break;
-    }
+    info_msg("adding new policy entry for mod_num %u (pcr: %u, "
+             "hash_type: %u)\n", mod_num, pcr, hash_type);
 
-    /* if none found, then need to add at first empty slot */
-    /* which will be current value of i */
-    if ( i == g_policy_index.num_policies ) {
-        if ( g_policy_index.num_policies >= MAX_TB_POLICIES )
-            return false;
-        info_msg("adding a new policy\n");
-        policy = &(g_policy_index.policies[i]);
-        policy->uuid = *uuid;
-        policy->hash_alg = TB_HALG_SHA1;
-        g_policy_index.num_policies++;
-    }
-    else
-        info_msg("updating existing policy\n");
+    /* TODO:  if there is already a MOD_NUM_ANY entry then insert this */
+    /* new one before it */
 
-    policy->hash_type = hash_type;
-    if ( hash_type == TB_HTYPE_ANY )
-        policy->num_hashes = 0;
-    else {
-        policy->num_hashes = 1;
-        copy_hash(&policy->hashes[0], hash, TB_HALG_SHA1);
-    }
+    /* always goes at end of policy, so no need to make space, */
+    /* just find end of policy data */
+    size_t size = calc_policy_size(g_policy);
+    if ( size + sizeof(tb_policy_entry_t) > sizeof(_policy_buf) )
+        return NULL;
+    tb_policy_entry_t *pol_entry = (tb_policy_entry_t *)(_policy_buf + size);
+
+    pol_entry->mod_num = mod_num;
+    pol_entry->pcr = pcr;
+    pol_entry->hash_type = hash_type;
+    pol_entry->num_hashes = 0;
+
+    g_policy->num_entries++;
+
+    return pol_entry;
+}
+
+void modify_pol_entry(tb_policy_entry_t *pol_entry, uint8_t pcr,
+                      uint8_t hash_type)
+{
+    if ( pol_entry == NULL )
+        return;
+
+    info_msg("modifying policy entry for mod_num %u\n", pol_entry->mod_num);
+
+    pol_entry->pcr = pcr;
+    pol_entry->hash_type = hash_type;
+}
+
+bool add_hash(tb_policy_entry_t *pol_entry, const tb_hash_t *hash)
+{
+    if ( pol_entry == NULL )
+        return false;
+
+    /* since pol_entry may not be last in policy, need to make space */
+    size_t pol_size = calc_policy_size(g_policy);
+    size_t hash_size = get_hash_size(g_policy->hash_alg);
+    if ( pol_size + hash_size > sizeof(_policy_buf) )
+        return false;
+    unsigned char *entry_end = (unsigned char *)pol_entry + sizeof(*pol_entry)
+                               + (pol_entry->num_hashes * hash_size);
+    unsigned char *pol_end = _policy_buf + pol_size;
+    memmove(entry_end + hash_size, entry_end, pol_end - entry_end);
+
+    copy_hash((tb_hash_t *)entry_end, hash, g_policy->hash_alg);
+    pol_entry->num_hashes++;
+
+    return true;
+}
+
+bool del_hash(tb_policy_entry_t *pol_entry, int i)
+{
+    if ( pol_entry == NULL )
+        return false;
+    if ( i < 0 || i >= pol_entry->num_hashes )
+        return false;
+
+    void *start = get_policy_entry_hash(pol_entry, g_policy->hash_alg, i);
+    size_t size = get_hash_size(g_policy->hash_alg);
+    memmove(start, start + size, calc_policy_size(g_policy) - size);
+
+    pol_entry->num_hashes--;
+
+    return true;
+}
+
+bool del_entry(tb_policy_entry_t *pol_entry)
+{
+    if ( pol_entry == NULL )
+        return false;
+
+    void *start = pol_entry;
+    size_t size = calc_policy_entry_size(pol_entry, g_policy->hash_alg);
+    memmove(start, start + size, calc_policy_size(g_policy) - size);
+
+    g_policy->num_entries--;
 
     return true;
 }

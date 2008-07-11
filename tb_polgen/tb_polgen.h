@@ -44,18 +44,21 @@ extern bool verbose;
 #define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
 
 typedef enum {
-    POLGEN_CMD_NONE, POLGEN_CMD_HELP, POLGEN_CMD_CREATE, POLGEN_CMD_SHOW
+    POLGEN_CMD_NONE, POLGEN_CMD_HELP, POLGEN_CMD_CREATE, POLGEN_CMD_ADD,
+    POLGEN_CMD_DEL, POLGEN_CMD_SHOW,
 } polgen_cmd_t;
 
 typedef struct {
-    polgen_cmd_t       cmd;
-    uuid_t             uuid;
-    tb_policy_type_t   policy_type;
-    tb_hash_type_t     hash_type;
-    char               policy_file[FILENAME_MAX];
-    char               cmdline[256];
-    int                num_infiles;
-    char               infiles[4][FILENAME_MAX];
+    polgen_cmd_t   cmd;
+    int            policy_type;
+    int            policy_control;
+    int            mod_num;
+    int            pcr;
+    int            hash_type;
+    int            pos;
+    char           cmdline[256];
+    char           image_file[FILENAME_MAX];
+    char           policy_file[FILENAME_MAX];
 } param_data_t;
 
 /* in param.c */
@@ -65,15 +68,22 @@ extern void print_params(param_data_t *params);
 
 /* in commands.c */
 extern bool do_create(const param_data_t *params);
+extern bool do_add(const param_data_t *params);
+extern bool do_del(const param_data_t *params);
 extern bool do_show(const param_data_t *params);
 
 /* in policy.c */
-extern bool read_policy_file(const char *policy_filename);
+extern bool read_policy_file(const char *policy_filename, bool *file_exists);
 extern bool write_policy_file(const char *policy_filename);
-extern void display_policy(void);
-extern void modify_policy_index(tb_policy_type_t policy_type);
-extern bool replace_policy(const uuid_t *uuid, tb_hash_type_t hash_type,
-                           const tb_hash_t *hash);
+extern void new_policy(int policy_type, int policy_control);
+extern void modify_policy(int policy_type, int policy_control);
+extern tb_policy_entry_t *add_pol_entry(uint8_t mod_num, uint8_t pcr,
+                                        uint8_t hash_type);
+extern void modify_pol_entry(tb_policy_entry_t *pol_entry, uint8_t pcr,
+                             uint8_t hash_type);
+extern bool add_hash(tb_policy_entry_t *pol_entry, const tb_hash_t *hash);
+extern bool del_hash(tb_policy_entry_t *pol_entry, int i);
+extern bool del_entry(tb_policy_entry_t *pol_entry);
 
 #endif /* __TB_POLGEN_H__ */
 

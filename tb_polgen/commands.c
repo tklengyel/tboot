@@ -1,7 +1,7 @@
 /*
  * commands.c: handlers for commands
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,11 +42,12 @@
 #include <openssl/evp.h>
 #define PRINT   printf
 #include "../include/config.h"
-#include "../include/uuid.h"
 #include "../include/hash.h"
 #include "../include/tb_error.h"
 #include "../include/tb_policy.h"
 #include "tb_polgen.h"
+
+extern tb_policy_t *g_policy;
 
 static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
 {
@@ -91,12 +92,13 @@ static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
 bool do_show(const param_data_t *params)
 {
     /* read the policy file */
-    if ( !read_policy_file(params->policy_file) ) {
+    if ( !read_policy_file(params->policy_file, NULL) ) {
         error_msg("Error reading policy file %s\n", params->policy_file);
         return false;
     }
 
-    display_policy();
+    /* this also displays it */
+    verify_policy(g_policy, calc_policy_size(g_policy), true);
 
     return true;
 }
@@ -104,67 +106,28 @@ bool do_show(const param_data_t *params)
 bool do_create(const param_data_t *params)
 {
     bool existing_policy = false;
-    tb_hash_t final_hash, hash;
-    bool unzip = true;
-    bool is_cmdline = true;
-    int i;
 
-    /* read the policy file */
+    /* read the policy file, if it exists */
     info_msg("reading existing policy file %s...\n", params->policy_file);
-    if ( read_policy_file(params->policy_file) )
-        existing_policy = true;
-
+    if ( !read_policy_file(params->policy_file, &existing_policy) ) {
+        /* this means there was an error reading an existing file */
+        if ( existing_policy ) {
+            error_msg("Error reading policy file %s\n", params->policy_file);
+            return false;
+        }
+    }
+    
     /* policy_type must be specified for new policy */
     if ( !existing_policy && params->policy_type == -1 ) {
         error_msg("Must specify --policy_type for new policy\n");
         return false;
     }
 
-    modify_policy_index(params->policy_type);
-
-    /*
-     * add/replace policies
-     */
-    /* hash command line and files */
-    if ( params->hash_type != TB_HTYPE_ANY ) {
-        if ( strlen(params->cmdline) > 0 ) {
-            EVP_MD_CTX ctx;
-            const EVP_MD *md;
-            /* hash command line */
-            info_msg("hashing command line \"%s\"...", params->cmdline);
-            md = EVP_sha1();
-            EVP_DigestInit(&ctx, md);
-            EVP_DigestUpdate(&ctx, (unsigned char *)params->cmdline,
-                             strlen(params->cmdline));
-            EVP_DigestFinal(&ctx, (unsigned char *)&final_hash, NULL);
-            if ( verbose ) print_hash(&final_hash, TB_HALG_SHA1);
-            is_cmdline = true;
-        }
-        else
-            is_cmdline = false;
-
-        /* hash files */
-        info_msg("hashing command input files...\n");
-        for ( i = 0; i < params->num_infiles; i++ ) {
-            if ( !hash_file(params->infiles[i], unzip, &hash) )
-                return false;
-            info_msg("file %s hash is...", params->infiles[i]);
-            if ( verbose ) print_hash(&hash, TB_HALG_SHA1);
-
-            if ( !is_cmdline && i == 0 )
-                memcpy(&final_hash, &hash, sizeof(hash));
-            else {
-                if ( !extend_hash(&final_hash, &hash, TB_HALG_SHA1) )
-                    return false;
-            }
-            info_msg("cummulative hash is ");
-            if ( verbose ) print_hash(&final_hash, TB_HALG_SHA1);
-        }
-    }
-    /* add/replace the policy */
-    info_msg("updating policy...\n");
-    if ( !replace_policy(&params->uuid, params->hash_type, &final_hash) )
-        return false;
+    /* if file does not exist then create empty policy */
+    if ( !existing_policy )
+        new_policy(params->policy_type, params->policy_control);
+    else
+        modify_policy(params->policy_type, params->policy_control);
 
     info_msg("writing new policy file...\n");
     if ( !write_policy_file(params->policy_file) )
@@ -173,6 +136,129 @@ bool do_create(const param_data_t *params)
     return true;
 }
 
+bool do_add(const param_data_t *params)
+{
+    /* read the policy file, if it exists */
+    info_msg("reading existing policy file %s...\n", params->policy_file);
+    if ( !read_policy_file(params->policy_file, NULL) ) {
+        error_msg("Error reading policy file %s\n", params->policy_file);
+        return false;
+    }
+
+    /* see if there is already an entry for this module */
+    tb_policy_entry_t *pol_entry = find_policy_entry(g_policy,
+                                                     params->mod_num);
+    if ( pol_entry == NULL || pol_entry->mod_num != params->mod_num ) {
+        /* since existing entry whose mod_num is TB_POL_MOD_NUM_ANY will */
+        /* match, exclude it unless that is what is being added */
+        pol_entry = add_pol_entry(params->mod_num, params->pcr,
+                                  params->hash_type);
+        if ( pol_entry == NULL ) {
+            error_msg("cannot add another entry\n");
+            return false;
+        }
+    }
+    else
+        modify_pol_entry(pol_entry, params->pcr, params->hash_type);
+
+    /* hash command line and files */
+    if ( params->hash_type == TB_HTYPE_IMAGE ) {
+        EVP_MD_CTX ctx;
+        const EVP_MD *md;
+        tb_hash_t final_hash, hash;
+
+        /* hash command line */
+        info_msg("hashing command line \"%s\"...\n", params->cmdline);
+        md = EVP_sha1();
+        EVP_DigestInit(&ctx, md);
+        EVP_DigestUpdate(&ctx, (unsigned char *)params->cmdline,
+                         strlen(params->cmdline));
+        EVP_DigestFinal(&ctx, (unsigned char *)&final_hash, NULL);
+        if ( verbose ) {
+            info_msg("hash is...");
+            print_hash(&final_hash, TB_HALG_SHA1);
+        }
+
+        /* hash file */
+        info_msg("hashing image file %s...\n", params->image_file);
+        if ( !hash_file(params->image_file, true, &hash) )
+            return false;
+        if ( verbose ) {
+            info_msg("hash is...");
+            print_hash(&hash, TB_HALG_SHA1);
+        }
+
+        if ( !extend_hash(&final_hash, &hash, TB_HALG_SHA1) )
+            return false;
+
+        if ( verbose ) {
+            info_msg("cummulative hash is...");
+            print_hash(&final_hash, TB_HALG_SHA1);
+        }
+
+        if ( !add_hash(pol_entry, &final_hash) ) {
+            error_msg("cannot add another hash\n");
+            return false;
+        }
+    }
+
+    info_msg("writing new policy file...\n");
+    if ( !write_policy_file(params->policy_file) )
+        return false;
+
+    return true;
+}
+
+bool do_del(const param_data_t *params)
+{
+    /* read the policy file, if it exists */
+    info_msg("reading existing policy file %s...\n", params->policy_file);
+    if ( !read_policy_file(params->policy_file, NULL) ) {
+        error_msg("Error reading policy file %s\n", params->policy_file);
+        return false;
+    }
+
+    /* see if there is an entry for this module */
+    tb_policy_entry_t *pol_entry = find_policy_entry(g_policy,
+                                                     params->mod_num);
+    if ( pol_entry == NULL ) {
+        error_msg("specified mod_num does not exist\n");
+        return false;
+    }
+
+    /* if pos was specified, find it */
+    if ( params->pos != -1 ) {
+        if ( params->pos >= pol_entry->num_hashes ) {
+            error_msg("specified pos does not exist\n");
+            return false;
+        }
+        /* if entry only has 1 hash, then delete the entire entry */
+        if ( pol_entry->num_hashes == 1 ) {
+            if ( !del_entry(pol_entry) ) {
+                error_msg("failed to delete entry\n");
+                return false;
+            }
+        }
+        else {
+            if ( !del_hash(pol_entry, params->pos) ) {
+                error_msg("failed to delete hash\n");
+                return false;
+            }
+        }
+    }
+    else {
+        if ( !del_entry(pol_entry) ) {
+            error_msg("failed to delete entry\n");
+            return false;
+        }
+    }
+
+    info_msg("writing new policy file...\n");
+    if ( !write_policy_file(params->policy_file) )
+        return false;
+
+    return true;
+}
 
 /*
  * Local variables:

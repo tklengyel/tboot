@@ -1,7 +1,7 @@
 /*
  * tb_polgen.c: policy generation tool for tboot
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,6 @@
 #include <string.h>
 #define PRINT   printf
 #include "../include/config.h"
-#include "../include/uuid.h"
 #include "../include/hash.h"
 #include "../include/tb_error.h"
 #include "../include/tb_policy.h"
@@ -59,6 +58,12 @@ int main (int argc, char *argv[])
     switch ( params.cmd ) {
         case POLGEN_CMD_CREATE:
             ret = do_create(&params);
+            break;
+        case POLGEN_CMD_ADD:
+            ret = do_add(&params);
+            break;
+        case POLGEN_CMD_DEL:
+            ret = do_del(&params);
             break;
         case POLGEN_CMD_SHOW:
             ret = do_show(&params);

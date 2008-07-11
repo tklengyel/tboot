@@ -2,7 +2,7 @@
  * tboot.c: main entry point and "generic" routines for measured launch
  *          support
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <compiler.h>
-#include <string.h>
+#include <string2.h>
 #include <printk.h>
 #include <multiboot.h>
 #include <processor.h>
@@ -59,8 +59,8 @@
 #include <tpm.h>
 
 extern void _prot_to_real(uint32_t dist_addr);
-extern bool load_policy(void);
-extern void evaluate_all_policies(multiboot_info_t *mbi);
+extern bool set_policy(void);
+extern void verify_all_modules(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
 extern void cmdline_parse(char *cmdline);
 extern void parse_loglvl(void);
@@ -78,6 +78,8 @@ __data multiboot_info_t *g_mbi = NULL;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
+
+extern vl_hashes_t g_vl_hashes;
 
 /*
  * caution: must make sure the total wakeup entry code length
@@ -198,14 +200,14 @@ static void post_launch(void)
     print_e820_map();
 
     /*
-     * verify VMM and dom0 against tboot policy & TCB_manifest
+     * verify modules against policy
      */
-    evaluate_all_policies(g_mbi);
+    verify_all_modules(g_mbi);
 
     /*
-     * seal hashes of Xen, dom0, TCB policy to current value of PCR17 & 18
+     * seal hashes of modules and VL policy to current value of PCR17 & 18
      */
-    if ( !seal_tcb() )
+    if ( !seal_vl_hashes() )
         apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
 
     /*
@@ -277,7 +279,7 @@ void begin_launch(multiboot_info_t *mbi)
         apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
-    err = load_policy();
+    err = set_policy();
     apply_policy(err);
 
     /* need to verify that platform supports TXT before we can check error */
@@ -327,8 +329,8 @@ void s3_launch(void)
     /* remove DMAR table if necessary */
     remove_vtd_dmar_table();
 
-    /* verify memory integrity */
-    if ( !verify_mem_integrity() )
+    /* verify saved hash integrity and re-extend PCRs */
+    if ( !verify_vl_integrity() )
         apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
 
     print_tboot_shared(&_tboot_shared);
@@ -370,9 +372,8 @@ static void shutdown_system(uint32_t shutdown_type)
 static void cap_pcrs(void)
 {
     tpm_pcr_value_t dummy;
-    tpm_pcr_extend(2, 17, &dummy, NULL);
-    tpm_pcr_extend(2, 18, &dummy, NULL);
-    tpm_pcr_extend(2, 19, &dummy, NULL);
+    for ( int i = 0; i < g_vl_hashes.num_entries; i++ )
+        tpm_pcr_extend(2, g_vl_hashes.entries[i].pcr, &dummy, NULL);
 }
 
 void shutdown(void)

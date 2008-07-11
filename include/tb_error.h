@@ -41,16 +41,15 @@ typedef enum {
     TB_ERR_FIXED               = 1,         /* previous error has been fixed */
 
     TB_ERR_GENERIC,                         /* non-fatal generic error */
+
     TB_ERR_TPM_NOT_READY,                   /* tpm not ready */
     TB_ERR_SMX_NOT_SUPPORTED,               /* smx not supported */
     TB_ERR_VMX_NOT_SUPPORTED,               /* vmx not supported */
     TB_ERR_TXT_NOT_SUPPORTED,               /* txt not supported */
 
-    TB_ERR_POLICY_VMM_VERIFY_FAILED,        /* verifying vmm against tb_policy
-                                               failed */
-    TB_ERR_POLICY_DOM0_VERIFY_FAILED,       /* verifying dom0 against tb_policy
-                                               failed */
-    TB_ERR_POLICY_MODULES_NOT_IN_POLICY,    /* modules in mbi but not in
+    TB_ERR_MODULE_VERIFICATION_FAILED,      /* module failed to verify against
+                                               policy */
+    TB_ERR_MODULES_NOT_IN_POLICY,           /* modules in mbi but not in
                                                policy */ 
     TB_ERR_POLICY_INVALID,                  /* policy is invalid */
     TB_ERR_POLICY_NOT_PRESENT,              /* no policy in TPM NV */
@@ -62,6 +61,7 @@ typedef enum {
                                                failed */
     TB_ERR_PCR_HASH_INTEGRITY,              /* sealing/unsealing of PCR
                                                hashes */
+
     TB_ERR_FATAL,                           /* generic fatal error */
     TB_ERR_MAX
 } tb_error_t;

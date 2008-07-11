@@ -41,61 +41,64 @@
 #include <misc.h>
 #include <compiler.h>
 #include <string2.h>
+#include <hash.h>
 #include <integrity.h>
 #include <tpm.h>
 #include <tboot.h>
-#include <hash.h>
 #include <tb_policy.h>
 #include <tb_error.h>
 
-/* tcb hashes (in policy.c) */
-extern tcb_hashes_t g_tcb_hashes;
-
-/* defined in policy.c */
-extern void re_evaluate_all_policies(void);
-
 /* put in .data section to that they aren't cleared on launch */
-static __data uint8_t  sealed_tcb[512];
-static __data uint32_t sealed_tcb_size;
+
+/* hashes that are used to restore DRTM PCRs in S3 resume */
+__data vl_hashes_t g_vl_hashes;
+
+static __data uint8_t  sealed_vl[512];
+static __data uint32_t sealed_vl_size;
 
 static bool extend_pcrs(void)
 {
-    if ( tpm_pcr_extend(2, 17, (tpm_pcr_value_t *)&g_tcb_hashes.policy, NULL)
-         != TPM_SUCCESS )
-        return false;
-    if ( tpm_pcr_extend(2, 18, (tpm_pcr_value_t *)&g_tcb_hashes.vmm, NULL)
-         != TPM_SUCCESS )
-        return false;
-    if ( tpm_pcr_extend(2, 19, (tpm_pcr_value_t *)&g_tcb_hashes.dom0, NULL)
-         != TPM_SUCCESS )
-        return false;
+    for ( int i = 0; i < g_vl_hashes.num_entries; i++ ) {
+        if ( tpm_pcr_extend(2, g_vl_hashes.entries[i].pcr,
+                            (tpm_pcr_value_t *)&g_vl_hashes.entries[i].hash,
+                            NULL) != TPM_SUCCESS )
+            return false;
+    }
 
     return true;
 }
 
-bool seal_tcb(void)
+bool seal_vl_hashes(void)
 {  
     uint8_t pcr_indcs_create[2]  = {17, 18};
     uint8_t pcr_indcs_release[2] = {17, 18};
-    tpm_pcr_value_t pcr17, pcr18, pcr19;
+    tpm_pcr_value_t pcr17, pcr18;
     const tpm_pcr_value_t *pcr_values_release[2] = {&pcr17, &pcr18};
 
-    sealed_tcb_size = sizeof(sealed_tcb);
 
-    /* read PCR 17/18/19 */
+    /* need to create hash of g_vl_hashes, which is then sealed */
+    /* (TPM_Seal can only seal small data like key or hash) */
+    tb_hash_t hashes_hash;
+    memset(&hashes_hash, 0, sizeof(hashes_hash));
+    if ( !hash_buffer((const unsigned char *)&g_vl_hashes,
+                      sizeof(g_vl_hashes), &hashes_hash, TB_HALG_SHA1) ) {
+        printk("failed to hash g_vl_hashes\n");
+        return false;
+    }
+
+    /* read PCR 17/18 */
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
-    tpm_pcr_read(2, 19, &pcr19);
     printk("PCRs before extending:\n");
     printk("PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
     printk("PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
-    printk("PCR 19: "); print_hash((tb_hash_t *)&pcr19, TB_HALG_SHA1);
 
-    /* seal to locality 2, pcr 17/18, generate sealed blob 1 */
+    /* seal to locality 2, PCRs 17/18 */
+    sealed_vl_size = sizeof(sealed_vl);
     if ( tpm_seal(2, TPM_LOC_TWO, 2, pcr_indcs_create,
                   2, pcr_indcs_release, pcr_values_release, 
-                  sizeof(g_tcb_hashes), (const uint8_t *)&g_tcb_hashes,
-                  &sealed_tcb_size, sealed_tcb) != TPM_SUCCESS )
+                  sizeof(hashes_hash), (const uint8_t *)&hashes_hash,
+                  &sealed_vl_size, sealed_vl) != TPM_SUCCESS )
         return false;
 
     if ( !extend_pcrs() )
@@ -104,48 +107,73 @@ bool seal_tcb(void)
     /* read PCR 17/18/19 */
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
-    tpm_pcr_read(2, 19, &pcr19);
     printk("PCRs after extending:\n");
     printk("PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
     printk("PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
-    printk("PCR 19: "); print_hash((tb_hash_t *)&pcr19, TB_HALG_SHA1);
 
     return true;
 }
     
-bool verify_mem_integrity(void)
+bool verify_vl_integrity(void)
 {
     uint32_t data_size;
-    tb_hash_t pcr17, pcr18, pcr19;
+    int i;
 
-    /* Unseal the blobs */
-    data_size = sizeof(g_tcb_hashes);
-    if ( tpm_unseal(2, sealed_tcb_size, sealed_tcb,
-                    &data_size, (uint8_t *)&g_tcb_hashes) != TPM_SUCCESS )
+    /* sealed data is hash of g_vl_hashes */
+    /* (TPM_Seal can only seal small data like key or hash) */
+    tb_hash_t sealed_hash;
+
+    /* unseal the blob */
+    data_size = sizeof(sealed_hash);
+    if ( tpm_unseal(2, sealed_vl_size, sealed_vl,
+                    &data_size, (uint8_t *)&sealed_hash) != TPM_SUCCESS )
         return false;
 
-    /* Read PCR17~19 into temp var */
-    tpm_pcr_read(2, 17, (tpm_pcr_value_t *)&pcr17.sha1);
-    tpm_pcr_read(2, 18, (tpm_pcr_value_t *)&pcr18.sha1);
-    tpm_pcr_read(2, 19, (tpm_pcr_value_t *)&pcr19.sha1);
-    printk("PCRs before S3 extending:\n");
-    print_hash(&pcr17, TB_HALG_SHA1);
-    print_hash(&pcr18, TB_HALG_SHA1);
-    print_hash(&pcr19, TB_HALG_SHA1);
+    /* now verify unsealed hash */
+    tb_hash_t hashes_hash;
+    memset(&hashes_hash, 0, sizeof(hashes_hash));
+    if ( data_size != sizeof(hashes_hash) ) {
+        printk("unsealed data size mismatch\n");
+        return false;
+    }
+    if ( !hash_buffer((const unsigned char *)&g_vl_hashes,
+                      sizeof(g_vl_hashes), &hashes_hash, TB_HALG_SHA1) ) {
+        printk("failed to hash g_vl_hashes\n");
+        return false;
+    }
+    if ( !are_hashes_equal(&sealed_hash, &hashes_hash, TB_HALG_SHA1) ) {
+        printk("sealed hash does not match current hash\n");
+        return false;
+    }
 
-    /* Extend PCR 17~19 with saved hashes */
+    printk("PCRs before S3 extending:\n");
+    for ( i = 0; i < g_vl_hashes.num_entries; i++ ) {
+        tb_hash_t hash;
+        tpm_pcr_read(2, g_vl_hashes.entries[i].pcr, (tpm_pcr_value_t *)&hash);
+        print_hash(&hash, TB_HALG_SHA1);
+    }
+
+    /* extend PCRs with saved hashes */
     if ( !extend_pcrs() )
         return false;
 
-    tpm_pcr_read(2, 17, (tpm_pcr_value_t *)&pcr17.sha1);
-    tpm_pcr_read(2, 18, (tpm_pcr_value_t *)&pcr18.sha1);
-    tpm_pcr_read(2, 19, (tpm_pcr_value_t *)&pcr19.sha1);
     printk("PCRs after S3 extending:\n");
-    print_hash(&pcr17, TB_HALG_SHA1);
-    print_hash(&pcr18, TB_HALG_SHA1);
-    print_hash(&pcr19, TB_HALG_SHA1);
+    for ( i = 0; i < g_vl_hashes.num_entries; i++ ) {
+        tb_hash_t hash;
+        tpm_pcr_read(2, g_vl_hashes.entries[i].pcr, (tpm_pcr_value_t *)&hash);
+        print_hash(&hash, TB_HALG_SHA1);
+    }
 
     return true;
+}
+
+void display_vl_hashes(void)
+{
+    printk("g_vl_hashes:\n");
+    for ( int i = 0; i < g_vl_hashes.num_entries; i++ ) {
+        printk("\t PCR %d: ", g_vl_hashes.entries[i].pcr);
+        print_hash(&g_vl_hashes.entries[i].hash, TB_HALG_SHA1);
+    }
 }
 
 

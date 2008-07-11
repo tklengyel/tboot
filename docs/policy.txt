@@ -12,20 +12,27 @@ Create LCP policy:
 
 Create Verified Launch policy:
 -----------------------------
-1.  tb_polgen/tb_polgen --create --policy_type nonfatal --uuid vmm --hash_type
-    hash --file vl.pol --cmdline "the command line for xen from grub.conf"
-    /boot/xen.gz
-2.  tb_polgen/tb_polgen --create --uuid dom0 --hash_type hash --file vl.pol
+1.  tb_polgen/tb_polgen --create --type nonfatal vl.pol
+2.  tb_polgen/tb_polgen --add --num 0 --pcr 18 --hash image
+    --cmdline "the command line for xen from grub.conf"
+    --image /boot/xen.gz
+    vl.pol
+3.  tb_polgen/tb_polgen --add --num 1 --pcr 19 --hash image
     --cmdline "the command line for dom0 from grub.conf"
-    /boot/vmlinuz-2.6.18-xen /boot/initrd-2.6.18-xen.img
+    --image /boot/vmlinuz-2.6.18.8-xen
+    vl.pol
+4.  tb_polgen/tb_polgen --add --num 2 --pcr 19 --hash image
+    --cmdline ""
+    --image /boot/initrd-2.6.18.8-xen.img
+    vl.pol
 
 
 Take ownership of the TPM:
 -------------------------
 1.  modprobe tpm_tis   (you may need 'force=1 interrupts=0')
 2.  tcsd
-3.  tpm_takeownership
-    -  choose password for TPM and for SRK, confirming each
+3.  tpm_takeownership -z
+    -  choose password for TPM
 
 
 Define tboot error TPM NV index:

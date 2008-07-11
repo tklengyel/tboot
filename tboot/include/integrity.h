@@ -2,7 +2,7 @@
  * integrity.h: routines for memory integrity measurement & 
  *          verification. Memory integrity is protected with tpm seal
  *
- * Copyright (c) 2007, Intel Corporation
+ * Copyright (c) 2007-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,9 +37,27 @@
 #ifndef _TBOOT_INTEGRITY_H_
 #define _TBOOT_INTEGRITY_H_
 
-extern bool seal_tcb(void);
-    
-extern bool verify_mem_integrity(void);
+/*
+ * hashes that we extend into DRTM PCRs and so need to preserve across S3
+ * for verified launch (VL)
+ * a given PCR may have more than one hash and will get extended in the order
+ * it appears in the list
+ */
+#define MAX_VL_HASHES 10
+
+typedef struct {
+    uint8_t num_entries;
+    struct {
+        uint8_t   pcr;
+        tb_hash_t hash;
+    } entries[MAX_VL_HASHES];
+} vl_hashes_t;
+
+extern vl_hashes_t g_vl_hashes;
+
+extern bool seal_vl_hashes(void);
+extern bool verify_vl_integrity(void);
+extern void display_vl_hashes(void);
 
 #endif /* _TBOOT_INTEGRITY_H_ */
 
