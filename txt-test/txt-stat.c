@@ -2,7 +2,7 @@
  * txt-stat: Linux app that will display various information about
  *           the status of TXT.
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,6 +67,8 @@ static void display_config_regs(void *txt_config_base)
     txt_sts_t sts;
     txt_ests_t ests;
     txt_e2sts_t e2sts;
+    txt_dpr_t dpr;
+
     printf("Intel(r) TXT Configuration Registers:\n");
 
     /* STS */
@@ -109,14 +111,23 @@ static void display_config_regs(void *txt_config_base)
     /* SINIT.BASE/SIZE */
     printf("\tSINIT.BASE: 0x%lx\n", read_txt_config_reg(txt_config_base,
                                                         TXTCR_SINIT_BASE));
-    printf("\tSINIT.SIZE: 0x%lx\n", read_txt_config_reg(txt_config_base,
-                                                        TXTCR_SINIT_SIZE));
+    printf("\tSINIT.SIZE: %luB (0x%lx)\n",
+           read_txt_config_reg(txt_config_base, TXTCR_SINIT_SIZE),
+           read_txt_config_reg(txt_config_base, TXTCR_SINIT_SIZE));
 
     /* HEAP.BASE/SIZE */
     printf("\tHEAP.BASE: 0x%lx\n", read_txt_config_reg(txt_config_base,
                                                        TXTCR_HEAP_BASE));
-    printf("\tHEAP.SIZE: 0x%lx\n", read_txt_config_reg(txt_config_base,
-                                                       TXTCR_HEAP_SIZE));
+    printf("\tHEAP.SIZE: %luB (0x%lx)\n",
+           read_txt_config_reg(txt_config_base, TXTCR_HEAP_SIZE),
+           read_txt_config_reg(txt_config_base, TXTCR_HEAP_SIZE));
+
+    /* DPR.BASE/SIZE */
+    dpr._raw = read_txt_config_reg(txt_config_base, TXTCR_DPR);
+    printf("\tDPR: 0x%lx\n", dpr._raw);
+    printf("\t    lock: %s\n", bit_to_str(dpr.lock));
+    printf("\t    top: 0x%08x\n", dpr.top << 20);
+    printf("\t    size: %uMB (%uB)\n", dpr.size, dpr.size*1024*1024);
 
     /* easy-to-see status of TXT and secrets */
     printf("***********************************************************\n");

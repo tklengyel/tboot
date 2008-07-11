@@ -1,7 +1,7 @@
 /*
  * config_regs.h: Intel(r) TXT configuration register -related definitions
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@
 #define TXTCR_MLE_JOIN              0x0290
 #define TXTCR_HEAP_BASE             0x0300
 #define TXTCR_HEAP_SIZE             0x0308
+#define TXTCR_DPR                   0x0330
 #define TXTCR_CMD_OPEN_LOCALITY1    0x0380
 #define TXTCR_CMD_CLOSE_LOCALITY1   0x0388
 #define TXTCR_CMD_OPEN_LOCALITY2    0x0390
@@ -137,6 +138,21 @@ typedef union {
         uint16_t  reserved;
     };
 } txt_didvid_t;
+
+/*
+ * format of DPR register
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint64_t  lock           : 1;
+        uint64_t  reserved1      : 3;
+        uint64_t  size           : 8;
+        uint64_t  reserved2      : 8;
+        uint64_t  top            : 12;
+        uint64_t  reserved3      : 32;
+    };
+} txt_dpr_t;
 
 /*
  * RLP JOIN structure for GETSEC[WAKEUP] and MLE_JOIN register
