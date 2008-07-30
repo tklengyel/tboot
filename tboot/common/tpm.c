@@ -158,9 +158,10 @@ static inline void _reverse_copy(uint8_t *out, uint8_t *in, uint32_t count)
 
 static bool tpm_validate_locality(uint32_t locality)
 {
+    uint32_t i;
     tpm_reg_access_t reg_acc;
 
-    for ( uint32_t i = 0; i < TPM_VALIDATE_LOCALITY_TIME_OUT; i++ ) {
+    for ( i = TPM_VALIDATE_LOCALITY_TIME_OUT; i > 0; i-- ) {
         /*
          * TCG spec defines reg_acc.tpm_reg_valid_sts bit to indicate whether
          * other bits of access reg are valid.( but this bit will also be 1 
@@ -172,6 +173,9 @@ static bool tpm_validate_locality(uint32_t locality)
             return true;
         cpu_relax();
     }
+
+    if ( i <= 0 )
+        printk("TPM: tpm_validate_locality timeout\n");
 
     return false;
 }
@@ -1801,10 +1805,43 @@ static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
     return ret;
 }
 
+bool prepare_tpm(void)
+{
+    /*
+     * must ensure TPM_ACCESS_0.activeLocality bit is clear
+     * (: locality is not active)
+     */
+    /* request access to the TPM from locality N */
+
+#ifdef TPM_TRACE
+    printk("TPM: releasing locality 0\n");
+#endif
+
+    tpm_reg_access_t reg_acc;
+    read_tpm_reg(0, TPM_REG_ACCESS, &reg_acc);
+    if ( reg_acc.active_locality == 0 )
+        return true;
+
+    /* make inactive by writing a 1 */
+    reg_acc._raw[0] = 0;
+    reg_acc.active_locality = 1;
+    write_tpm_reg(0, TPM_REG_ACCESS, &reg_acc);
+
+    for ( uint32_t i = TPM_ACTIVE_LOCALITY_TIME_OUT; i > 0; i-- ) {
+        read_tpm_reg(0, TPM_REG_ACCESS, &reg_acc);
+        if ( reg_acc.active_locality == 0 )
+            return true;
+        else
+            cpu_relax();
+    }
+    
+    printk("TPM: access reg release locality timeout\n");
+    return false;
+}
+
 /* ensure TPM is ready to accept commands */
 bool is_tpm_ready(uint32_t locality)
 {
-    tpm_reg_access_t reg_acc;
     tpm_permanent_flags_t pflags;
     tpm_stclear_flags_t vflags;
     uint32_t ret;
@@ -1812,17 +1849,6 @@ bool is_tpm_ready(uint32_t locality)
     if ( !tpm_validate_locality(locality) ) {
         printk("TPM is not available.\n");
         return false;
-    }
-
-    /*
-     * must ensure TPM_ACCESS_0.activeLocality bit is clear
-     * (: locality is not active)
-     */
-    read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
-    if ( reg_acc.active_locality != 0 ) {
-        /* make inactive by writing a 1 */
-        reg_acc.active_locality = 1;
-        write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
     }
 
     /* make sure tpm is not disabled/deactivated */

@@ -316,6 +316,9 @@ void begin_launch(multiboot_info_t *mbi)
     else
         printk("last boot has no error.\n");
 
+    if ( !prepare_tpm() )
+        apply_policy(TB_ERR_TPM_NOT_READY);
+
     /* launch the measured environment */
     err = launch_environment(mbi);
     apply_policy(err);
