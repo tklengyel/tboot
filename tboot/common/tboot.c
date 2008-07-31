@@ -178,8 +178,10 @@ static void post_launch(void)
         printk(": succeeded.\n");
 
     /* protect ourselves and the page table we created */
+    /* (rounded up to 2MB to account for VT-d PMR 2MB size granularity) */
     base = (uint64_t)((unsigned long)&_start - 3*PAGE_SIZE);
     size = (uint64_t)(unsigned long)&_end - base;
+    size = (size + 0x200000UL - 1UL) & ~0x1fffffUL;
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
