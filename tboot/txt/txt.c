@@ -486,7 +486,8 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
     save_mtrrs(&(os_mle_data->saved_mtrr_state));
 
     /* set MTRRs properly for AC module (SINIT) */
-    set_mtrrs_for_acmod(sinit);
+    if ( !set_mtrrs_for_acmod(sinit) )
+        return TB_ERR_FATAL;
 
     printk("executing GETSEC[SENTER]...\n");
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);

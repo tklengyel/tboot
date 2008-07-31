@@ -61,7 +61,7 @@
  * this must be done for each processor so that all have the same
  * memory types
  */
-void set_mtrrs_for_acmod(acm_hdr_t *hdr)
+bool set_mtrrs_for_acmod(acm_hdr_t *hdr)
 {
     unsigned long eflags;
     unsigned long cr0, cr4;
@@ -94,7 +94,8 @@ void set_mtrrs_for_acmod(acm_hdr_t *hdr)
     /*
      * now set MTRRs for AC mod and rest of memory
      */
-    set_mem_type(hdr, hdr->size*4, MTRR_TYPE_WRBACK);
+    if ( !set_mem_type(hdr, hdr->size*4, MTRR_TYPE_WRBACK) )
+        return false;
 
     /*
      * now undo some of earlier changes and enable our new settings
@@ -114,6 +115,8 @@ void set_mtrrs_for_acmod(acm_hdr_t *hdr)
 
     /* enable interrupts */
     __restore_flags(eflags);
+
+    return true;
 }
 
 void save_mtrrs(mtrr_state_t *saved_state)
@@ -483,6 +486,8 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
         rdmsrl(MTRR_PHYS_BASE0_MSR + ndx*2, mtrr_physbase.raw);
         mtrr_physbase.base = (unsigned long)base >> PAGE_SHIFT;
         mtrr_physbase.type = mem_type;
+        /* set explicitly in case base field is >24b (MAXPHYADDR >36) */
+        mtrr_physbase.reserved2 = 0;
         wrmsrl(MTRR_PHYS_BASE0_MSR + ndx*2, mtrr_physbase.raw);
 
         /*
@@ -495,6 +500,8 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
         rdmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
         mtrr_physmask.mask = ~(pages_in_range - 1);
         mtrr_physmask.v = 1;
+        /* set explicitly in case mask field is >24b (MAXPHYADDR >36) */
+        mtrr_physmask.reserved2 = 0;
         wrmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
 
         /* prepare for the next loop depending on number of pages

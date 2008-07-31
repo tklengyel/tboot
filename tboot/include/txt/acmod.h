@@ -122,7 +122,6 @@ extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size);
 extern bool does_acmod_match_chipset(acm_hdr_t* hdr);
 extern acm_hdr_t *copy_sinit(acm_hdr_t *sinit);
 extern bool verify_acmod(acm_hdr_t *acm_hdr);
-extern void set_mtrrs_for_acmod(acm_hdr_t *hdr);
 extern uint32_t get_supported_os_sinit_data_ver(acm_hdr_t* hdr);
 extern txt_caps_t get_sinit_capabilities(acm_hdr_t* hdr);
 
