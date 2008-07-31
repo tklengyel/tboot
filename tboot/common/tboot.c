@@ -345,7 +345,16 @@ void s3_launch(void)
 
 static void shutdown_system(uint32_t shutdown_type)
 {
-    printk("shutdown_system() called for shutdown_type=%x\n", shutdown_type);
+    static const char *types[] = { "TB_SHUTDOWN_REBOOT", "TB_SHUTDOWN_S5",
+                                   "TB_SHUTDOWN_S4", "TB_SHUTDOWN_S3",
+                                   "TB_SHUTDOWN_HALT" };
+    char type[32];
+
+    if ( shutdown_type >= ARRAY_SIZE(types) )
+        sprintf(type, "unknown: %u", shutdown_type);
+    else
+        strncpy(type, types[shutdown_type], sizeof(type));
+    printk("shutdown_system() called for shutdown_type: %s\n", type);
 
     switch( shutdown_type ) {
         case TB_SHUTDOWN_S3:
@@ -383,6 +392,9 @@ static void cap_pcrs(void)
 
 void shutdown(void)
 {
+    /* re-initialize serial port since kernel may have used it */
+    early_serial_init();
+
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
         /* have TPM save static PCRs (in case VMM/kernel didn't) */
         tpm_save_state(2);
