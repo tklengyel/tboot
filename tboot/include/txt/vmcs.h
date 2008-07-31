@@ -208,6 +208,7 @@ enum guest_activity_state {
 
 static inline void __vmptrld(uint64_t addr)
 {
+    /* TBD: do not crash on failure */
     __asm__ __volatile__ ( VMPTRLD_OPCODE
                            MODRM_EAX_06
                            /* CF==1 or ZF==1 --> crash (ud2) */
@@ -228,6 +229,7 @@ static inline void __vmptrst(uint64_t addr)
 
 static inline void __vmpclear(uint64_t addr)
 {
+    /* TBD: do not crash on failure */
     __asm__ __volatile__ ( VMCLEAR_OPCODE
                            MODRM_EAX_06
                            /* CF==1 or ZF==1 --> crash (ud2) */
@@ -241,6 +243,7 @@ static inline unsigned long __vmread(unsigned long field)
 {
     unsigned long ecx;
 
+    /* TBD: do not crash on failure */
     __asm__ __volatile__ ( VMREAD_OPCODE
                            MODRM_EAX_ECX
                            /* CF==1 or ZF==1 --> crash (ud2) */
@@ -254,6 +257,7 @@ static inline unsigned long __vmread(unsigned long field)
 
 static inline void __vmwrite(unsigned long field, unsigned long value)
 {
+    /* TBD: do not crash on failure */
     __asm__ __volatile__ ( VMWRITE_OPCODE
                            MODRM_EAX_ECX
                            /* CF==1 or ZF==1 --> crash (ud2) */

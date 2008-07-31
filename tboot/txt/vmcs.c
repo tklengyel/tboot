@@ -208,8 +208,10 @@ static bool start_vmx(unsigned int cpuid)
 
 static void stop_vmx(unsigned int cpuid)
 {
-    if ( !(read_cr4() & X86_CR4_VMXE) )
+    if ( !(read_cr4() & X86_CR4_VMXE) ) {
+        printk("stop_vmx() called when VMX not enabled\n");
         return;
+    }
 
     __vmpclear((unsigned long)&ap_vmcs[cpuid-1]);
     __vmxoff();
@@ -523,6 +525,11 @@ void vmx_vmexit_handler(void)
 /* Launch a mini guest to handle the physical INIT-SIPI-SIPI from BSP */
 void handle_init_sipi_sipi(unsigned int cpuid)
 {
+    unsigned int apicid = cpuid_ebx(1) >> 24;
+
+    if ( apicid != cpuid )
+        printk("apicid and cpuid do not match\n");
+
     if ( cpuid > NR_CPUS-1 ) {
         printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
