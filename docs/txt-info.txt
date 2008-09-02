@@ -7,11 +7,10 @@ Intel(R) TXT was formerly known by the code name LaGrande Technology (LT).
 Intel(R) TXT in Brief:
 ----------------------
 o  Provides dynamic root of trust for measurement (DRTM)
-o  DMA protection (on SDV3/TEP platforms only)
 o  Data protection in case of improper shutdown
 o  Verification and enforcement of launched environment
 
 
 For more information, see http://www.intel.com/technology/security/.  This
-site also has a link to the Intel(R) TXT Preliminary Architecture
-Specification, which has been updated for the new released platforms.
+site also has a link to the Intel(R) TXT MLE Developers Manual, which has
+been updated for the new released platforms.
