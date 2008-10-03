@@ -51,7 +51,7 @@
 #include <tb_policy.h>
 //#include <txt/config_regs.h>
 #include <tpm.h>
-#include <elf.h>
+#include <loader.h>
 #include <tboot.h>
 #include <integrity.h>
 
@@ -353,7 +353,7 @@ void apply_policy(tb_error_t error)
             if ( s3_flag )
                 s3_launch();
             else
-                launch_xen(false);
+                launch_kernel(false);
             break; /* if launch xen fails, do halt at the end */
         case TB_POLACT_HALT:
             break; /* do halt at the end */

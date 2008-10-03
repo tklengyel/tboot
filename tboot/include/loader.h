@@ -1,5 +1,5 @@
 /*
- * elf.h: support functions for manipulating ELF binaries
+ * loader.h: support functions for manipulating ELF and AOUT binaries
  *
  * Copyright (c) 2006-2007, Intel Corporation
  * All rights reserved.
@@ -33,19 +33,17 @@
  *
  */
 
-#ifndef __ELF_H__
-#define __ELF_H__
-
-#include <elf_defns.h>
+#ifndef __LOADER_H__
+#define __LOADER_H__
 
 extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
                                 size_t *size, const uuid_t *uuid);
-extern bool launch_xen(bool is_measured_launch);
+extern bool launch_kernel(bool is_measured_launch);
 extern bool verify_modules(multiboot_info_t *mbi);
 extern module_t *get_module(multiboot_info_t *mbi, int i);
 extern void *remove_module(multiboot_info_t *mbi, void *mod_start);
 
-#endif /* __ELF_H__ */
+#endif /* __LOADER_H__ */
 
 
 

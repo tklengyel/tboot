@@ -33,36 +33,43 @@ _L,_L,_L,_L,_L,_L,_L,_P,_L,_L,_L,_L,_L,_L,_L,_L};      /* 240-255 */
 #include <types.h>
 #include <string2.h>
 #include <misc.h>
+#include <stdbool.h>
 
 /* from init.h */
 
 /*Used for kernel command line parameter setup */
 #define MAX_PARAM_LEN 32
-struct cmdline_option {
+typedef struct {
     const char *name;
     char val[MAX_PARAM_LEN];
-};
+} cmdline_option_t;
 
 /* global option array for command line */
-static struct cmdline_option g_cmdline_option[] = {
+static cmdline_option_t g_tboot_cmdline_option[] = {
     { "loglvl", "all" },
 };
 
-static char* cmdline_option_read(const char *opt)
+static cmdline_option_t g_linux_cmdline_option[] = {
+    { "vga", "n/a" },
+    { "mem", "n/a" },
+};
+
+static char* cmdline_option_read(cmdline_option_t *cmdline_option,
+                                 const char *opt)
 {
     char* optval = NULL;
     int i;
 
-    for ( i = 0; i < ARRAY_SIZE(g_cmdline_option); i++ )
+    for ( i = 0; i < ARRAY_SIZE(cmdline_option); i++ )
     {
-        if ( strcmp(g_cmdline_option[i].name, opt) != 0 )
+        if ( strcmp(cmdline_option[i].name, opt) != 0 )
             continue;
-        optval = g_cmdline_option[i].val;
+        optval = cmdline_option[i].val;
     }
     return optval;
 }
 
-void cmdline_parse(char *cmdline)
+static void cmdline_parse(char *cmdline, cmdline_option_t *cmdline_option)
 {
     char opt[100], *optval, *q;
     const char *p = cmdline;
@@ -101,22 +108,32 @@ void cmdline_parse(char *cmdline)
         else
             optval = q;       /* default option value is empty string */
 
-        for ( i = 0; i < ARRAY_SIZE(g_cmdline_option); i++ )
+        for ( i = 0; i < ARRAY_SIZE(cmdline_option); i++ )
         {
-            if ( strcmp(g_cmdline_option[i].name, opt ) != 0 )
+            if ( strcmp(cmdline_option[i].name, opt ) != 0 )
                 continue;
-            strncpy(g_cmdline_option[i].val, optval,
-		    sizeof(g_cmdline_option[i].val));
+            strncpy(cmdline_option[i].val, optval,
+		    sizeof(cmdline_option[i].val));
         }
     }
 }
 
-void parse_loglvl(void)
+void tboot_cmdline_parse(char *cmdline)
+{
+    cmdline_parse(cmdline, g_tboot_cmdline_option);
+}
+
+void linux_cmdline_parse(char *cmdline)
+{
+    cmdline_parse(cmdline, g_linux_cmdline_option);
+}
+
+void parse_tboot_loglvl(void)
 {
     extern int loglevel; /* default value is 1, print all */
     char *loglvl;
 
-    loglvl = cmdline_option_read("loglvl");
+    loglvl = cmdline_option_read(g_tboot_cmdline_option, "loglvl");
     if ( loglvl == NULL )
         return;
 
@@ -125,6 +142,141 @@ void parse_loglvl(void)
         return;
     }
     return;
+}
+
+static bool parse_int(char *string, int len, int *value)
+{
+    int i;
+    int m = 10;
+    int n;
+
+    if ( value == NULL )
+        return false;
+    if ( string == NULL )
+        return false;
+
+    i = 0;
+    if ( (len > 2) && (strlen(string) > 2) ) {
+        if ( (*(string + i) == '0')
+            && ((*(string + i + 1) == 'X') || (*(string + i + 1) == 'x')) ) {
+            m = 16;
+            i += 2;
+        }
+    }
+
+    n = 0;
+    for ( ; i < len && i < strlen(string); i++ ) {
+        char ch;
+        int d;
+        ch = *(string + i);
+        switch ( m ) {
+            case 16:
+                if ( (ch >= 'A') && (ch <= 'F') )
+                    d = ch - 'A' + 10;
+                else if ( (ch >= 'a') && (ch <= 'f') )
+                    d = ch - 'a' + 10;
+                else if ( (ch >= '0') && (ch <= '9') )
+                    d = ch - '0';
+                else
+                    return false;
+                break;
+            case 10:
+                if ( (ch >= '0') && (ch <= '9') )
+                    d = ch - '0';
+                else
+                    return false;
+                break;
+            default:
+                return false;
+        }
+        n = n*m + d;
+    }
+
+    *value = n;
+    return true;
+}
+
+bool parse_linux_vga(void)
+{
+    extern int vid_mode;
+    char *vga;
+
+    vga = cmdline_option_read(g_linux_cmdline_option, "vga");
+    if ( vga == NULL )
+        return false;
+
+    if ( strcmp(vga, "normal") == 0 ) {
+        vid_mode = 0xFFFF;
+        return true;
+    }
+    else if ( strcmp(vga, "ext") == 0 ) {
+        vid_mode = 0xFFFE;
+        return true;
+    }
+    else if ( strcmp(vga, "ask") == 0 ) {
+        vid_mode = 0xFFFD;
+        return true;
+    }
+    else
+        return parse_int(vga, strlen(vga), &vid_mode);
+}
+
+bool parse_linux_mem(void)
+{
+#define MAX_INT 0x7FFFFFFF
+    extern int initrd_max_mem;
+    char *mem;
+    int mem_value, mem_len, shift;
+
+    mem = cmdline_option_read(g_linux_cmdline_option, "mem");
+    if ( mem == NULL )
+        return false;
+
+    mem_len = strlen(mem);
+    if ( !parse_int(mem, mem_len - 1, &mem_value) )
+        return false;
+
+    shift = 0;
+    switch (mem[mem_len]) {
+        case 'G':
+        case 'g':
+            shift = 30;
+            break;
+        case 'M':
+        case 'm':
+            shift = 20;
+            break;
+        case 'K':
+        case 'k':
+            shift = 10;
+            break;
+    }
+
+    /* overflow */
+    if ( mem_value > (MAX_INT >> shift) )
+        return false;
+
+    if ( shift > 0 )
+        initrd_max_mem = mem_value << shift;
+    else
+        initrd_max_mem = mem_value;
+    return true;
+}
+
+const char *skip_filename(const char *cmdline)
+{
+    if ( cmdline == NULL || *cmdline == '\0' )
+        return cmdline;
+
+    /* strip leading spaces, file name, then any spaces until the next 
+     non-space char (e.g. "  /foo/bar   baz" -> "baz"; "/foo/bar" -> "")*/ 
+    while ( *cmdline != '\0' && isspace(*cmdline) )
+        cmdline++;
+    while ( *cmdline != '\0' && !isspace(*cmdline) )
+        cmdline++;
+    while ( *cmdline != '\0' && isspace(*cmdline) )
+        cmdline++;
+    return cmdline;
 }
 
 /*

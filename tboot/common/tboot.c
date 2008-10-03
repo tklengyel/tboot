@@ -48,7 +48,7 @@
 #include <msr.h>
 #include <e820.h>
 #include <uuid.h>
-#include <elf.h>
+#include <loader.h>
 #include <hash.h>
 #include <tb_error.h>
 #include <txt/txt.h>
@@ -62,8 +62,8 @@ extern void _prot_to_real(uint32_t dist_addr);
 extern bool set_policy(void);
 extern void verify_all_modules(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
-extern void cmdline_parse(char *cmdline);
-extern void parse_loglvl(void);
+extern void tboot_cmdline_parse(char *cmdline);
+extern void parse_tboot_loglvl(void);
 void s3_launch(void);
 
 extern long s3_flag;
@@ -227,7 +227,7 @@ static void post_launch(void)
     print_tboot_shared(&_tboot_shared);
     print_log();
 
-    launch_xen(true);
+    launch_kernel(true);
     apply_policy(TB_ERR_FATAL);
 }
 
@@ -251,10 +251,10 @@ void begin_launch(multiboot_info_t *mbi)
 
         /* parse command line */
         if ( g_mbi->flags & MBI_CMDLINE ) {
-            cmdline_parse((char *)g_mbi->cmdline);
+            tboot_cmdline_parse((char *)g_mbi->cmdline);
 
             /* parse loglvl from string to int */
-            parse_loglvl();
+            parse_tboot_loglvl();
         }
     }
 

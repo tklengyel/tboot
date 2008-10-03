@@ -60,6 +60,14 @@
 #define E820_MIXED          ((uint32_t)-1 - 1)
 #define E820_GAP            ((uint32_t)-1)
 
+#define E820MAX             128
+
+typedef struct __attribute__ ((packed)) {
+    uint64_t addr;    /* start of memory segment */
+    uint64_t size;    /* size of memory segment */
+    uint32_t type;    /* type of memory segment */
+} e820entry_t;
+
 #ifndef __XEN__
 extern bool copy_e820_map(multiboot_info_t *mbi);
 extern bool e820_protect_region(uint64_t addr, uint64_t size, uint32_t type);

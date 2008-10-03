@@ -50,7 +50,7 @@
 #include <tpm.h>
 #include <e820.h>
 #include <uuid.h>
-#include <elf.h>
+#include <loader.h>
 #include <tboot.h>
 #include <mle.h>
 #define LCP_UUID_ONLY
