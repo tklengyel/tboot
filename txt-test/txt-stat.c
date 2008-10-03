@@ -48,6 +48,24 @@
 #include "../include/tboot.h"
 #include "../tboot/include/txt/config_regs.h"
 
+//#include "../tboot/include/txt/heap.h"
+/*
+ * BIOS structure
+ */
+typedef struct {
+    uint32_t  version;              /* WB = 2, current = 3 */
+    uint32_t  bios_sinit_size;
+    uint64_t  lcp_pd_base;
+    uint64_t  lcp_pd_size;
+    uint32_t  num_logical_procs;
+    uint64_t  flags;                /* v3+ */
+} bios_data_t;
+typedef void   txt_heap_t;
+static inline bios_data_t *get_bios_data_start(txt_heap_t *heap)
+{
+    return (bios_data_t *)((char*)heap + sizeof(uint64_t));
+}
+
 #define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
 
 static inline uint64_t read_txt_config_reg(void *config_regs_base,
@@ -136,6 +154,27 @@ static void display_config_regs(void *txt_config_base)
     printf("***********************************************************\n");
 }
 
+static void print_bios_data(bios_data_t *bios_data)
+{
+    printf("bios_data (@%p, %lx):\n", bios_data,
+           *((uint64_t *)bios_data - 1));
+    printf("\t version: %u\n", bios_data->version);
+    printf("\t bios_sinit_size: 0x%x (%u)\n", bios_data->bios_sinit_size,
+           bios_data->bios_sinit_size);
+    printf("\t lcp_pd_base: 0x%lx\n", bios_data->lcp_pd_base);
+    printf("\t lcp_pd_size: 0x%lx (%lu)\n", bios_data->lcp_pd_size,
+           bios_data->lcp_pd_size);
+    printf("\t num_logical_procs: %u\n", bios_data->num_logical_procs);
+    if ( bios_data->version >= 3 )
+        printf("\t flags: 0x%08lx\n", bios_data->flags);
+}
+
+static void display_heap(txt_heap_t *heap)
+{
+    bios_data_t *bios_data = get_bios_data_start(heap);
+    print_bios_data(bios_data);
+}
+
 static void display_tboot_log(void *log_base)
 {
     static char buf[512];
@@ -171,7 +210,8 @@ static bool is_txt_supported(void)
 
 int main(int argc, char *argv[])
 {
-    int ret = 1;
+    txt_heap_t *heap = NULL;
+    uint64_t heap_size = 0;
 
     if ( !is_txt_supported() ) {
         printf("Intel(r) TXT is not supported\n");
@@ -181,8 +221,7 @@ int main(int argc, char *argv[])
     int fd_mem = open("/dev/mem", O_RDONLY);
     if ( fd_mem == -1 ) {
         printf("ERROR: cannot open /dev/mem\n");
-        ret = 1;
-        goto done;
+        return 1;
     }
 
     /*
@@ -190,34 +229,46 @@ int main(int argc, char *argv[])
      */
     void *txt_pub = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ, MAP_PRIVATE,
                          fd_mem, TXT_PUB_CONFIG_REGS_BASE);
-    if ( txt_pub == MAP_FAILED ) {
+    if ( txt_pub == MAP_FAILED )
         printf("ERROR: cannot map config regs\n");
-        ret = 1;
-        goto done;
+    else {
+        display_config_regs(txt_pub);
+        /* get this and save it before we unmap config regs */
+        heap = (txt_heap_t *)read_txt_config_reg(txt_pub,
+                                                             TXTCR_HEAP_BASE);
+        heap_size = read_txt_config_reg(txt_pub, TXTCR_HEAP_SIZE);
+        munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
     }
-    display_config_regs(txt_pub);
-    munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
+
+    /*
+     * display heap
+     */
+    if ( heap != NULL && heap_size != 0 ) {
+        void *txt_heap = mmap(NULL, heap_size, PROT_READ, MAP_PRIVATE,
+                              fd_mem, (unsigned long)heap);
+        if ( txt_heap == MAP_FAILED )
+            printf("ERROR: cannot map heap\n");
+        else {
+            display_heap(txt_heap);
+            munmap(txt_heap, heap_size);
+        }
+    }
 
     /*
      * display serial log from tboot memory (if exists)
      */
     void *tboot_base = mmap(NULL, TBOOT_SERIAL_LOG_SIZE, PROT_READ,
                             MAP_PRIVATE, fd_mem, TBOOT_SERIAL_LOG_ADDR);
-    if ( tboot_base == MAP_FAILED ) {
+    if ( tboot_base == MAP_FAILED )
         printf("ERROR: cannot map tboot\n");
-        ret = 1;
-        goto done;
+    else {
+        display_tboot_log(tboot_base);
+        munmap(tboot_base, TBOOT_SERIAL_LOG_SIZE);
     }
-    display_tboot_log(tboot_base);
-    munmap(tboot_base, TBOOT_SERIAL_LOG_SIZE);
 
-    ret = 0;
+    close(fd_mem);
 
- done:
-    if ( fd_mem != -1 )
-        close(fd_mem);
-
-    return ret;
+    return 0;
 }
 
 
