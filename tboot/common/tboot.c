@@ -385,15 +385,35 @@ static void shutdown_system(uint32_t shutdown_type)
 
 static void cap_pcrs(void)
 {
-    tpm_pcr_value_t dummy;
-    for ( int i = 0; i < g_vl_hashes.num_entries; i++ )
-        tpm_pcr_extend(2, g_vl_hashes.entries[i].pcr, &dummy, NULL);
+    bool was_capped[TPM_NR_PCRS] = {false};
+    tpm_pcr_value_t cap_val;   /* use whatever val is on stack */
+
+    /* ensure PCRs 17 + 18 are always capped */
+    tpm_pcr_extend(2, 17, &cap_val, NULL);
+    tpm_pcr_extend(2, 18, &cap_val, NULL);
+    was_capped[17] = was_capped[18] = true;
+
+    /* also cap every dynamic PCR we extended (only once) */
+    /* don't cap static PCRs since then they would be wrong after S3 resume */
+    memset(&was_capped, true, TPM_PCR_RESETABLE_MIN*sizeof(bool));
+    for ( int i = 0; i < g_vl_hashes.num_entries; i++ ) {
+        if ( !was_capped[g_vl_hashes.entries[i].pcr] ) {
+            tpm_pcr_extend(2, g_vl_hashes.entries[i].pcr, &cap_val, NULL);
+            was_capped[g_vl_hashes.entries[i].pcr] = true;
+        }
+    }
+
+    printk("cap'ed dynamic PCRs\n");
 }
 
 void shutdown(void)
 {
     /* re-initialize serial port since kernel may have used it */
     early_serial_init();
+
+    /* ensure localities 0, 1 are inactive (in case kernel used them) */
+    release_locality(0);
+    release_locality(1);
 
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
         /* have TPM save static PCRs (in case VMM/kernel didn't) */
@@ -403,7 +423,7 @@ void shutdown(void)
         restore_vtd_dmar_table();
     }
 
-    /* cap dynamic PCRs (17, 18, 19) */
+    /* cap dynamic PCRs extended as part of launch (17, 18, ...) */
     if ( is_launched() )
         cap_pcrs();
 

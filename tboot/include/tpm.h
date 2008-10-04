@@ -78,6 +78,8 @@
 #define TPM_READ_ONLY           (TPM_BASE + 62)
 #define TPM_NOT_FULLWRITE       (TPM_BASE + 70)
 
+extern bool release_locality(uint32_t locality);
+
 extern bool prepare_tpm(void);
 
 extern bool is_tpm_ready(uint32_t locality);

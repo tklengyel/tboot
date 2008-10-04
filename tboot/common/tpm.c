@@ -1805,30 +1805,24 @@ static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
     return ret;
 }
 
-bool prepare_tpm(void)
+bool release_locality(uint32_t locality)
 {
-    /*
-     * must ensure TPM_ACCESS_0.activeLocality bit is clear
-     * (: locality is not active)
-     */
-    /* request access to the TPM from locality N */
-
 #ifdef TPM_TRACE
-    printk("TPM: releasing locality 0\n");
+    printk("TPM: releasing locality %u\n", locality);
 #endif
 
     tpm_reg_access_t reg_acc;
-    read_tpm_reg(0, TPM_REG_ACCESS, &reg_acc);
+    read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
     if ( reg_acc.active_locality == 0 )
         return true;
 
     /* make inactive by writing a 1 */
     reg_acc._raw[0] = 0;
     reg_acc.active_locality = 1;
-    write_tpm_reg(0, TPM_REG_ACCESS, &reg_acc);
+    write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
 
     for ( uint32_t i = TPM_ACTIVE_LOCALITY_TIME_OUT; i > 0; i-- ) {
-        read_tpm_reg(0, TPM_REG_ACCESS, &reg_acc);
+        read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
         if ( reg_acc.active_locality == 0 )
             return true;
         else
@@ -1837,6 +1831,16 @@ bool prepare_tpm(void)
     
     printk("TPM: access reg release locality timeout\n");
     return false;
+}
+
+bool prepare_tpm(void)
+{
+    /*
+     * must ensure TPM_ACCESS_0.activeLocality bit is clear
+     * (: locality is not active)
+     */
+
+    return release_locality(0);
 }
 
 /* ensure TPM is ready to accept commands */
