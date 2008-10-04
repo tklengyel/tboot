@@ -1435,6 +1435,7 @@ static bool init_pcr_info(tpm_locality_selection_t release_locs,
     
     memset(pcr_info, 0, sizeof(*pcr_info));
     pcr_info->tag = TPM_TAG_PCR_INFO_LONG;
+    pcr_info->locality_at_creation = 0x1f;   /* default per spec */
     pcr_info->locality_at_release = release_locs;
     pcr_info->creation_pcr_selection.size_of_select = 3;
     for ( i = 0; i < nr_create; i++ )
