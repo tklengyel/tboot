@@ -13,9 +13,11 @@ This version of tboot supports Intel and OEM systems that are Intel TXT
 It also supports Intel Software Development Platforms (SDPs) that are
 TXT-capable.
 
-This version of tboot only supports the Xen virtual machine monitor.  For which
-versions of Xen support tboot, please see Xen's mailing list and source code
-repository.
+This version of tboot only supports both the Xen virtual machine monitor
+(versions >= 3.2) and Linux kernel versions >= 2.6.20.
+
+The mercurial source code repository for this project is located at:
+http://www.bughost.org/repos.hg/tboot.hg.
 
 
 Overview of Tboot Functionality:
