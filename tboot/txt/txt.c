@@ -300,7 +300,8 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     os_sinit_data->mle_ptab = (uint64_t)(unsigned long)ptab_base;
     os_sinit_data->mle_size = g_mle_hdr.mle_end_off - g_mle_hdr.mle_start_off;
     /* this is linear addr (offset from MLE base) of mle header */
-    os_sinit_data->mle_hdr_base = (uint64_t)&g_mle_hdr - (uint64_t)&_mle_start;
+    os_sinit_data->mle_hdr_base = (uint64_t)(unsigned long)&g_mle_hdr -
+        (uint64_t)(unsigned long)&_mle_start;
     /* VT-d PMRs */
     max_ram = get_max_ram(mbi);
     if ( max_ram == 0 ) {
