@@ -63,7 +63,8 @@ TARGET_ARCH  ?= $(shell uname -m | sed -e s/i.86/x86_32/ -e s/i86pc/x86_32/)
 CFLAGS += -Wall -Werror -Wstrict-prototypes
 CFLAGS += -fno-strict-aliasing -O2 -std=gnu99
 # due to bug in gcc v4.2,3,?
-CFLAGS += -Wno-array-bounds
+CFLAGS += $(call cc-option,$(CC),-Wno-array-bounds,)
+
 
 ifeq ($(debug),y)
 CFLAGS += -g -DDEBUG
