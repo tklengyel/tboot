@@ -1,9 +1,15 @@
+***************************************************************************
+* The current version of tboot (both in the repository and .tar.gz        *
+* requires the updated SINIT AC module (Q35/X38_SINIT_16.BIN).            *
+* It will not work with previous SINIT ACMs nor will it work on the TEP   *
+***************************************************************************
+
 Trusted Boot (tboot) is an open source, pre- kernel/VMM module that uses
 Intel(R) Trusted Execution Technology (Intel(R) TXT) to perform a measured
 and verified launch of an OS kernel/VMM.
 
-This version of tboot supports Intel and OEM systems that are Intel(R) TXT
--capable as well as the Intel(R) TXT Technology Enabling Platform (TEP).
+This version of tboot supports Intel and OEM systems that are Intel TXT
+-capable as well as the Intel TXT Technology Enabling Platform (TEP).
 It also supports Intel Software Development Platforms (SDPs) that are
 TXT-capable.
 
@@ -24,18 +30,18 @@ o  Teardown of measured environment.  When the system is shutdown, the
    measured environment will be torn down properly.  This support S3/S4/S5
    sleep states.
 
-o  Reset data protection.  Intel(R) TXT hardware prevents access to secrets
+o  Reset data protection.  Intel TXT hardware prevents access to secrets
    if the system is reset without clearing them from memory (as part of a
    TXT teardown).  This code will support this by setting the flag indicating
    that memory should be so protected during the measured launch and clearing
    the flag just before teardown.
 
-o  Protection of TXT memory ranges.  Intel(R) TXT reserves certain regions of
+o  Protection of TXT memory ranges.  Intel TXT reserves certain regions of
    RAM for its use and also defines several MMIO regions.  These regions
    (excluding the TXT public configuration space) are protected from use by
    any domains (including dom0).
 
-o  Intel(R) TXT Launch Control Policy (LCP) tools.  The lcptools project
+o  Intel TXT Launch Control Policy (LCP) tools.  The lcptools project
    contains a set of tools (and basic documentation) that can be used to
    create and provision TXT Launch Control policies.  LCP uses TPM
    non-volatile storage (TPM NV) to hold a launch policy, which the SINIT AC
@@ -56,19 +62,22 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
    The existing 'kernel' entry should follow as a 'module'.  The SINIT AC
    module (available with systems that support TXT) must be added to the
    grub.conf boot config as the last module, e.g.:
-       title Xen 3.2 w/ Intel(R) Trusted Execution Technology
+       title Xen w/ Intel(R) Trusted Execution Technology
            root (hd0,1)
            kernel /tboot.gz
-           module /xen.gz vtd=1 dom0_mem=524288 com1=115200,8n1
-           module /vmlinuz-2.6.18.8-xen root=/dev/VolGroup00/LogVol00 ro
-           module /initrd-2.6.18.8-xen.img
-           module /Q35_SINIT_16.BIN
+           module /xen.gz iommu=required dom0_mem=524288 com1=115200,8n1
+           module /vmlinuz-2.6.18-xen root=/dev/VolGroup00/LogVol00 ro
+           module /initrd-2.6.18-xen.img
+           module /BRLK_SINIT_20070910_release.BIN
 
-o  It is optional to include 'vtd=1' on Xen's command line, though omitting it
-   has been found to cause dom0 to fail to boot on some systems.  In the
-   current version of tboot, if it is set then Xen will not be able to resume
-   from S3.  In newer (than 3.2) versions of Xen, this is enabled by default
-   and is specified by the 'iommu' command line argument.
+o  For Xen:  newer versions of Xen support the 'iommu=required' command line
+   option, which causes Xen to fail to run if there is any error in
+   programming the VT-d engines.  This is the most secure configuration.
+   Older versions of Xen used the param 'vtd=1' which enables VT-d but does
+   not fail if it cannot be enabled.
+
+o  For Linux:  the 'iommu=1' command line option will enabled VT-d.  There is
+   currently no way to force its use, but this will be added later.
 
 o  Progress of the launch process is indicated via debug printk's to
    COM1 (hardcoded).  These appear before the normal "(XEN)" output and are
@@ -80,9 +89,10 @@ o  Progress of the launch process is indicated via debug printk's to
 
 Interesting Items of Note:
 --------------------------
-o  A Xen that does not support tboot can still be launched by tboot, however
-   it will not protect any of the TXT memory nor tboot itself.  And it will
-   hang on reboot/shutdown.  Aside from this, it will behave normally.
+o  A Xen or Linux version that does not support tboot can still be launched by
+   tboot, however it will not protect any of the TXT memory nor tboot itself.
+   And it will hang on reboot/shutdown.  Aside from this, it will behave
+   normally.
 
 o  Tboot will copy and alter the e820 table provided by GRUB to "reserve"
    its own memory plus the TXT memory regions.  These are marked as
@@ -97,6 +107,10 @@ o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
    order to trap on INIT-SIPI-SIPI.
 
-o  The tools/txt-test project contains a Linux application that will read and
-   display some of the TXT registers and state as well as the in-memory log if
-   it was enabled in tboot.
+o  Support for the TEP's NoDMA capability has not been implemented in this
+   patch.  NoDMA has been superseded by VT-d and is used by default on the
+   new TXT platforms.
+
+o  The tools/txt-stat project is a Linux application that reads some of
+   the TXT registers will display the tboot boot log (if tboot was built with
+   MEM_LOGGING defined), in case a system does not have serial support.

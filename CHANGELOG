@@ -1,3 +1,12 @@
+20081007:
+	Updated README and doc/* files
+	Fixed support for in-memory serial log
+	Fixes and enhancements to txt-stat
+	Changed policy format (see doc/policy.txt for new command syntax)
+	Added support for launching Linux kernels >= 2.6.20 (Linux kernel
+	    patches will be available on LKML)
+	Fixed build errors under gcc v4.3.0+
+
 20080609:
 	Removed support for Technology Enabling Platform (TEP)
 	Removed support for SINIT AC module versions <16 (i.e. <= 20070910)
