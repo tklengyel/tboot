@@ -26,6 +26,12 @@ Create Verified Launch policy:
     --image /boot/initrd-2.6.18.8-xen.img
     vl.pol
 
+Note:
+    The command lines should not include the module name (e.g. "/xen.gz").
+    This is a change from the previous version of policy support and was done
+    because a module's measurement should only depend on its content and not
+    on its location.
+
 
 Take ownership of the TPM:
 -------------------------
@@ -33,6 +39,11 @@ Take ownership of the TPM:
 2.  tcsd
 3.  tpm_takeownership -z
     -  choose password for TPM
+
+Note:
+    When taking ownership of the TPM it is important to set the SRK auth to
+    all 0s so that tboot will be able to seal/unseal the measurements.  The
+    '-z' flag to tpm_takeownership will do this.
 
 
 Define tboot error TPM NV index:

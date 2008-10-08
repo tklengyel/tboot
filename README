@@ -79,7 +79,13 @@ o  For Xen:  newer versions of Xen support the 'iommu=required' command line
    not fail if it cannot be enabled.
 
 o  For Linux:  the 'iommu=1' command line option will enabled VT-d.  There is
-   currently no way to force its use, but this will be added later.
+   currently no way to force its use, but this will be added later.  The Linux
+   kernel patches can be found on the LKML archives at:
+       http://lkml.org/lkml/2008/10/7/424
+       http://lkml.org/lkml/2008/10/7/427
+       http://lkml.org/lkml/2008/10/7/429
+       http://lkml.org/lkml/2008/10/7/442
+       http://lkml.org/lkml/2008/10/7/445
 
 o  Progress of the launch process is indicated via debug printk's to
    COM1 (hardcoded).  These appear before the normal "(XEN)" output and are
@@ -87,6 +93,14 @@ o  Progress of the launch process is indicated via debug printk's to
    best if this is also done by GRUB - grub.conf should have:
        serial --speed=115200 --unit=0
        terminal console serial
+
+o  tboot will attempt to seal the module measurements using the TPM so that if
+   it is put into S3 it can restore the correct PCR values on resume.  In order
+   for this to work, the TPM must be owned and the SRK auth must be set to all
+   0s.  This can be done usign the '-z' flag to tpm_takeownership.  If the
+   tboot policy being used is 'nonfatal' and the seal operation fails, tboot
+   will continue the boot.  However, for 'continue' or 'halt' policy types,
+   tboot will halt the boot.
 
 
 Interesting Items of Note:

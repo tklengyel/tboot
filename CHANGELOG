@@ -1,3 +1,6 @@
+20081008:
+	Fixed build error in lcptools/
+
 20081007:
 	Updated README and doc/* files
 	Fixed support for in-memory serial log
