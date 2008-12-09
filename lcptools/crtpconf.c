@@ -210,13 +210,9 @@ _error_end:
     /*
      * Error when execute.
      */
-    for (i = 0; i < MAX_INDEX; i++) {
-        if ( pcr_num )
-            if ( pcr_num[i] )
-                free(pcr_num[i]);
-    }
-    if ( srtm_data )
-        free(srtm_data);
+    for (i = 0; i < MAX_INDEX; i++)
+        free(pcr_num[i]);
+    free(srtm_data);
     log_error("\nCommand CrtPConf failed:\n");
     print_error(ret_value);
     return ret_value;
