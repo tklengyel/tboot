@@ -1,7 +1,7 @@
 ***************************************************************************
 * The current version of tboot (both in the repository and .tar.gz        *
 * requires the updated SINIT AC module (Q35/X38_SINIT_16.BIN).            *
-* It will not work with previous SINIT ACMs nor will it work on the TEP   *
+* It will not work with previous SINIT ACMs nor will it work on the TEP.  *
 ***************************************************************************
 
 Trusted Boot (tboot) is an open source, pre- kernel/VMM module that uses
