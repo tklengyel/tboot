@@ -1,17 +1,15 @@
-***************************************************************************
-* The current version of tboot (both in the repository and .tar.gz        *
-* requires the updated SINIT AC module (Q35/X38_SINIT_16.BIN).            *
-* It will not work with previous SINIT ACMs nor will it work on the TEP   *
-***************************************************************************
+******************************************************************************
+* The current version of tboot (both in the repository and .tar.gz)          *
+* requires the most recent version of the SINIT AC module.                   *
+* It will not work with some previous SINIT ACMs nor will it work on the TEP *
+******************************************************************************
 
 Trusted Boot (tboot) is an open source, pre- kernel/VMM module that uses
 Intel(R) Trusted Execution Technology (Intel(R) TXT) to perform a measured
 and verified launch of an OS kernel/VMM.
 
-This version of tboot supports Intel and OEM systems that are Intel TXT
--capable as well as the Intel TXT Technology Enabling Platform (TEP).
-It also supports Intel Software Development Platforms (SDPs) that are
-TXT-capable.
+This version of tboot supports Intel (both retail and Software Development
+Platforms (SDPs)) and OEM systems that are Intel TXT-capable.
 
 This version of tboot only supports both the Xen virtual machine monitor
 (versions >= 3.2) and Linux kernel versions >= 2.6.20.
@@ -75,8 +73,8 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
 o  For Xen:  newer versions of Xen support the 'iommu=required' command line
    option, which causes Xen to fail to run if there is any error in
    programming the VT-d engines.  This is the most secure configuration.
-   Older versions of Xen used the param 'vtd=1' which enables VT-d but does
-   not fail if it cannot be enabled.
+   Older versions of Xen used the param 'vtd=1' or 'iommu=1', which enables
+   VT-d but does not fail if it cannot be enabled.
 
 o  For Linux:  the 'iommu=1' command line option will enabled VT-d.  There is
    currently no way to force its use, but this will be added later.  The Linux
@@ -97,7 +95,7 @@ o  Progress of the launch process is indicated via debug printk's to
 o  tboot will attempt to seal the module measurements using the TPM so that if
    it is put into S3 it can restore the correct PCR values on resume.  In order
    for this to work, the TPM must be owned and the SRK auth must be set to all
-   0s.  This can be done usign the '-z' flag to tpm_takeownership.  If the
+   0s.  This can be done using the '-z' flag to tpm_takeownership.  If the
    tboot policy being used is 'nonfatal' and the seal operation fails, tboot
    will continue the boot.  However, for 'continue' or 'halt' policy types,
    tboot will halt the boot.
@@ -122,10 +120,6 @@ o  Tboot is always built 32bit and runs in protected mode without PAE or
 o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
    order to trap on INIT-SIPI-SIPI.
-
-o  Support for the TEP's NoDMA capability has not been implemented in this
-   patch.  NoDMA has been superseded by VT-d and is used by default on the
-   new TXT platforms.
 
 o  The tools/txt-stat project is a Linux application that reads some of
    the TXT registers will display the tboot boot log (if tboot was built with
