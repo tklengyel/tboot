@@ -43,12 +43,8 @@
 
 
 #ifndef NR_CPUS
-#ifdef MAX_PHYS_CPUS
-#define NR_CPUS     MAX_PHYS_CPUS
-#else
-#define NR_CPUS     16
-#endif   /* MAX_PHYS_CPUS */
-#endif   /* NR_CPUS */
+#define NR_CPUS     32
+#endif
 
 #ifdef __ASSEMBLY__
 #define ENTRY(name)                             \

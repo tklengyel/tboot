@@ -103,7 +103,7 @@ bool verify_bios_data(txt_heap_t *txt_heap)
                bios_data->num_logical_procs);
         return false;
     }
-    else if ( bios_data->num_logical_procs >= NR_CPUS ) {
+    else if ( bios_data->num_logical_procs > NR_CPUS ) {
         printk("BIOS data specifies too many CPUs (%u)\n",
                bios_data->num_logical_procs);
         return false;
