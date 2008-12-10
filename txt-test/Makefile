@@ -11,7 +11,9 @@ LINUX_BASE_DIR = $(ROOTDIR)/../
 LINUX_BUILD_DIR = $(LINUX_BASE_DIR)/build-linux-2.6.18-xen_$(TARGET_ARCH)
 LINUX_SRC_DIR = $(LINUX_BASE_DIR)/linux-2.6.18-xen.hg
 
-MOD_TARGET  := txt-test.ko
+# uncomment to build test kernel module
+#MOD_TARGET  := txt-test.ko
+
 APP_TARGETS := txt-stat acminfo
 
 
@@ -28,8 +30,7 @@ install : build
 
 
 clean :
-	rm -f $(MOD_TARGET) $(APP_TARGETS) *~ *.o *.mod.* *.symvers .*
-	rm -rf .*
+	rm -f $(MOD_TARGET) $(APP_TARGETS) *~ *.o *.mod.* *.symvers
 
 
 distclean : clean

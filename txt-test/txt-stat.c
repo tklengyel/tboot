@@ -39,7 +39,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <asm/page.h>
+#include <sys/user.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #define printk   printf
@@ -91,7 +91,7 @@ static void display_config_regs(void *txt_config_base)
 
     /* STS */
     sts._raw = read_txt_config_reg(txt_config_base, TXTCR_STS);
-    printf("\tSTS: 0x%lx\n", sts._raw);
+    printf("\tSTS: 0x%08jx\n", sts._raw);
     printf("\t    senter_done: %s\n", bit_to_str(sts.senter_done_sts));
     printf("\t    sexit_done: %s\n", bit_to_str(sts.sexit_done_sts));
     printf("\t    mem_unlock: %s\n", bit_to_str(sts.mem_unlock_sts));
@@ -101,13 +101,13 @@ static void display_config_regs(void *txt_config_base)
 
     /* ESTS */
     ests._raw = read_txt_config_reg(txt_config_base, TXTCR_ESTS);
-    printf("\tESTS: 0x%lx\n", ests._raw);
+    printf("\tESTS: 0x%02jx\n", ests._raw);
     printf("\t    txt_reset: %s\n", bit_to_str(ests.txt_reset_sts));
     printf("\t    txt_wake_error: %s\n", bit_to_str(ests.txt_wake_error_sts));
 
     /* E2STS */
     e2sts._raw = read_txt_config_reg(txt_config_base, TXTCR_E2STS);
-    printf("\tE2STS: 0x%lx\n", e2sts._raw);
+    printf("\tE2STS: 0x%016jx\n", e2sts._raw);
     printf("\t    slp_entry_error: %s\n",
            bit_to_str(e2sts.slp_entry_error_sts));
     printf("\t    secrets: %s\n", bit_to_str(e2sts.secrets_sts));
@@ -115,34 +115,34 @@ static void display_config_regs(void *txt_config_base)
     printf("\t    reset: %s\n", bit_to_str(e2sts.reset_sts));
 
     /* ERRORCODE */
-    printf("\tERRORCODE: 0x%lx\n", read_txt_config_reg(txt_config_base,
+    printf("\tERRORCODE: 0x%08jx\n", read_txt_config_reg(txt_config_base,
                                                        TXTCR_ERRORCODE));
 
     /* DIDVID */
     txt_didvid_t didvid;
     didvid._raw = read_txt_config_reg(txt_config_base, TXTCR_DIDVID);
-    printf("\tDIDVID: 0x%lx\n", didvid._raw);
+    printf("\tDIDVID: 0x%016jx\n", didvid._raw);
     printf("\t    vendor_id: 0x%x\n", didvid.vendor_id);
     printf("\t    device_id: 0x%x\n", didvid.device_id);
     printf("\t    revision_id: 0x%x\n", didvid.revision_id);
 
     /* SINIT.BASE/SIZE */
-    printf("\tSINIT.BASE: 0x%lx\n", read_txt_config_reg(txt_config_base,
+    printf("\tSINIT.BASE: 0x%08jx\n", read_txt_config_reg(txt_config_base,
                                                         TXTCR_SINIT_BASE));
-    printf("\tSINIT.SIZE: %luB (0x%lx)\n",
+    printf("\tSINIT.SIZE: %juB (0x%jx)\n",
            read_txt_config_reg(txt_config_base, TXTCR_SINIT_SIZE),
            read_txt_config_reg(txt_config_base, TXTCR_SINIT_SIZE));
 
     /* HEAP.BASE/SIZE */
-    printf("\tHEAP.BASE: 0x%lx\n", read_txt_config_reg(txt_config_base,
+    printf("\tHEAP.BASE: 0x%08jx\n", read_txt_config_reg(txt_config_base,
                                                        TXTCR_HEAP_BASE));
-    printf("\tHEAP.SIZE: %luB (0x%lx)\n",
+    printf("\tHEAP.SIZE: %juB (0x%jx)\n",
            read_txt_config_reg(txt_config_base, TXTCR_HEAP_SIZE),
            read_txt_config_reg(txt_config_base, TXTCR_HEAP_SIZE));
 
     /* DPR.BASE/SIZE */
     dpr._raw = read_txt_config_reg(txt_config_base, TXTCR_DPR);
-    printf("\tDPR: 0x%lx\n", dpr._raw);
+    printf("\tDPR: 0x%016jx\n", dpr._raw);
     printf("\t    lock: %s\n", bit_to_str(dpr.lock));
     printf("\t    top: 0x%08x\n", dpr.top << 20);
     printf("\t    size: %uMB (%uB)\n", dpr.size, dpr.size*1024*1024);
@@ -156,17 +156,17 @@ static void display_config_regs(void *txt_config_base)
 
 static void print_bios_data(bios_data_t *bios_data)
 {
-    printf("bios_data (@%p, %lx):\n", bios_data,
+    printf("bios_data (@%p, %jx):\n", bios_data,
            *((uint64_t *)bios_data - 1));
     printf("\t version: %u\n", bios_data->version);
     printf("\t bios_sinit_size: 0x%x (%u)\n", bios_data->bios_sinit_size,
            bios_data->bios_sinit_size);
-    printf("\t lcp_pd_base: 0x%lx\n", bios_data->lcp_pd_base);
-    printf("\t lcp_pd_size: 0x%lx (%lu)\n", bios_data->lcp_pd_size,
+    printf("\t lcp_pd_base: 0x%jx\n", bios_data->lcp_pd_base);
+    printf("\t lcp_pd_size: 0x%jx (%ju)\n", bios_data->lcp_pd_size,
            bios_data->lcp_pd_size);
     printf("\t num_logical_procs: %u\n", bios_data->num_logical_procs);
     if ( bios_data->version >= 3 )
-        printf("\t flags: 0x%08lx\n", bios_data->flags);
+        printf("\t flags: 0x%08jx\n", bios_data->flags);
 }
 
 static void display_heap(txt_heap_t *heap)
@@ -234,8 +234,8 @@ int main(int argc, char *argv[])
     else {
         display_config_regs(txt_pub);
         /* get this and save it before we unmap config regs */
-        heap = (txt_heap_t *)read_txt_config_reg(txt_pub,
-                                                             TXTCR_HEAP_BASE);
+        heap = (txt_heap_t *)(uintptr_t)read_txt_config_reg(txt_pub,
+                                                            TXTCR_HEAP_BASE);
         heap_size = read_txt_config_reg(txt_pub, TXTCR_HEAP_SIZE);
         munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
     }
