@@ -10,7 +10,7 @@ include Config.mk
 
 # (txt-test is not included because it requires pathing to Linux src)
 # (trousers is a dep of lcptools)
-SUBDIRS := build_tools tboot trousers lcptools tb_polgen
+SUBDIRS := tboot trousers lcptools tb_polgen
 
 #
 # build rules
@@ -33,8 +33,6 @@ install :
 		$(MAKE) install-$$i; \
 	done
 
-install-tboot : install-build_tools
-
 install-% :
 	$(MAKE) -C $* install
 
@@ -46,8 +44,6 @@ build :
 	@set -e; for i in $(SUBDIRS); do \
 		$(MAKE) build-$$i; \
 	done
-
-build-tboot : build-build_tools
 
 build-% :
 	$(MAKE) -C $* build

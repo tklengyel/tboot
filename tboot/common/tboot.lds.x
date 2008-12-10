@@ -18,7 +18,7 @@ PHDRS
 }
 SECTIONS
 {
-  . = TBOOT_BASE_ADDR;		/* 0x70000 */
+  . = TBOOT_BASE_ADDR;		/* 0x1003000 */
 
   _stext = .;	                /* text */
   _mle_start = .;               /* beginning of MLE pages */
@@ -27,7 +27,7 @@ SECTIONS
 	*(.text)
 	*(.fixup)
 	*(.gnu.warning)
-	} :text =0x9090
+	} :text = 0x9090
 
   _etext = .;			/* end of text section */
 

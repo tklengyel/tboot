@@ -6,8 +6,6 @@ include $(CURDIR)/Config.mk
 
 TARGET := $(CURDIR)/tboot
 
-DUMMY_SYMS_OBJ := $(CURDIR)/common/symbols-dummy.o
-
 C_SRCS := $(wildcard $(CURDIR)/common/*.c) $(wildcard $(CURDIR)/txt/*.c)
 
 S_SRCS += $(wildcard $(CURDIR)/common/*.S) $(wildcard $(CURDIR)/txt/*.S)
@@ -17,33 +15,18 @@ S_SRCS := $(filter-out $(INCLUDED_S_SRCS),$(S_SRCS))
 
 # for time being, ensure that boot.o is first module
 OBJS := $(S_SRCS:.S=.o) $(C_SRCS:.c=.o)
-# exlcude symbols-dummy.o because that is linked explicitly
-OBJS := $(filter-out $(DUMMY_SYMS_OBJ),$(OBJS))
 
 
 TARGET_LDS := $(CURDIR)/common/tboot.lds
 
-SYMBOLS = $(ROOTDIR)/build_tools/symbols
-MKELF	= $(ROOTDIR)/build_tools/mkelf32
-
 $(TARGET).gz : $(TARGET)
 	gzip -f -9 < $< > $@
 
-$(TARGET) : $(TARGET)-syms $(MKELF)
-	$(MKELF) $(TARGET)-syms $(TARGET) 0x1003000 \
-	`$(NM) -nr $(TARGET)-syms | head -n 1 | sed -e 's/^\([^ ]*\).*/0x\1/'`
-
-$(TARGET)-syms : $(OBJS) $(DUMMY_SYMS_OBJ) $(TARGET_LDS)
-	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) \
-	    $(DUMMY_SYMS_OBJ) -o $(@D)/.$(@F).0
-	$(NM) -n $(@D)/.$(@F).0 | $(SYMBOLS) >$(@D)/.$(@F).0.S
-	$(MAKE) $(@D)/.$(@F).0.o
-	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) \
-	    $(@D)/.$(@F).0.o -o $(@D)/.$(@F).1
-	$(NM) -n $(@D)/.$(@F).1 | $(SYMBOLS) >$(@D)/.$(@F).1.S
-	$(MAKE) $(@D)/.$(@F).1.o
-	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) $(@D)/.$(@F).1.o -o $@
-	rm -f $(@D)/.$(@F).[0-9]*
+$(TARGET) : $(OBJS) $(TARGET_LDS)
+	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) -o $(@D)/.$(@F).0
+	$(NM) -n $(@D)/.$(@F).0 >$(TARGET)-syms
+	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -s $(@D)/.$(@F).0 -o $(TARGET)
+	rm -f $(@D)/.$(@F).0
 
 $(TARGET_LDS) : $(TARGET_LDS).x $(HDRS)
 	$(CPP) -P -E -Ui386 $(AFLAGS) -o $@ $<

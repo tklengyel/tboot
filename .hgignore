@@ -42,5 +42,5 @@
 ^lcptools/lcp_readpol$
 ^lcptools/lcp_writepol$
 ^tb_polgen/tb_polgen$
-^build_tools/mkelf32$
-^build_tools/symbols$
+^txt-test/acminfo$
+^txt-test/txt-stat$
