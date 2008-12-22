@@ -228,8 +228,9 @@ static bool verify_os_sinit_data(txt_heap_t *txt_heap)
 
 static void print_sinit_mdrs(sinit_mdr_t mdrs[], uint32_t num_mdrs)
 {
-    static char *mem_types[] = {"GOOD", "SMRAM OVERLAY", "SMRAM NON-OVERLAY",
-                                "PCIE EXTENDED CONFIG", "PROTECTED"};
+    static const char *mem_types[] = {"GOOD", "SMRAM OVERLAY",
+                                      "SMRAM NON-OVERLAY",
+                                      "PCIE EXTENDED CONFIG", "PROTECTED"};
 
     printk("\t sinit_mdrs:\n");
     for ( int i = 0; i < num_mdrs; i++ ) {
