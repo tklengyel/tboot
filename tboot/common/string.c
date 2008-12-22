@@ -29,6 +29,26 @@ int strcmp(const char * cs,const char * ct)
 }
 #endif
 
+#ifndef __HAVE_ARCH_STRNCMP
+/**
+ * strncmp - Compare two length-limited strings
+ * @cs: One string
+ * @ct: Another string
+ * @count: The maximum number of bytes to compare
+ */
+int strncmp(const char *cs, const char *ct, size_t count)
+{
+    register signed char __res = 0;
+
+    while (count) {
+        if ((__res = *cs - *ct++) != 0 || !*cs++)
+            break;
+        count--;
+    }
+    return __res;
+}
+#endif
+
 #ifndef __HAVE_ARCH_STRCHR
 /**
  * strchr - Find the first occurrence of a character in a string

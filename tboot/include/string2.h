@@ -10,6 +10,8 @@
 
 extern int strcmp(const char *, const char *);
 
+extern int strncmp(const char *, const char *, size_t);
+
 extern char * strchr(const char *, int);
 
 extern size_t strnlen(const char *, size_t);
