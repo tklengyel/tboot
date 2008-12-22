@@ -144,6 +144,60 @@ static char * number(char * buf, char * end, unsigned long long num, int base, i
     return buf;
 }
 
+/* Works only for digits and letters, but small and fast */
+#define TOLOWER(x) ((x) | 0x20)
+
+/**
+ * simple_strtoul - convert a string to an unsigned long
+ * @cp: The start of the string
+ * @endp: A pointer to the end of the parsed string will be placed here
+ * @base: The number base to use
+ */
+unsigned long simple_strtoul(const char *cp,char **endp,unsigned int base)
+{
+    unsigned long result = 0,value;
+
+    if (!base) {
+        base = 10;
+        if (*cp == '0') {
+            base = 8;
+            cp++;
+            if ((TOLOWER(*cp) == 'x') && isxdigit(cp[1])) {
+                cp++;
+                base = 16;
+            }
+        }
+    } else if (base == 16) {
+        if (cp[0] == '0' && TOLOWER(cp[1]) == 'x')
+            cp += 2;
+    }
+    while (isxdigit(*cp) &&
+           (value = isdigit(*cp) ? *cp-'0' : TOLOWER(*cp)-'a'+10) < base) {
+        result = result*base + value;
+        cp++;
+    }
+    if (endp)
+        *endp = (char *)cp;
+    return result;
+}
+
+EXPORT_SYMBOL(simple_strtoul);
+
+/**
+ * simple_strtol - convert a string to a signed long
+ * @cp: The start of the string
+ * @endp: A pointer to the end of the parsed string will be placed here
+ * @base: The number base to use
+ */
+long simple_strtol(const char *cp,char **endp,unsigned int base)
+{
+    if(*cp=='-')
+        return -simple_strtoul(cp+1,endp,base);
+    return simple_strtoul(cp,endp,base);
+}
+
+EXPORT_SYMBOL(simple_strtol);
+
 /**
  * vsnprintf - Format a string and place it in a buffer
  * @buf: The buffer to place the result into

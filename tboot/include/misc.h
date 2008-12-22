@@ -90,6 +90,8 @@ static inline void out(unsigned int value, unsigned short port)
 #define BUG_ON(_p) do { if (_p) BUG(); } while ( 0 )
 
 /* vsprintf.c */
+unsigned long simple_strtoul(const char *,char **,unsigned int);
+long simple_strtol(const char *,char **,unsigned int);
 extern int sprintf(char * buf, const char * fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
 extern int vsprintf(char *buf, const char *, va_list)
