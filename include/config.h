@@ -28,7 +28,7 @@
 /* kernel at startup */
 
 /* address/size for memory-resident serial log (when enabled) */
-#define TBOOT_SERIAL_LOG_ADDR        0x83000
+#define TBOOT_SERIAL_LOG_ADDR        0x63000
 #define TBOOT_SERIAL_LOG_SIZE        0x05000
 
 /* address/size for modified e820 table */
@@ -64,6 +64,7 @@
     }
 
 #define __data     __attribute__ ((__section__ (".data")))
+#define __text     __attribute__ ((__section__ (".text")))
 
 #define __packed   __attribute__ ((packed))
 
