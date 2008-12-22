@@ -21,13 +21,33 @@
 #ifndef __PRINTK_H__
 #define __PRINTK_H__
 
-#define printk       early_serial_printk
+#define TBOOT_LOG_LEVEL_NONE    0x00
+#define TBOOT_LOG_LEVEL_ALL     0xFF
 
-extern void init_log(void);
-extern void print_log(void);
-extern void early_serial_printk(const char *fmt, ...)
-                         __attribute__ ((format (printf, 1, 2)));
+#define TBOOT_LOG_TARGET_NONE   0x00
+#define TBOOT_LOG_TARGET_VGA    0x01
+#define TBOOT_LOG_TARGET_SERIAL 0x02
+#define TBOOT_LOG_TARGET_MEMORY 0x04
+
+extern unsigned char  g_log_level;    /* default value is ALL for DEBUG builds
+					 and NONE for release, print all */
+extern unsigned char  g_log_targets;  /* default value is no target for DEBUG
+					 builds and VGA for release */
+
+#define printk       early_printk
+
+extern void early_memlog_init(void);
+extern void early_memlog_write(const char *str, unsigned int count);
+extern void early_memlog_print(void);
+
+extern void early_serial_parse_port_config(const char *conf);
 extern void early_serial_init(void);
-extern void early_vga_printk(const char *str);
+extern void early_serial_write(const char *str, unsigned int count);
+
+extern void early_vga_write(const char *str, unsigned int count);
+
+extern void early_printk_init(void);
+extern void early_printk(const char *fmt, ...)
+                         __attribute__ ((format (printf, 1, 2)));
 
 #endif

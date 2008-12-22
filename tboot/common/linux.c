@@ -1,7 +1,7 @@
 /*
  * linux.c: support functions for manipulating Linux kernel binaries
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include <e820.h>
 #include <tboot.h>
 #include <linux_defns.h>
+#include <cmdline.h>
 
 #define SECTOR_SIZE (1 << 9)      /* 0x200 */
 
@@ -60,15 +61,6 @@ extern multiboot_info_t *g_mbi;
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
-/* for parse cmdline of linux kernel, say vga and mem */
-extern void linux_cmdline_parse(char *cmdline);
-extern bool parse_linux_vga(void);
-extern bool parse_linux_mem(void);
-extern const char *skip_filename(const char *cmdline);
-
-int vid_mode = 0;
-int initrd_max_mem = 0;
-
 boot_params_t boot_params;
 
 /* expand linux kernel with kernel image and initrd image */
@@ -83,6 +75,8 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     uint32_t initrd_base;
     const char *kernel_cmdline;
     screen_info_t *screen = (screen_info_t *)&boot_params;
+    int vid_mode = 0;
+    int initrd_max_mem = 0;
 
     /* Check param */
 
@@ -130,8 +124,8 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     }
 
     /* set vid_mode */
-    linux_cmdline_parse((char *)g_mbi->cmdline);
-    if ( parse_linux_vga() )
+    linux_parse_cmdline((char *)g_mbi->cmdline);
+    if ( get_linux_vga(&vid_mode) )
         hd->vid_mode = vid_mode;
 
     /* compare to the magic number */
@@ -152,7 +146,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         /* The initrd should typically be located as high in memory as
            possible, as it may otherwise get overwritten by the early
            kernel initialization sequence. */
-        if ( parse_linux_mem() )
+        if ( get_linux_mem(&initrd_max_mem) )
             initrd_base = initrd_max_mem - initrd_size;
         else if ( (g_mbi->flags) & (1<<0) )
             initrd_base = (g_mbi->mem_upper << 10) + 0x100000 - initrd_size;
@@ -170,7 +164,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         }
 
         memmove((void *)initrd_base, initrd_image, initrd_size);
-	printk("Initrd from 0x%lx to 0x%lx\n",
+        printk("Initrd from 0x%lx to 0x%lx\n",
                (unsigned long)initrd_base,
                (unsigned long)(initrd_base + initrd_size));
 
@@ -181,8 +175,10 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         real_mode_base = LEGACY_REAL_START;
         if ( (g_mbi->flags) & (1<<0) )
             real_mode_base = (g_mbi->mem_lower << 10) - REAL_MODE_SIZE;
-        if ( real_mode_base < TBOOT_KERNEL_CMDLINE_ADDR + TBOOT_KERNEL_CMDLINE_SIZE )
-            real_mode_base = TBOOT_KERNEL_CMDLINE_ADDR + TBOOT_KERNEL_CMDLINE_SIZE;
+        if ( real_mode_base < TBOOT_KERNEL_CMDLINE_ADDR +
+             TBOOT_KERNEL_CMDLINE_SIZE )
+            real_mode_base = TBOOT_KERNEL_CMDLINE_ADDR +
+                TBOOT_KERNEL_CMDLINE_SIZE;
         if ( real_mode_base > LEGACY_REAL_START )
             real_mode_base = LEGACY_REAL_START;
         hd->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
@@ -204,11 +200,11 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
             if ( (protected_mode_base + protected_mode_size)
                     > ((g_mbi->mem_upper << 10) + 0x100000) ) {
                 printk("Error: Linux protected mode part (0x%lx ~ 0x%lx) "
-                     "exceeds mem_upper (0x%lx ~ 0x%lx).\n",
-                     (unsigned long)protected_mode_base,
-                     (unsigned long)(protected_mode_base + protected_mode_size),
-                     (unsigned long)0x100000,
-                     (unsigned long)((g_mbi->mem_upper << 10) + 0x100000));
+                       "exceeds mem_upper (0x%lx ~ 0x%lx).\n",
+                       (unsigned long)protected_mode_base,
+                       (unsigned long)(protected_mode_base + protected_mode_size),
+                       (unsigned long)0x100000,
+                       (unsigned long)((g_mbi->mem_upper << 10) + 0x100000));
                 return false;
             }
     }
@@ -217,17 +213,14 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     hd->tboot_shared_addr = (uint32_t)&_tboot_shared;
 
     /* load protected-mode part */
-    memmove((void *)protected_mode_base,
-             linux_image + real_mode_size,
-             protected_mode_size);
+    memmove((void *)protected_mode_base, linux_image + real_mode_size,
+            protected_mode_size);
     printk("Kernel (protected mode) from 0x%lx to 0x%lx\n",
            (unsigned long)protected_mode_base,
            (unsigned long)(protected_mode_base + protected_mode_size));
 
     /* load real-mode part */
-    memmove((void *)real_mode_base,
-             linux_image,
-             real_mode_size);
+    memmove((void *)real_mode_base, linux_image, real_mode_size);
     printk("Kernel (real mode) from 0x%lx to 0x%lx\n",
            (unsigned long)real_mode_base,
            (unsigned long)(real_mode_base + real_mode_size));
@@ -235,8 +228,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* copy cmdline */
     kernel_cmdline = skip_filename((const char *)g_mbi->cmdline);
     memcpy((void *)(real_mode_base + KERNEL_CMDLINE_OFFSET),
-           (void *)(kernel_cmdline),
-           strlen(kernel_cmdline));
+           (void *)(kernel_cmdline), strlen(kernel_cmdline));
 
     memset(&boot_params, 0, sizeof(boot_params));
     memcpy(&boot_params.hdr, hd, sizeof(*hd));
@@ -253,9 +245,9 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
               i++,
               p = (memory_map_t *)((uint32_t)p + p->size + sizeof(p->size)) ) {
             addr = ((uint64_t)p->base_addr_high << 32)
-                 | (uint64_t)p->base_addr_low;
+                | (uint64_t)p->base_addr_low;
             size = ((uint64_t)p->length_high << 32)
-                 | (uint64_t)p->length_low;
+                | (uint64_t)p->length_low;
             type = p->type;
             boot_params.e820_map[i].addr = addr;
             boot_params.e820_map[i].size = size;

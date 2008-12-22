@@ -330,14 +330,14 @@ int main(int argc, char* argv[])
     uint8_t hash[SHA1_LENGTH];
     mle_hdr_t *mle_hdr;
     int i, c;
-    static const char *options = "hv";
     bool help = false;
     char *mle_file;
     extern int optind;    /* current index of get_opt() */
     EVP_MD_CTX ctx;
     const EVP_MD *md;
+    char *cmdline = NULL;
 
-    while ((c = getopt(argc, (char ** const)argv, options)) != -1) {
+    while ((c = getopt(argc, (char ** const)argv, "hvc:")) != -1) {
         switch (c) {
             case 'h':
                 help = true;
@@ -345,13 +345,27 @@ int main(int argc, char* argv[])
             case 'v':
                 verbose = true;
                 break;
+            case 'c':
+                if ( optarg == NULL ) {
+                    printf("Misssing command line string for -c option\n");
+                    return 1;
+                }
+                cmdline = malloc(strlen(optarg) + 1);
+                if ( cmdline == NULL ) {
+                    printf("Out of memory\n");
+                    return 1;
+                }
+                strcpy(cmdline, optarg);
+                break;
         }
     }
     if ( help || (optind == argc) ) {
-        printf("mhash [-h] [-v] mle_file\n"
+        printf("mhash [-h] [-v] [-c cmdline] mle_file\n"
                "\t-h Help: will print out this help message.\n"
                "\t-v Verbose: display progress indications.\n"
+               "\t-c cmdline Command line: specify quote-delimited command line.\n"
                "\tmle_file: file name of MLE binary (gzip or not) to hash.\n");
+        free(cmdline);
         return 1;
     }
     mle_file = argv[optind];
@@ -386,11 +400,20 @@ int main(int argc, char* argv[])
         goto error;
     }
 
+    /* before hashing, find command line area in MLE then zero-fill and copy
+       command line param to it */
+    if ( mle_hdr->cmdline_end_off > mle_hdr->cmdline_start_off &&
+         cmdline != NULL ) {
+        memset(exp_start + mle_hdr->cmdline_start_off, '\0',
+               mle_hdr->cmdline_end_off - mle_hdr->cmdline_start_off);
+        strncpy(exp_start + mle_hdr->cmdline_start_off, cmdline,
+                mle_hdr->cmdline_end_off - mle_hdr->cmdline_start_off - 1);
+    }
+
     /* SHA-1 the MLE portion of the image */
     md = EVP_sha1();
     EVP_DigestInit(&ctx, md);
-    EVP_DigestUpdate(&ctx,
-                     exp_start + mle_hdr->mle_start_off,
+    EVP_DigestUpdate(&ctx, exp_start + mle_hdr->mle_start_off,
                      mle_hdr->mle_end_off - mle_hdr->mle_start_off);
     EVP_DigestFinal(&ctx, (unsigned char *)hash, NULL);
     log_info("SHA-1 = ");

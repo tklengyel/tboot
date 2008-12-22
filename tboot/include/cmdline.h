@@ -1,7 +1,7 @@
 /*
- * mle.h: Intel(r) TXT MLE header definition
+ * cmdline.h: support functions for command line parsing
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,49 +33,26 @@
  *
  */
 
-#ifndef __MLE_H__
-#define __MLE_H__
+#ifndef __CMDLINE_H__
+#define __CMDLINE_H__
 
-/*
- * SINIT/MLE capabilities
- */
-typedef union {
-    uint32_t  _raw;
-    struct {
-        uint32_t  rlp_wake_getsec     : 1;
-        uint32_t  rlp_wake_monitor    : 1;
-        uint32_t  reserved            : 30;
-    };
-} txt_caps_t;
+#define CMDLINE_SIZE   512
+extern char g_cmdline[CMDLINE_SIZE];
 
 
-/*
- * MLE header structure
- *   describes an MLE for SINIT and OS/loader SW
- */
-typedef struct {
-    uuid_t      uuid;
-    uint32_t    length;
-    uint32_t    version;
-    uint32_t    entry_point;
-    uint32_t    first_valid_page;
-    uint32_t    mle_start_off;
-    uint32_t    mle_end_off;
-    txt_caps_t  capabilities;
-    uint32_t    cmdline_start_off;
-    uint32_t    cmdline_end_off;
-} mle_hdr_t;
+extern void tboot_parse_cmdline(void);
+extern void get_tboot_loglvl(void);
+extern void get_tboot_log_targets(void);
 
-#define MLE_HDR_UUID      {0x9082ac5a, 0x476f, 0x74a7, 0x5c0f, \
-                              {0x55, 0xa2, 0xcb, 0x51, 0xb6, 0x42}}
+/* for parse cmdline of linux kernel, say vga and mem */
+extern void linux_parse_cmdline(char *cmdline);
+extern bool get_linux_vga(int *vid_mode);
+extern bool get_linux_mem(int *initrd_max_mem);
 
-/*
- * values supported by current version of tboot
- */
-#define MLE_HDR_VER       0x00020001     /* 2.1 */
-#define MLE_HDR_CAPS      0x00000003     /* rlp_wake_{getsec, monitor} = 1 */
+extern const char *skip_filename(const char *cmdline);
 
-#endif      /* __MLE_H__ */
+
+#endif    /* __CMDLINE_H__ */
 
 
 /*

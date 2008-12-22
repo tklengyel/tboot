@@ -55,6 +55,7 @@
 #include <mle.h>
 #define LCP_UUID_ONLY
 #include <lcp.h>
+#include <cmdline.h>
 #include <txt/txt.h>
 #include <txt/config_regs.h>
 #include <txt/mtrrs.h>
@@ -78,7 +79,7 @@ extern char _txt_wakeup[];      /* RLP join address for GETSEC[WAKEUP] */
  * this is the structure whose addr we'll put in TXT heap
  * it needs to be within the MLE pages, so force it to the .text section
  */
-static __attribute__ ((__section__ (".text"))) const mle_hdr_t g_mle_hdr = {
+static __text const mle_hdr_t g_mle_hdr = {
     uuid              :  MLE_HDR_UUID,
     length            :  sizeof(mle_hdr_t),
     version           :  MLE_HDR_VER,
@@ -87,6 +88,9 @@ static __attribute__ ((__section__ (".text"))) const mle_hdr_t g_mle_hdr = {
     mle_start_off     :  (uint32_t)&_mle_start - TBOOT_BASE_ADDR,
     mle_end_off       :  (uint32_t)&_mle_end - TBOOT_BASE_ADDR,
     capabilities      :  { MLE_HDR_CAPS },
+    cmdline_start_off :  (uint32_t)g_cmdline - TBOOT_BASE_ADDR,
+    cmdline_end_off   :  (uint32_t)g_cmdline + CMDLINE_SIZE - 1 -
+                                                       TBOOT_BASE_ADDR,
 };
 
 /*

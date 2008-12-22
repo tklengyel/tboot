@@ -57,13 +57,12 @@
 #include <acpi.h>
 #include <integrity.h>
 #include <tpm.h>
+#include <cmdline.h>
 
 extern void _prot_to_real(uint32_t dist_addr);
 extern bool set_policy(void);
 extern void verify_all_modules(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
-extern void tboot_cmdline_parse(char *cmdline);
-extern void parse_tboot_loglvl(void);
 void s3_launch(void);
 
 extern long s3_flag;
@@ -86,6 +85,7 @@ extern vl_hashes_t g_vl_hashes;
  * (s3_wakeup_end - s3_wakeup_16) can fit into one page.
  */
 static __data uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
+
 
 static tb_error_t verify_platform(void)
 {
@@ -225,7 +225,6 @@ static void post_launch(void)
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
     print_tboot_shared(&_tboot_shared);
-    print_log();
 
     launch_kernel(true);
     apply_policy(TB_ERR_FATAL);
@@ -244,26 +243,31 @@ void begin_launch(multiboot_info_t *mbi)
     unsigned long apicbase;
     tb_error_t err;
 
-    if ( !s3_flag )
-    {
-        /* save for post launch */
-        g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;
+    g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;  /* save for post launch */
 
-        /* parse command line */
+    if ( !is_launched() ) {
+        /* on pre-SENTER boot, copy command line to buffer in tboot image
+           (so that it will be measured); buffer must be 0 -filled */
+        memset(g_cmdline, '\0', sizeof(g_cmdline));
         if ( g_mbi->flags & MBI_CMDLINE ) {
-            tboot_cmdline_parse((char *)g_mbi->cmdline);
-
-            /* parse loglvl from string to int */
-            parse_tboot_loglvl();
+            /* don't include path in cmd line */
+            const char *cmdline = skip_filename((char *)g_mbi->cmdline);
+            if ( cmdline != NULL )
+                strncpy(g_cmdline, cmdline, sizeof(g_cmdline)-1);
         }
     }
 
-    init_log();
-    early_serial_init();
+    /* always parse cmdline */
+    tboot_parse_cmdline();
+
+    /* initialize all logging targets */
+    early_printk_init();
 
     printk("******************* TBOOT *******************\n");
     printk("   %s\n", TBOOT_CHANGESET);
     printk("*********************************************\n");
+
+    printk("command line: %s\n", g_cmdline);
 
     /* we should only be executing on the BSP */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
