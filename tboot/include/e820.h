@@ -1,7 +1,7 @@
 /*
  * e820.h: support functions for manipulating the e820 table
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2008, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,7 +68,6 @@ typedef struct __attribute__ ((packed)) {
     uint32_t type;    /* type of memory segment */
 } e820entry_t;
 
-#ifndef __XEN__
 extern bool copy_e820_map(multiboot_info_t *mbi);
 extern bool e820_protect_region(uint64_t addr, uint64_t size, uint32_t type);
 extern bool e820_reserve_ram(uint64_t base, uint64_t length);
@@ -76,7 +75,6 @@ extern void print_e820_map(void);
 extern void replace_e820_map(multiboot_info_t *mbi);
 extern uint32_t e820_check_region(uint64_t base, uint64_t length);
 extern uint64_t get_max_ram(multiboot_info_t *mbi);
-#endif    /* __XEN__ */
 
 #endif    /* __E820_H__ */
 
