@@ -598,11 +598,6 @@ tb_error_t txt_post_launch(void)
     txt_heap = get_txt_heap();
     os_mle_data = get_os_mle_data_start(txt_heap);
 
-    /* restore pre-SENTER IA32_MISC_ENABLE_MSR (no verification needed) */
-    printk("saved IA32_MISC_ENABLE = 0x%08x\n",
-           os_mle_data->saved_misc_enable_msr);
-    wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
-
     /* clear error registers so that we start fresh */
     write_priv_config_reg(TXTCR_ERRORCODE, 0x00000000);
     write_priv_config_reg(TXTCR_ESTS, 0xffffffff);  /* write 1's to clear */
@@ -610,6 +605,13 @@ tb_error_t txt_post_launch(void)
     /* bring RLPs into environment (do this before restoring MTRRs to ensure */
     /* SINIT area is mapped WB for MONITOR-based RLP wakeup) */
     txt_wakeup_cpus();
+
+    /* restore pre-SENTER IA32_MISC_ENABLE_MSR (no verification needed)
+       (do after AP wakeup so that if restored MSR has MWAIT clear it won't
+       prevent wakeup) */
+    printk("saved IA32_MISC_ENABLE = 0x%08x\n",
+           os_mle_data->saved_misc_enable_msr);
+    wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
 
     /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
     restore_mtrrs(&(os_mle_data->saved_mtrr_state));
