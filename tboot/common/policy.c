@@ -49,11 +49,12 @@
 #include <tb_error.h>
 #define PRINT printk
 #include <tb_policy.h>
-//#include <txt/config_regs.h>
+#include <mle.h>
 #include <tpm.h>
 #include <loader.h>
 #include <tboot.h>
 #include <integrity.h>
+#include <txt/mtrrs.h>
 
 extern void shutdown(void);
 extern void s3_launch(void);
@@ -350,6 +351,8 @@ void apply_policy(tb_error_t error)
         case TB_POLACT_CONTINUE:
             return;
         case TB_POLACT_UNMEASURED_LAUNCH:
+            /* restore mtrr state saved before */
+            restore_mtrrs(NULL);
             if ( s3_flag )
                 s3_launch();
             else

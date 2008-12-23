@@ -57,6 +57,9 @@
 #define NR_MMIO_IOAPIC_PAGES    1
 #define NR_MMIO_PCICFG_PAGES    1
 
+/* saved MTRR state or NULL if orig. MTRRs have not been changed */
+static __data mtrr_state_t *g_saved_mtrrs = NULL;
+
 /*
  * this must be done for each processor so that all have the same
  * memory types
@@ -146,6 +149,8 @@ void save_mtrrs(mtrr_state_t *saved_state)
         rdmsrl(MTRR_PHYS_BASE0_MSR + ndx*2,
                saved_state->mtrr_physbases[ndx].raw);
     }
+
+    g_saved_mtrrs = saved_state;
 }
 
 static void print_mtrrs(const mtrr_state_t *saved_state)
@@ -420,13 +425,18 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
 
 void restore_mtrrs(mtrr_state_t *saved_state)
 {
-    int ndx;
+    /* called by apply_policy() so use saved ptr */
+    if ( saved_state == NULL )
+        saved_state = g_saved_mtrrs;
+    /* haven't saved them yet, so return */
+    if ( saved_state == NULL )
+        return;
 
     /* disable all MTRRs first */
     set_all_mtrrs(false);
 
     /* physmask's and physbase's */
-    for ( ndx = 0; ndx < saved_state->num_var_mtrrs; ndx++ ) {
+    for ( int ndx = 0; ndx < saved_state->num_var_mtrrs; ndx++ ) {
         wrmsrl(MTRR_PHYS_MASK0_MSR + ndx*2,
                saved_state->mtrr_physmasks[ndx].raw);
         wrmsrl(MTRR_PHYS_BASE0_MSR + ndx*2,
