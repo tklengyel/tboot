@@ -115,7 +115,7 @@ static void print_mbi(multiboot_info_t *mbi)
 }
 #endif
 
-static bool is_mods_valid(multiboot_info_t *mbi)
+bool verify_mbi(multiboot_info_t *mbi)
 {
     if ( mbi == NULL ) {
         printk("Error: Mbi pointer is zero.\n");
@@ -124,6 +124,11 @@ static bool is_mods_valid(multiboot_info_t *mbi)
 
     if ( !(mbi->flags & (1 << 3)) ) {
         printk("Error: Mods in mbi is invalid.\n");
+        return false;
+    }
+
+    if ( mbi->mods_count < 1 ) {
+        printk("Error: no modules\n");
         return false;
     }
 
@@ -157,7 +162,7 @@ bool launch_kernel(bool is_measured_launch)
     enum { ELF, LINUX } kernel_type;
     void *kernel_entry_point;
 
-    if ( !is_mods_valid(g_mbi) )
+    if ( !verify_mbi(g_mbi) )
         return false;
 
     module_t *m = (module_t *)g_mbi->mods_addr;
@@ -269,8 +274,7 @@ bool verify_modules(multiboot_info_t *mbi)
     uint64_t base, size;
     module_t *m;
 
-    if ( !is_mods_valid(mbi) )
-        return false;
+    /* assumes mbi is valid */
 
     /* verify e820 map to make sure each module is OK in e820 map */
     /* check modules in mbi should be in RAM */
@@ -296,7 +300,7 @@ void *remove_module(multiboot_info_t *mbi, void *mod_start)
     module_t *m = NULL;
     int i;
 
-    if ( !is_mods_valid(mbi) )
+    if ( !verify_mbi(mbi) )
         return NULL;
 
     for ( i = 0; i < mbi->mods_count; i++ ) {

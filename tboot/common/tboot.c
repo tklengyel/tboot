@@ -300,6 +300,10 @@ void begin_launch(multiboot_info_t *mbi)
     err = verify_platform();
     apply_policy(err);
 
+    /* ensure there are modules */
+    if ( !verify_mbi(g_mbi) )
+        apply_policy(TB_ERR_FATAL);
+
     /* this is being called post-measured launch */
     if ( is_launched() )
         post_launch();

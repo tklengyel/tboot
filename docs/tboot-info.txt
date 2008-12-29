@@ -122,6 +122,21 @@ o  tboot will attempt to seal the module measurements using the TPM so that if
    tboot will halt the boot.
 
 
+PCR Usage:
+---------
+PCR 17 : as documented in the MLE Developers Manual
+PCR 18 :
+   It will be extended with the following values (in this order):
+       -  SHA-1 hash of tboot (as calculated by lcp_mlehash)
+       -  SHA-1 hash of:  tboot policy control value (4 bytes) |
+                          SHA-1 hash of tboot policy (20 bytes)
+          : where the hash of the tboot policy will be 0s if
+            TB_POLCTL_EXTEND_PCR17 is clear
+       -  SHA-1 hash of first module in grub.conf (e.g. Xen or Linux kernel)
+PCR * : tboot policy may specify modules' measurements to be extended into
+        PCRs specified in the policy
+
+
 Interesting Items of Note:
 --------------------------
 o  A Xen or Linux version that does not support tboot can still be launched by

@@ -54,6 +54,7 @@
 #include <loader.h>
 #include <tboot.h>
 #include <integrity.h>
+#include <cmdline.h>
 #include <txt/mtrrs.h>
 
 extern void shutdown(void);
@@ -125,9 +126,15 @@ static const tb_policy_t _def_policy = {
     version        : 2,
     policy_type    : TB_POLTYPE_CONT_NON_FATAL,
     policy_control : TB_POLCTL_EXTEND_PCR17,
-    num_entries    : 1,
+    num_entries    : 2,
     entries        : {
-        {
+        {   /* mod 0 is extended to PCR 18 by default, so don't re-extend it */
+            mod_num    : 0,
+            pcr        : TB_POL_PCR_NONE,
+            hash_type  : TB_HTYPE_ANY,
+            num_hashes : 0
+        },
+        {   /* all other modules are extended to PCR 19 */
             mod_num    : TB_POL_MOD_NUM_ANY,
             pcr        : 19,
             hash_type  : TB_HTYPE_ANY,
@@ -230,25 +237,9 @@ tb_error_t set_policy(void)
         return TB_ERR_POLICY_NOT_PRESENT;
 }
 
-static const unsigned char *strip_filename(const unsigned char *cmdline)
-{
-    if ( cmdline == NULL || *cmdline == '\0' )
-        return cmdline;
-
-    /* strip leading spaces, file name, then any spaces until the next */
-    /* non-space char (e.g. "  /foo/bar   baz" -> "baz"; "/foo/bar" -> "") */
-    while ( *cmdline != '\0' && isspace(*cmdline) )
-        cmdline++;
-    while ( *cmdline != '\0' && !isspace(*cmdline) )
-        cmdline++;
-    while ( *cmdline != '\0' && isspace(*cmdline) )
-        cmdline++;
-    return cmdline;
-}
-
 /* generate hash by hashing cmdline and module image */
 static bool hash_module(tb_hash_t *hash, uint8_t hash_alg, 
-                        const unsigned char* cmdline, void *base,
+                        const char* cmdline, void *base,
                         uint32_t size)
 {
     if ( hash == NULL ) {
@@ -263,10 +254,11 @@ static bool hash_module(tb_hash_t *hash, uint8_t hash_alg,
 
     /* hash command line */
     if ( cmdline == NULL )
-        cmdline = (const unsigned char *)"";
+        cmdline = "";
     else
-        cmdline = strip_filename(cmdline);
-    if ( !hash_buffer(cmdline, strlen((char *)cmdline), hash, hash_alg) )
+        cmdline = skip_filename(cmdline);
+    if ( !hash_buffer((const unsigned char *)cmdline, strlen(cmdline), hash,
+                      hash_alg) )
         return false;
 
     /* hash image and extend into cmdline hash */
@@ -371,16 +363,17 @@ void apply_policy(tb_error_t error)
 
 /*
  * verify modules against Verified Launch policy and save hash
+ * if pol_entry is NULL, assume it is for module 0, which gets extended
+ * to PCR 18
  */
 static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
                                 uint8_t hash_alg)
 {
-    if ( module == NULL || pol_entry == NULL )
-        return TB_ERR_MODULE_VERIFICATION_FAILED;
+    /* assumes module is valid */
 
     void *base = (void *)module->mod_start;
     uint32_t size = module->mod_end - module->mod_start;
-    unsigned char *cmdline = (unsigned char *)module->string;
+    char *cmdline = (char *)module->string;
 
     printk("verifying module \"%s\"...\n", cmdline);
     tb_hash_t hash;
@@ -389,17 +382,20 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
         return TB_ERR_MODULE_VERIFICATION_FAILED;
     }
 
-    /* add new hash to list (unless it doesn't get put in a PCR) */
-    /* we'll just drop it if the list is full, but that will mean S3 resume */
-    /* PCRs won't match pre-S3 */
+    /* add new hash to list (unless it doesn't get put in a PCR)
+       we'll just drop it if the list is full, but that will mean S3 resume
+       PCRs won't match pre-S3
+       NULL pol_entry means this is module 0 which is extended to PCR 18 */
     if ( g_vl_hashes.num_entries >= MAX_VL_HASHES )
         printk("\t too many hashes to save\n");
-    else if ( pol_entry->pcr != TB_POL_PCR_NONE ) {
-        g_vl_hashes.entries[g_vl_hashes.num_entries].pcr = pol_entry->pcr;
+    else if ( pol_entry == NULL || pol_entry->pcr != TB_POL_PCR_NONE ) {
+        uint8_t pcr = (pol_entry == NULL ) ? 18 : pol_entry->pcr;
+        g_vl_hashes.entries[g_vl_hashes.num_entries].pcr = pcr;
         g_vl_hashes.entries[g_vl_hashes.num_entries++].hash = hash;
     }
     
-    if ( !is_hash_in_policy_entry(pol_entry, &hash, hash_alg) ) {
+    if ( pol_entry != NULL &&
+         !is_hash_in_policy_entry(pol_entry, &hash, hash_alg) ) {
         printk("\t verification failed\n");
         return TB_ERR_MODULE_VERIFICATION_FAILED;
     }
@@ -420,7 +416,6 @@ void verify_all_modules(multiboot_info_t *mbi)
     /* where <hash policy> will be 0s if TB_POLCTL_EXTEND_PCR17 is clear */
     static uint8_t buf[sizeof(tb_hash_t) + sizeof(g_policy->policy_control)];
     memset(buf, 0, sizeof(buf));
-
     memcpy(buf, &g_policy->policy_control, sizeof(g_policy->policy_control));
     if ( g_policy->policy_control & TB_POLCTL_EXTEND_PCR17 )
         hash_buffer((unsigned char *)g_policy, calc_policy_size(g_policy),
@@ -429,15 +424,23 @@ void verify_all_modules(multiboot_info_t *mbi)
     g_vl_hashes.entries[g_vl_hashes.num_entries].pcr = 17;
     hash_buffer(buf,
                 get_hash_size(TB_HALG_SHA1) + sizeof(g_policy->policy_control),
-                &g_vl_hashes.entries[g_vl_hashes.num_entries++].hash,
+                &g_vl_hashes.entries[g_vl_hashes.num_entries].hash,
                 TB_HALG_SHA1);
+    g_vl_hashes.num_entries++;
+
+    /* module 0 is always extended to PCR 18, so add entry for it */
+    apply_policy(verify_module(get_module(mbi, 0), NULL, g_policy->hash_alg));
 
     /* now verify each module and add its hash */
-    for ( int i = 0; i < mbi->mods_count; i++ ) {
+    for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
         module_t *module = get_module(mbi, i);
         tb_policy_entry_t *pol_entry = find_policy_entry(g_policy, i);
-        if ( pol_entry == NULL ) {
-            printk("policy entry for module %d not found\n", i);
+        if ( module == NULL ) {
+            printk("missing module entry %u\n", i);
+            apply_policy(TB_ERR_MODULE_VERIFICATION_FAILED);
+        }
+        else if ( pol_entry == NULL ) {
+            printk("policy entry for module %u not found\n", i);
             apply_policy(TB_ERR_MODULES_NOT_IN_POLICY);
         }
         else
