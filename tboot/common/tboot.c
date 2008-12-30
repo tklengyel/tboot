@@ -135,8 +135,7 @@ static void post_launch(void)
     uint64_t base, size;
     tb_error_t err;
     extern tboot_log_t *g_log;
-    extern void shutdown_entry32(void);
-    extern void shutdown_entry64(void);
+    extern void shutdown_entry(void);
 
     printk("measured launch succeeded\n");
 
@@ -219,8 +218,8 @@ static void post_launch(void)
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
     _tboot_shared.version = 0x02;
     _tboot_shared.log_addr = (uint32_t)g_log;
-    _tboot_shared.shutdown_entry32 = (uint32_t)shutdown_entry32;
-    _tboot_shared.shutdown_entry64 = (uint32_t)shutdown_entry64;
+    _tboot_shared.shutdown_entry32 = (uint32_t)shutdown_entry;
+    _tboot_shared.shutdown_entry64 = (uint32_t)shutdown_entry;
     _tboot_shared.s3_tb_wakeup_entry = (uint32_t)TBOOT_S3_WAKEUP_ADDR;
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;

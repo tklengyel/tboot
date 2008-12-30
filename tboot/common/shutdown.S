@@ -48,7 +48,7 @@ compat_mode_entry:
         jmp 1f
 1:      /* fall through to shutdown_entry32 */
 
-ENTRY(shutdown_entry32)
+shutdown_entry32:
 	/* restore tboot context */
         cli
         lgdt    %cs:gdt_descr
@@ -90,12 +90,17 @@ ENTRY(shutdown_entry32)
         ud2
 
 /*
- * 64b entry point
+ * unified (32b/64b) shutdown entry point
  */
-ENTRY(shutdown_entry64)
-#ifdef TARGET_ARCH_x86_64
+ENTRY(shutdown_entry)
 	.code64
 	cli
+
+	movl    $MSR_EFER,%ecx
+	rdmsr
+	bt      $_EFER_LME,%eax
+	jnc     shutdown_entry32
+
 	lgdt    gdt_descr(%rip)
         mov     $(ds_sel),%ecx
         mov     %ecx,%ds
@@ -113,4 +118,3 @@ compatibility_mode_far:
         .word     cs_sel
 
 	.code32
-#endif
