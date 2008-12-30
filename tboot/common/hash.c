@@ -123,11 +123,8 @@ void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
         return;
     }
 
-    if ( hash_alg == TB_HALG_SHA1 ) {
-        for ( int i = 0; i < sizeof(hash->sha1); i++ )
-            printk("%02x ", hash->sha1[i]);
-        printk("\n");
-    }
+    if ( hash_alg == TB_HALG_SHA1 )
+        print_hex(NULL, (uint8_t *)hash->sha1, sizeof(hash->sha1));
     else {
         printk("unsupported hash alg (%u)\n", hash_alg);
         return;

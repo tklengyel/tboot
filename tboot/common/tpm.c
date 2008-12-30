@@ -333,12 +333,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
 #ifdef TPM_TRACE
     {
         printk("TPM: cmd size = %d\nTPM: cmd content: ", in_size);
-        for ( uint32_t i = 0; i < in_size; i++ ) {
-            if ( i % 16 == 0 )
-                printk("\nTPM: \t");
-            printk("%02x ", (uint32_t)in[i]);
-        }
-        printk("\n");
+        print_hex("TPM: \t", in, in_size);
     }
 #endif
     
@@ -431,12 +426,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     {
         printk("TPM: response size = %d\n", *out_size);
         printk("TPM: response content: ");
-        for ( uint32_t i = 0; i < *out_size; i++ ) {
-            if ( i % 16 == 0 )
-                printk("\nTPM: \t");
-            printk("%02x ", (uint32_t)out[i]);
-        }
-        printk("\n");
+        print_hex("TPM: \t", out, out_size);
     }
 #endif
 
@@ -587,9 +577,7 @@ uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, tpm_pcr_value_t *out)
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)out->digest[i]);
-        printk("\n");
+        print_hex(NULL, out->digest, out_size);
     }
 #endif
 
@@ -634,9 +622,7 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)out->digest[i]);
-        printk("\n");
+        print_hex(NULL, out->digest, out_size);
     }
 #endif
 
@@ -710,9 +696,7 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
-        printk("\n");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
 
@@ -817,9 +801,7 @@ uint32_t tpm_get_version(uint8_t *major, uint8_t *minor)
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
-        printk("\n");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
 
@@ -1038,9 +1020,7 @@ static uint32_t tpm_oiap(uint32_t locality, tpm_authhandle_t *hauth,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
-        printk("\n");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
 
@@ -1081,9 +1061,7 @@ static uint32_t tpm_osap(uint32_t locality, tpm_entity_type_t ent_type,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
-        printk("\n");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
 
@@ -1142,9 +1120,7 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
-        printk("\n");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
 
@@ -1215,9 +1191,7 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < out_size; i++ )
-            printk("%02X ", (uint32_t)WRAPPER_OUT_BUF[i]);
-        printk("\n");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
 
@@ -1574,14 +1548,6 @@ static tpm_composite_hash_t *get_cre_pcr_composite(uint8_t *data)
         return &((tpm_stored_data12_t *)data)->seal_info.digest_at_creation;
 }
 
-static void print_hash(char *hash)
-{
-    for ( int i = 0; i < 20; i++ )
-        printk("%02x ", *hash);
-
-    printk("\n");
-}
-
 bool tpm_cmp_creation_pcrs(uint32_t pcr_nr_create,
                            const uint8_t pcr_indcs_create[],
                            const tpm_pcr_value_t *pcr_values_create[],
@@ -1610,7 +1576,7 @@ bool tpm_cmp_creation_pcrs(uint32_t pcr_nr_create,
         return false;
     if ( memcmp(&composite, cre_composite, sizeof(composite)) ) {
         printk("TPM: Not equal to creation composition\n");
-        print_hash((char *)&composite);
+        print_hex(NULL, (uint8_t *)&composite, sizeof(composite));
         return false;
     }
 
@@ -1712,9 +1678,7 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
-        for ( uint32_t i = 0; i < resp_size; i++ )
-            printk("%02X ", (uint32_t)resp[i]);
-        printk("\n");
+        print_hex(NULL, resp, resp_size);
     }
 #endif
 

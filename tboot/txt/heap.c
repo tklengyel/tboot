@@ -42,15 +42,15 @@
 #include <multiboot.h>
 #include <uuid.h>
 #include <mle.h>
+#include <misc.h>
+#include <hash.h>
 #include <txt/mtrrs.h>
 #include <txt/config_regs.h>
 #include <txt/heap.h>
 
-static void print_hash(sha1_hash_t hash)
+static inline void print_heap_hash(sha1_hash_t hash)
 {
-    for ( int i = 0; i < SHA1_SIZE; i++ )
-        printk("%02x ", hash[i]);
-    printk("\n");
+    print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
 }
 
 static void print_bios_data(bios_data_t *bios_data)
@@ -249,15 +249,15 @@ static void print_sinit_mle_data(sinit_mle_data_t *sinit_mle_data)
            *((uint64_t *)sinit_mle_data - 1));
     printk("\t version: %u\n", sinit_mle_data->version);
     printk("\t bios_acm_id: \n\t");
-        print_hash(sinit_mle_data->bios_acm_id);
+    print_heap_hash(sinit_mle_data->bios_acm_id);
     printk("\t edx_senter_flags: 0x%08x\n",
            sinit_mle_data->edx_senter_flags);
     printk("\t mseg_valid: 0x%Lx\n", sinit_mle_data->mseg_valid);
-    printk("\t sinit_hash:\n\t"); print_hash(sinit_mle_data->sinit_hash);
-    printk("\t mle_hash:\n\t"); print_hash(sinit_mle_data->mle_hash);
-    printk("\t stm_hash:\n\t"); print_hash(sinit_mle_data->stm_hash);
+    printk("\t sinit_hash:\n\t"); print_heap_hash(sinit_mle_data->sinit_hash);
+    printk("\t mle_hash:\n\t"); print_heap_hash(sinit_mle_data->mle_hash);
+    printk("\t stm_hash:\n\t"); print_heap_hash(sinit_mle_data->stm_hash);
     printk("\t lcp_policy_hash:\n\t");
-        print_hash(sinit_mle_data->lcp_policy_hash);
+        print_heap_hash(sinit_mle_data->lcp_policy_hash);
     printk("\t lcp_policy_control: 0x%08x\n",
            sinit_mle_data->lcp_policy_control);
     printk("\t rlp_wakeup_addr: 0x%x\n", sinit_mle_data->rlp_wakeup_addr);

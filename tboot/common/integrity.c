@@ -90,8 +90,8 @@ bool seal_vl_hashes(void)
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
     printk("PCRs before extending:\n");
-    printk("PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk("PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
     /* seal to locality 2, PCRs 17/18 */
     sealed_vl_size = sizeof(sealed_vl);
@@ -108,8 +108,8 @@ bool seal_vl_hashes(void)
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
     printk("PCRs after extending:\n");
-    printk("PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk("PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
     return true;
 }

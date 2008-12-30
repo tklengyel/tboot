@@ -110,6 +110,9 @@ extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
  */
 #define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
 
+/* from misc.c */
+extern void print_hex(const char *prefix, uint8_t *str, size_t n);
+
 #endif   /*  __MISC_H__ */
 
 
