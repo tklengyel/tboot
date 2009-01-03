@@ -53,11 +53,11 @@ typedef struct {
     } entries[MAX_VL_HASHES];
 } vl_hashes_t;
 
-extern vl_hashes_t g_vl_hashes;
+extern vl_hashes_t g_vl_msmnts;
 
-extern bool seal_vl_hashes(void);
-extern bool verify_vl_integrity(void);
-extern void display_vl_hashes(void);
+extern bool seal_initial_measurements(void);
+extern bool verify_integrity(void);
+extern void display_vl_msmnts(void);
 
 #endif /* _TBOOT_INTEGRITY_H_ */
 

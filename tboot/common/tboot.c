@@ -78,8 +78,6 @@ __data multiboot_info_t *g_mbi = NULL;
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
-extern vl_hashes_t g_vl_hashes;
-
 /*
  * caution: must make sure the total wakeup entry code length
  * (s3_wakeup_end - s3_wakeup_16) can fit into one page.
@@ -208,7 +206,7 @@ static void post_launch(void)
     /*
      * seal hashes of modules and VL policy to current value of PCR17 & 18
      */
-    if ( !seal_vl_hashes() )
+    if ( !seal_initial_measurements() )
         apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
 
     /*
@@ -244,9 +242,9 @@ void begin_launch(multiboot_info_t *mbi)
 
     g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;  /* save for post launch */
 
-    if ( !is_launched() ) {
-        /* on pre-SENTER boot, copy command line to buffer in tboot image
-           (so that it will be measured); buffer must be 0 -filled */
+    /* on pre-SENTER boot, copy command line to buffer in tboot image
+       (so that it will be measured); buffer must be 0 -filled */
+    if ( !is_launched() & !s3_flag ) {
         memset(g_cmdline, '\0', sizeof(g_cmdline));
         if ( g_mbi->flags & MBI_CMDLINE ) {
             /* don't include path in cmd line */
@@ -267,6 +265,8 @@ void begin_launch(multiboot_info_t *mbi)
     printk("*********************************************\n");
 
     printk("command line: %s\n", g_cmdline);
+    if ( s3_flag )
+        printk("resume from S3\n");
 
     /* we should only be executing on the BSP */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
@@ -342,7 +342,7 @@ void s3_launch(void)
     remove_vtd_dmar_table();
 
     /* verify saved hash integrity and re-extend PCRs */
-    if ( !verify_vl_integrity() )
+    if ( !verify_integrity() )
         apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
 
     print_tboot_shared(&_tboot_shared);
@@ -403,10 +403,10 @@ static void cap_pcrs(void)
     /* also cap every dynamic PCR we extended (only once) */
     /* don't cap static PCRs since then they would be wrong after S3 resume */
     memset(&was_capped, true, TPM_PCR_RESETABLE_MIN*sizeof(bool));
-    for ( int i = 0; i < g_vl_hashes.num_entries; i++ ) {
-        if ( !was_capped[g_vl_hashes.entries[i].pcr] ) {
-            tpm_pcr_extend(2, g_vl_hashes.entries[i].pcr, &cap_val, NULL);
-            was_capped[g_vl_hashes.entries[i].pcr] = true;
+    for ( int i = 0; i < g_vl_msmnts.num_entries; i++ ) {
+        if ( !was_capped[g_vl_msmnts.entries[i].pcr] ) {
+            tpm_pcr_extend(2, g_vl_msmnts.entries[i].pcr, &cap_val, NULL);
+            was_capped[g_vl_msmnts.entries[i].pcr] = true;
         }
     }
 
