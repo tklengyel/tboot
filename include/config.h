@@ -28,8 +28,8 @@
 /* kernel at startup */
 
 /* address/size for memory-resident serial log (when enabled) */
-#define TBOOT_SERIAL_LOG_ADDR        0x63000
-#define TBOOT_SERIAL_LOG_SIZE        0x05000
+#define TBOOT_SERIAL_LOG_ADDR        0x60000
+#define TBOOT_SERIAL_LOG_SIZE        0x08000
 
 /* address/size for modified e820 table */
 #define TBOOT_E820_COPY_ADDR         (TBOOT_SERIAL_LOG_ADDR + \
