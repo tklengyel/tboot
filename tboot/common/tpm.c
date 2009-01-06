@@ -1528,6 +1528,7 @@ static void calc_pcr_composition(uint32_t nr, const uint8_t indcs[],
         return;
 
     sel.size_of_select = 3;
+    sel.pcr_select[0] = sel.pcr_select[1] = sel.pcr_select[2] = 0;
     for ( i = 0; i < nr; i++ )
         sel.pcr_select[indcs[i]/8] |= 1 << (indcs[i] % 8);
 
@@ -1575,8 +1576,9 @@ bool tpm_cmp_creation_pcrs(uint32_t pcr_nr_create,
     if ( cre_composite == NULL )
         return false;
     if ( memcmp(&composite, cre_composite, sizeof(composite)) ) {
-        printk("TPM: Not equal to creation composition\n");
+        printk("TPM: Not equal to creation composition:\n");
         print_hex(NULL, (uint8_t *)&composite, sizeof(composite));
+        print_hex(NULL, (uint8_t *)cre_composite, sizeof(composite));
         return false;
     }
 
