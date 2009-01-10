@@ -399,12 +399,12 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
        we'll just drop it if the list is full, but that will mean S3 resume
        PCRs won't match pre-S3
        NULL pol_entry means this is module 0 which is extended to PCR 18 */
-    if ( g_vl_msmnts.num_entries >= MAX_VL_HASHES )
+    if ( g_s3_state.num_vl_entries >= MAX_VL_HASHES )
         printk("\t too many hashes to save\n");
     else if ( pol_entry == NULL || pol_entry->pcr != TB_POL_PCR_NONE ) {
         uint8_t pcr = (pol_entry == NULL ) ? 18 : pol_entry->pcr;
-        g_vl_msmnts.entries[g_vl_msmnts.num_entries].pcr = pcr;
-        g_vl_msmnts.entries[g_vl_msmnts.num_entries++].hash = hash;
+        g_s3_state.vl_entries[g_s3_state.num_vl_entries].pcr = pcr;
+        g_s3_state.vl_entries[g_s3_state.num_vl_entries++].hash = hash;
     }
     
     if ( pol_entry != NULL &&
@@ -423,9 +423,6 @@ void verify_all_modules(multiboot_info_t *mbi)
 {
     /* assumes mbi is valid */
 
-    /* clear saved hashes */
-    memset(&g_vl_msmnts, 0, sizeof(g_vl_msmnts));
-
     /* add entry for policy control field and (optionally) policy */
     /* hash will be <policy control field (4bytes)> | <hash policy> */
     /* where <hash policy> will be 0s if TB_POLCTL_EXTEND_PCR17 is clear */
@@ -441,10 +438,10 @@ void verify_all_modules(multiboot_info_t *mbi)
     }
     if ( !hash_buffer(buf, get_hash_size(TB_HALG_SHA1) +
                       sizeof(g_policy->policy_control),
-                      &g_vl_msmnts.entries[g_vl_msmnts.num_entries].hash,
+                      &g_s3_state.vl_entries[g_s3_state.num_vl_entries].hash,
                       TB_HALG_SHA1) )
         apply_policy(TB_ERR_MODULE_VERIFICATION_FAILED);
-    g_vl_msmnts.entries[g_vl_msmnts.num_entries++].pcr = 17;
+    g_s3_state.vl_entries[g_s3_state.num_vl_entries++].pcr = 17;
 
     /* module 0 is always extended to PCR 18, so add entry for it */
     apply_policy(verify_module(get_module(mbi, 0), NULL, g_policy->hash_alg));

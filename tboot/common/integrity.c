@@ -51,7 +51,7 @@
 /* put in .data section to that they aren't cleared on S3 resume */
 
 /* hashes that are used to restore DRTM PCRs in S3 resume */
-__data vl_hashes_t g_vl_msmnts;
+__data s3_state_t g_s3_state;
 
 static __data uint8_t  sealed_vl[512];
 static __data uint32_t sealed_vl_size;
@@ -73,9 +73,9 @@ static bool extend_pcrs(void)
     printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
     printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
-    for ( int i = 0; i < g_vl_msmnts.num_entries; i++ ) {
-        if ( tpm_pcr_extend(2, g_vl_msmnts.entries[i].pcr,
-                            (tpm_pcr_value_t *)&g_vl_msmnts.entries[i].hash,
+    for ( int i = 0; i < g_s3_state.num_vl_entries; i++ ) {
+        if ( tpm_pcr_extend(2, g_s3_state.vl_entries[i].pcr,
+                            (tpm_pcr_value_t *)&g_s3_state.vl_entries[i].hash,
                             NULL) != TPM_SUCCESS )
             return false;
     }
@@ -86,30 +86,6 @@ static bool extend_pcrs(void)
     printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
     printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
-    return true;
-}
-
-static bool create_policymsmnts_hash(tb_hash_t *hash)
-{
-    /* first hash g_vl_msmnts */
-    memset(hash, 0, sizeof(*hash));
-    if ( !hash_buffer((const unsigned char *)&g_vl_msmnts, sizeof(g_vl_msmnts),
-                      hash, TB_HALG_SHA1) ) {
-        printk("failed to hash g_vl_msmnts\n");
-        return false;
-    }
-    /* then hash policy */
-    tb_hash_t pol_hash;
-    memset(&pol_hash, 0, sizeof(pol_hash));
-    if ( !hash_policy(&pol_hash, TB_HALG_SHA1) ) {
-        printk("failed to hash policy\n");
-        return false;
-    }
-    /* now extend the first hash with the second */
-    if ( !extend_hash(hash, &pol_hash, TB_HALG_SHA1) ) {
-        printk("failed to extend hash\n");
-        return false;
-    }
     return true;
 }
 
@@ -125,11 +101,22 @@ bool seal_initial_measurements(void)
     const tpm_pcr_value_t *pcr_values_release[] = {&post_launch_pcr17,
                                                    &post_launch_pcr18};
 
-    /* we need to seal g_vl_msmnts and the current policy (but TPM_Seal can
-       only seal small data like key or hash), so seal hash of hashes */
-    tb_hash_t hashes_hash;
-    if ( !create_policymsmnts_hash(&hashes_hash) )
+    /* save hash of current policy into g_s3_state */
+    memset(&g_s3_state.pol_hash, 0, sizeof(g_s3_state.pol_hash));
+    if ( !hash_policy(&g_s3_state.pol_hash, TB_HALG_SHA1) ) {
+        printk("failed to hash policy\n");
         return false;
+    }
+
+    /* we need to seal g_s3_state and the current policy (but TPM_Seal can
+       only seal small data like key or hash), so seal hash of hashes */
+    tb_hash_t s3_state_hash;
+    memset(&s3_state_hash, 0, sizeof(s3_state_hash));
+    if ( !hash_buffer((const unsigned char *)&g_s3_state, sizeof(g_s3_state),
+                      &s3_state_hash, TB_HALG_SHA1) ) {
+        printk("failed to hash g_s3_state\n");
+        return false;
+    }
 
     /* read PCR 17/18 */
     if ( tpm_pcr_read(2, 17, &post_launch_pcr17) != TPM_SUCCESS )
@@ -143,7 +130,7 @@ bool seal_initial_measurements(void)
                   ARRAY_SIZE(pcr_indcs_create), pcr_indcs_create,
                   ARRAY_SIZE(pcr_indcs_release), pcr_indcs_release,
                   pcr_values_release, 
-                  sizeof(hashes_hash), (const uint8_t *)&hashes_hash,
+                  sizeof(s3_state_hash), (const uint8_t *)&s3_state_hash,
                   &sealed_vl_size, sealed_vl) != TPM_SUCCESS )
         return false;
 
@@ -167,7 +154,7 @@ bool verify_integrity(void)
      * unseal and verify VL measurements
      */
 
-    /* sealed data is hash of (hash of g_vl_msmnts || hash of policy) */
+    /* sealed data is hash of g_s3_state */
     tb_hash_t sealed_hash;
     data_size = sizeof(sealed_hash);
     if ( tpm_unseal(2, sealed_vl_size, sealed_vl,
@@ -179,10 +166,14 @@ bool verify_integrity(void)
     }
 
     /* verify that VL measurements and current policy match unsealed hash */
-    tb_hash_t hashes_hash;
-    if ( !create_policymsmnts_hash(&hashes_hash) )
+    tb_hash_t s3_state_hash;
+    memset(&s3_state_hash, 0, sizeof(s3_state_hash));
+    if ( !hash_buffer((const unsigned char *)&g_s3_state, sizeof(g_s3_state),
+                      &s3_state_hash, TB_HALG_SHA1) ) {
+        printk("failed to hash g_s3_state\n");
         return false;
-    if ( !are_hashes_equal(&sealed_hash, &hashes_hash, TB_HALG_SHA1) ) {
+    }
+    if ( !are_hashes_equal(&sealed_hash, &s3_state_hash, TB_HALG_SHA1) ) {
         printk("sealed hash does not match current hash\n");
         return false;
     }
@@ -196,10 +187,10 @@ bool verify_integrity(void)
 
 void display_vl_msmnts(void)
 {
-    printk("g_vl_msmnts:\n");
-    for ( int i = 0; i < g_vl_msmnts.num_entries; i++ ) {
-        printk("\t PCR %d: ", g_vl_msmnts.entries[i].pcr);
-        print_hash(&g_vl_msmnts.entries[i].hash, TB_HALG_SHA1);
+    printk("g_s3_state:\n");
+    for ( int i = 0; i < g_s3_state.num_vl_entries; i++ ) {
+        printk("\t PCR %d: ", g_s3_state.vl_entries[i].pcr);
+        print_hash(&g_s3_state.vl_entries[i].hash, TB_HALG_SHA1);
     }
 }
 

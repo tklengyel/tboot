@@ -403,10 +403,10 @@ static void cap_pcrs(void)
     /* also cap every dynamic PCR we extended (only once) */
     /* don't cap static PCRs since then they would be wrong after S3 resume */
     memset(&was_capped, true, TPM_PCR_RESETABLE_MIN*sizeof(bool));
-    for ( int i = 0; i < g_vl_msmnts.num_entries; i++ ) {
-        if ( !was_capped[g_vl_msmnts.entries[i].pcr] ) {
-            tpm_pcr_extend(2, g_vl_msmnts.entries[i].pcr, &cap_val, NULL);
-            was_capped[g_vl_msmnts.entries[i].pcr] = true;
+    for ( int i = 0; i < g_s3_state.num_vl_entries; i++ ) {
+        if ( !was_capped[g_s3_state.vl_entries[i].pcr] ) {
+            tpm_pcr_extend(2, g_s3_state.vl_entries[i].pcr, &cap_val, NULL);
+            was_capped[g_s3_state.vl_entries[i].pcr] = true;
         }
     }
 

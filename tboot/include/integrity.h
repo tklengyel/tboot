@@ -43,17 +43,20 @@
  * a given PCR may have more than one hash and will get extended in the order
  * it appears in the list
  */
-#define MAX_VL_HASHES 10
+#define MAX_VL_HASHES 32
 
 typedef struct {
-    uint8_t num_entries;
+    /* VL policy at time of sealing */
+    tb_hash_t pol_hash;
+    /* verified launch measurements to be re-extended in DRTM PCRs */
+    uint8_t num_vl_entries;
     struct {
         uint8_t   pcr;
         tb_hash_t hash;
-    } entries[MAX_VL_HASHES];
-} vl_hashes_t;
+    } vl_entries[MAX_VL_HASHES];
+} s3_state_t;
 
-extern vl_hashes_t g_vl_msmnts;
+extern s3_state_t g_s3_state;
 
 extern bool seal_initial_measurements(void);
 extern bool verify_integrity(void);
