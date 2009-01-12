@@ -51,6 +51,20 @@
 #define DATA16      .byte 0x66
 #define ADDR16      .byte 0x67
 
+/* TXT config regs addrs/offsets */
+#define TXT_PRIV_CONFIG_REGS_BASE      0xfed20000
+#define TXTCR_STS                      0x0000
+#define TXTCR_ERRORCODE                0x0030
+#define TXTCR_CMD_RESET                0x0038
+#define TXTCR_CMD_UNLOCK_MEM_CONFIG    0x0218
+#define TXTCR_HEAP_BASE                0x0300
+
+/* OsSinitData field offsets */
+#define MLE_PGTBL_OFF          8
+
+/* errorcode for post-launch memory layout verfication failure */
+#define LAYOUT_ERR             0xc0008001
+
 	.text
 
 ENTRY(start)
@@ -69,6 +83,62 @@ ENTRY(_stext)
         .long MULTIBOOT_HEADER_FLAGS
         /* checksum: negated sum of above */
         .long -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+
+
+/* entry point post-launch, to verify memory layout */
+/* (must all be w/in one page; since _start is page-aligned, it will be; */
+/* which is why we can't call much other code (e.g. printk, TPM fns, etc.) */
+ENTRY(_post_launch_entry)
+	/* verify phys addr we were entered at is the one we expected
+	 * ebx contains the phys addr of the entry point
+	 */
+	cmp $_post_launch_entry, %ebx
+	jne layout_err
+
+	/* verify last entry in MLE page table is the one we expected
+	 * this is sufficient because: 1) all addrs must be phys increasing
+	 * and 2) tboot is phys contig--therefore if any page were moved to
+	 * a different phys addr then the last page would have to be different
+	 * from tboot's last page
+	 */
+	/* get addr of MLE page table from OsSinitData */
+	                          /* start of TXT heap (== BiosDataSize) */
+	mov (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_HEAP_BASE), %eax
+	add (%eax), %eax                   /* skip BiosData */
+	add (%eax), %eax                   /* skip OsMleData */
+	mov (MLE_PGTBL_OFF+8)(%eax), %eax  /* addr of MLE page table */
+	/* get to page table itself (there is only one for tboot) */
+	mov (%eax), %eax          /* pgdir ptr -> pgdir */
+	and $PAGE_MASK, %eax
+	mov (%eax), %eax          /* pgdir -> pgtbl */
+	and $PAGE_MASK, %eax
+	/* find last page (pte) */
+	mov $_mle_end, %ecx
+	sub $_mle_start, %ecx     /* size of MLE */
+	shr $PAGE_SHIFT-3, %ecx
+	sub $8, %ecx              /* size/4k*8 is offset+1 of last pte */
+	add %ecx, %eax
+	mov (%eax), %eax          /* pte of last page */
+	and $PAGE_MASK, %eax
+	/* calc expected addr of last page */
+	mov $(_mle_end - 1), %ebx /* addr of last byte of MLE... */
+	and $PAGE_MASK, %ebx      /* ...rounded to page start */
+	/* are they equal? */
+	cmp %ebx, %eax
+	je __start                /* yes, so continue with normal launch */
+	
+layout_err:       /* layout check failed so TXT RESET */
+	                 /* set a special error code */
+	movl $LAYOUT_ERR, (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_ERRORCODE)
+	                 /* unlock memory config (and serialize) */
+	movl $1, (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_CMD_UNLOCK_MEM_CONFIG)
+	movl (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_STS), %eax
+	                 /* TXT RESET */
+	movl $1, (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_CMD_RESET)
+	mov $6, %eax
+	mov $0xcf9, %edx
+	out %al, (%dx)   /* for debug chipsets where TXT RESET may not work */
+	ud2
 
 
 ENTRY(__start)

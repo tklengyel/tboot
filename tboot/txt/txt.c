@@ -68,12 +68,12 @@
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
 #define AP_WFS_TIMEOUT     0x01000000
 
-extern char _start[];           /* start of module */
-extern char _end[];             /* end of module */
-extern char _mle_start[];       /* start of text section */
-extern char _mle_end[];         /* end of text section */
-extern char __start[];          /* tboot entry point in boot.S */
-extern char _txt_wakeup[];      /* RLP join address for GETSEC[WAKEUP] */
+extern char _start[];             /* start of module */
+extern char _end[];               /* end of module */
+extern char _mle_start[];         /* start of text section */
+extern char _mle_end[];           /* end of text section */
+extern char _post_launch_entry[]; /* entry point post SENTER, in boot.S */
+extern char _txt_wakeup[];        /* RLP join address for GETSEC[WAKEUP] */
 
 /*
  * this is the structure whose addr we'll put in TXT heap
@@ -83,7 +83,7 @@ static __text const mle_hdr_t g_mle_hdr = {
     uuid              :  MLE_HDR_UUID,
     length            :  sizeof(mle_hdr_t),
     version           :  MLE_HDR_VER,
-    entry_point       :  (uint32_t)&__start - TBOOT_BASE_ADDR,
+    entry_point       :  (uint32_t)&_post_launch_entry - TBOOT_BASE_ADDR,
     first_valid_page  :  0,
     mle_start_off     :  (uint32_t)&_mle_start - TBOOT_BASE_ADDR,
     mle_end_off       :  (uint32_t)&_mle_end - TBOOT_BASE_ADDR,
@@ -106,7 +106,7 @@ static void print_file_info(void)
     printk("\t &_end=%p\n", &_end);
     printk("\t &_mle_start=%p\n", &_mle_start);
     printk("\t &_mle_end=%p\n", &_mle_end);
-    printk("\t &__start=%p\n", &__start);
+    printk("\t &_post_launch_entry=%p\n", &_post_launch_entry);
     printk("\t &_txt_wakeup=%p\n", &_txt_wakeup);
     printk("\t &g_mle_hdr=%p\n", &g_mle_hdr);
 }
