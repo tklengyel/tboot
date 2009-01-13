@@ -120,7 +120,6 @@ typedef struct __packed {
     uint32_t                    global_irq_base;
 } acpi_table_ioapic_t;
 
-extern uint32_t get_acpi_dmar_table(void);
 extern uint32_t get_acpi_mcfg_table(void);
 extern uint32_t get_acpi_ioapic_table(void);
 

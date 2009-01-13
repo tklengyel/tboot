@@ -39,6 +39,7 @@
 #include <msr.h>
 #include <compiler.h>
 #include <string.h>
+#include <misc.h>
 #include <processor.h>
 #include <cpufeature.h>
 #include <page.h>
@@ -49,6 +50,8 @@
 #include <tboot.h>
 #include <acpi.h>
 #include <mle.h>
+#include <hash.h>
+#include <integrity.h>
 #include <txt/txt.h>
 #include <txt/smx.h>
 #include <txt/mtrrs.h>
@@ -58,6 +61,8 @@
 
 extern char _start[];           /* start of module */
 extern char _end[];             /* end of module */
+
+extern long s3_flag;
 
 /*
  * CPUID extended feature info
@@ -203,113 +208,86 @@ tb_error_t supports_txt(void)
 
 static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
 {
-    uint64_t max_ram;
     os_sinit_data_t *os_sinit_data, tmp_os_sinit_data;
-    os_mle_data_t *os_mle_data;
+    uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
 
     os_sinit_data = get_os_sinit_data_start(txt_heap);
 
-    if ( os_sinit_data->version > 0x01 ) {
-        /* make sure the VT-d PMRs were actually set to cover what */
-        /* we expect */
-        /* calculate what they should have been */
-        os_mle_data = get_os_mle_data_start(txt_heap);
-        max_ram = get_max_ram(os_mle_data->mbi);
-        if ( max_ram == 0 ) {
-            printk("max_ram is 0\n");
+    /*
+     * make sure the VT-d PMRs were actually set to cover what
+     * we expect
+     */
+
+    /* calculate what they should have been */
+    /* no e820 table on S3 resume, so use saved (sealed) values */
+    if ( s3_flag ) {
+        min_lo_ram = g_s3_state.vtd_pmr_lo_base;
+        max_lo_ram = min_lo_ram + g_s3_state.vtd_pmr_lo_size;
+        min_hi_ram = g_s3_state.vtd_pmr_hi_base;
+        max_hi_ram = min_hi_ram + g_s3_state.vtd_pmr_hi_size;
+    }
+    else {
+        os_mle_data_t *os_mle_data = get_os_mle_data_start(txt_heap);
+        if ( !get_ram_ranges(os_mle_data->mbi, &min_lo_ram, &max_lo_ram,
+                             &min_hi_ram, &max_hi_ram) )
             return false;
-        }
-        memset(&tmp_os_sinit_data, 0, sizeof(tmp_os_sinit_data));
-        tmp_os_sinit_data.version = os_sinit_data->version;
-        set_vtd_pmrs(&tmp_os_sinit_data, max_ram);
-        /* compare to current values */
-        if ( (tmp_os_sinit_data.vtd_pmr_lo_base !=
-              os_sinit_data->vtd_pmr_lo_base) ||
-             (tmp_os_sinit_data.vtd_pmr_lo_size !=
-              os_sinit_data->vtd_pmr_lo_size) ||
-             (tmp_os_sinit_data.vtd_pmr_hi_base !=
-              os_sinit_data->vtd_pmr_hi_base) ||
-             (tmp_os_sinit_data.vtd_pmr_hi_size !=
-              os_sinit_data->vtd_pmr_hi_size) ) {
-            printk("OS to SINIT data VT-d PMR settings do not match:\n");
-            print_os_sinit_data(&tmp_os_sinit_data);
-            print_os_sinit_data(os_sinit_data);
-            return false;
-        }
+    }
+
+    /* compare to current values */
+    memset(&tmp_os_sinit_data, 0, sizeof(tmp_os_sinit_data));
+    tmp_os_sinit_data.version = os_sinit_data->version;
+    set_vtd_pmrs(&tmp_os_sinit_data, min_lo_ram, max_lo_ram, min_hi_ram,
+                 max_hi_ram);
+    if ( (tmp_os_sinit_data.vtd_pmr_lo_base !=
+          os_sinit_data->vtd_pmr_lo_base) ||
+         (tmp_os_sinit_data.vtd_pmr_lo_size !=
+          os_sinit_data->vtd_pmr_lo_size) ||
+         (tmp_os_sinit_data.vtd_pmr_hi_base !=
+          os_sinit_data->vtd_pmr_hi_base) ||
+         (tmp_os_sinit_data.vtd_pmr_hi_size !=
+          os_sinit_data->vtd_pmr_hi_size) ) {
+        printk("OS to SINIT data VT-d PMR settings do not match:\n");
+        print_os_sinit_data(&tmp_os_sinit_data);
+        print_os_sinit_data(os_sinit_data);
+        return false;
+    }
+
+    if ( !s3_flag ) {
+        /* save the verified values so that they can be sealed for S3 */
+        g_s3_state.vtd_pmr_lo_base = os_sinit_data->vtd_pmr_lo_base;
+        g_s3_state.vtd_pmr_lo_size = os_sinit_data->vtd_pmr_lo_size;
+        g_s3_state.vtd_pmr_hi_base = os_sinit_data->vtd_pmr_hi_base;
+        g_s3_state.vtd_pmr_hi_size = os_sinit_data->vtd_pmr_hi_size;
     }
 
     return true;
 }
 
-static bool verify_vtd_dmar(txt_heap_t *txt_heap)
+void set_vtd_pmrs(os_sinit_data_t *os_sinit_data,
+                  uint64_t min_lo_ram, uint64_t max_lo_ram,
+                  uint64_t min_hi_ram, uint64_t max_hi_ram)
 {
-    /* get the copy in heap */
-    uint32_t heap_dmar = 0;
-    uint32_t dmar_size = 0;
-    uint32_t acpi_dmar;
-    sinit_mle_data_t *sinit_mle_data;
+    printk("min_lo_ram: 0x%Lx, max_lo_ram: 0x%Lx\n", min_lo_ram, max_lo_ram);
+    printk("min_hi_ram: 0x%Lx, max_hi_ram: 0x%Lx\n", min_hi_ram, max_hi_ram);
 
-    sinit_mle_data = get_sinit_mle_data_start(txt_heap);
-    printk("begin verifying vtd_dmar ...\n");
-    heap_dmar = (uint32_t)sinit_mle_data - sizeof(uint64_t) +
-        sinit_mle_data->vtd_dmars_off;
-    dmar_size = sinit_mle_data->num_vtd_dmars;
-
-    /* get acpi vt-d DMAR table */
-    acpi_dmar = get_acpi_dmar_table();
-    printk("acpi_dmar = %08x\n", acpi_dmar);
-    if ( acpi_dmar == 0 ) {
-        printk("No ACPI VT-d DMAR table\n");
-        return false;
-    }
-
-    if ( memcmp((void *)heap_dmar, (void *)acpi_dmar, dmar_size) != 0 ) {
-        printk("failed to verify VT-d DMAR table: not equal\n");
-        return false;
-    }
-
-    printk("VT-d DMAR table OK\n");
-    return true;
-}
-
-void set_vtd_pmrs(os_sinit_data_t *os_sinit_data, uint64_t max_ram)
-{
-    /* this is phys addr */
     /*
      * base must be 2M-aligned and size must be multiple of 2M
-     * we want to protect all of mem so that any kernel allocations before
-     * VT-d remapping is enabled are protected
-     * TBD: we should have a cmdline option to disable this for kernels
-     *      that aren't VT-d -aware
+     * (so round bases and sizes down--rounding size up might conflict
+     *  with a BIOS-reserved region and cause problems; in practice, rounding
+     *  base down doesn't)
+     * we want to protect all of usable mem so that any kernel allocations
+     * before VT-d remapping is enabled are protected
      */
-    printk("max_ram=%Lx\n", max_ram);
-#ifdef VT_D
-    os_sinit_data->vtd_pmr_lo_base = 0;
-    /* since this code DMA protects all of RAM, it will only work if */
-    /* xen enables VT-d translation for dom0, so don't use it if */
-    /* xen's VT-d is not enabled */
-    if ( max_ram & 0xffffffff00000000UL )       /* > 4GB */
-        os_sinit_data->vtd_pmr_lo_size = 0x100000000UL;
-    else {
-        /* round up since physical mem will always be a multiple of 2M */
-        /* so if max_ram is not a multiple it is because there is */
-        /* reserved memory above it */
-        os_sinit_data->vtd_pmr_lo_size =
-            (max_ram + 0x200000UL - 1UL) & ~0x1fffffUL;
-    }
-    if ( max_ram & 0xffffffff00000000UL ) {     /* > 4GB */
-        os_sinit_data->vtd_pmr_hi_base = 0x100000000UL;
-        os_sinit_data->vtd_pmr_hi_size =
-            (max_ram - 0x100000000UL) & ~0x1fffffUL;
-    }
-#else
-    /* else just protect the MLE (i.e. tboot) */
-    os_sinit_data->vtd_pmr_lo_base =
-        ((uint32_t)&_start - 3*PAGE_SIZE) & ~0x1fffff;
-    os_sinit_data->vtd_pmr_lo_size =
-        ((((uint32_t)&_end - os_sinit_data->vtd_pmr_lo_base)
-          + 0x200000 - 1) & ~0x1fffff);
-#endif   /* VT_D */
+
+    min_lo_ram &= ~0x1fffffULL;
+    uint64_t lo_size = (max_lo_ram - min_lo_ram) & ~0x1fffffULL;
+    os_sinit_data->vtd_pmr_lo_base = min_lo_ram;
+    os_sinit_data->vtd_pmr_lo_size = lo_size;
+
+    min_hi_ram &= ~0x1fffffULL;
+    uint64_t hi_size = (max_hi_ram - min_hi_ram) & ~0x1fffffULL;
+    os_sinit_data->vtd_pmr_hi_base = min_hi_ram;
+    os_sinit_data->vtd_pmr_hi_size = hi_size;
 }
 
 tb_error_t txt_verify_platform(void)
@@ -358,10 +336,6 @@ tb_error_t txt_post_launch_verify_platform(void)
             
     /* verify that VT-d PMRs were really set as required */
     if ( !verify_vtd_pmrs(txt_heap) )
-        return TB_ERR_POST_LAUNCH_VERIFICATION;
-
-    /* verify the ACPI VT-d DMAR tables */
-    if ( !verify_vtd_dmar(txt_heap) )
         return TB_ERR_POST_LAUNCH_VERIFICATION;
 
     return TB_ERR_NONE;

@@ -74,7 +74,9 @@ extern bool e820_reserve_ram(uint64_t base, uint64_t length);
 extern void print_e820_map(void);
 extern void replace_e820_map(multiboot_info_t *mbi);
 extern uint32_t e820_check_region(uint64_t base, uint64_t length);
-extern uint64_t get_max_ram(multiboot_info_t *mbi);
+extern bool get_ram_ranges(multiboot_info_t *mbi,
+                           uint64_t *min_lo_ram, uint64_t *max_lo_ram,
+                           uint64_t *min_hi_ram, uint64_t *max_hi_ram);
 
 #endif    /* __E820_H__ */
 

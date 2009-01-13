@@ -266,7 +266,8 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
         printk("MMIO space for APIC should be UC\n");
         return false;
     }
-        
+
+    /* TBD: is this check useful if we aren't DMA protecting ACPI? */
     /* mmio space for IOAPIC should be UC */
     acpi_table_ioapic = (acpi_table_ioapic_t *)get_acpi_ioapic_table();
     if ( acpi_table_ioapic == NULL) {
@@ -283,6 +284,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
         return false;
     }
 
+    /* TBD: is this check useful if we aren't DMA protecting ACPI? */
     /* mmio space for PCI config space should be UC */
     acpi_table_mcfg = (acpi_table_mcfg_t *)get_acpi_mcfg_table();
     if ( acpi_table_mcfg == NULL) {

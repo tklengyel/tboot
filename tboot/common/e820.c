@@ -549,42 +549,78 @@ void print_e820_map(void)
     print_map(g_copy_e820_map, g_nr_map);
 }
 
-uint64_t get_max_ram(multiboot_info_t *mbi)
+bool get_ram_ranges(multiboot_info_t *mbi,
+                    uint64_t *min_lo_ram, uint64_t *max_lo_ram,
+                    uint64_t *min_hi_ram, uint64_t *max_hi_ram)
 {
     uint32_t entry_offset;
     memory_map_t *entry;
-    uint64_t base, len;
-    /* TBD: we need to remove the statefullness of max_ram. In the long run
-       this is not secure because an attacker on S3 could set max_ram to be
-       very small then DMA into the image after we verify it */
-    static __data uint64_t max_ram = 0;
+    uint64_t base, limit;
+    uint32_t map_addr;
+    uint32_t map_len;
 
-    /* calculate only once to avoid invalid mbi content in s3 resume */
-    if ( max_ram > 0 )
-        return max_ram;
+    if ( min_lo_ram == NULL || max_lo_ram == NULL ||
+         min_hi_ram == NULL || max_hi_ram == NULL )
+        return false;
 
-    if ( mbi->flags & MBI_MEMMAP ) {
-        /* find highest RAM region */
+    if ( mbi == NULL || mbi->flags & MBI_MEMMAP ) {
         entry_offset = 0;
-        max_ram = 0;
-        while ( entry_offset < mbi->mmap_length ) {
-            entry = (memory_map_t *)(mbi->mmap_addr + entry_offset);
+        *min_lo_ram = *min_hi_ram = ~0ULL;
+        *max_lo_ram = *max_hi_ram = 0;
+
+        if ( mbi == NULL ) {
+            map_addr = (uint32_t)g_copy_e820_map;
+            map_len = g_nr_map * sizeof(memory_map_t);
+        }
+        else {
+            map_addr = mbi->mmap_addr;
+            map_len = mbi->mmap_length;
+        }
+
+        while ( entry_offset < map_len ) {
+            entry = (memory_map_t *)(map_addr + entry_offset);
             if ( entry->type == E820_RAM ) {
                 base = e820_base_64(entry);
-                len = e820_length_64(entry);
-                if ( base + len > max_ram )
-                    max_ram = base + len;
+                limit = base + e820_length_64(entry);
+
+                /* if range straddles 4GB boundary, that is an error */
+                if ( base < 0x100000000ULL && limit >= 0x100000000ULL ) {
+                    printk("e820 memory range straddles 4GB boundary\n");
+                    return false;
+                }
+
+                if ( base < 0x100000000ULL && base < *min_lo_ram )
+                    *min_lo_ram = base;
+                else if ( base >= 0x100000000ULL && base < *min_hi_ram )
+                    *min_hi_ram = base;
+                if ( limit < 0x100000000ULL && limit > *max_lo_ram )
+                    *max_lo_ram = limit;
+                else if ( limit >= 0x100000000ULL && limit > *max_hi_ram )
+                    *max_hi_ram = limit;
             }
             entry_offset += entry->size + sizeof(entry->size);
         }
-        return max_ram;
+
+        /* no low RAM found */
+        if ( *min_lo_ram >= *max_lo_ram ) {
+            printk("no low ram in e820 map\n");
+            return false;
+        }
+        /* no high RAM found */
+        if ( *min_hi_ram >= *max_hi_ram )
+            *min_hi_ram = *max_hi_ram = 0;
     }
-    else if ( mbi->flags & MBI_MEMLIMITS )
-        return (uint64_t)mbi->mem_upper << 10;
+    else if ( mbi->flags & MBI_MEMLIMITS ) {
+        *min_lo_ram = 0;
+        *max_lo_ram = (((uint64_t)mbi->mem_upper) << 10) + 0x100000ULL;
+        *min_hi_ram = *max_hi_ram = 0;
+    }
     else {
         printk("no e820 map nor mem limits provided\n");
-        return 0;
+        return false;
     }
+
+    return true;
 }
 
 

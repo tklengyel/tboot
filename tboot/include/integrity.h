@@ -46,6 +46,11 @@
 #define MAX_VL_HASHES 32
 
 typedef struct {
+    /* low and high memory regions to protect w/ VT-d PMRs */
+    uint64_t vtd_pmr_lo_base;
+    uint64_t vtd_pmr_lo_size;
+    uint64_t vtd_pmr_hi_base;
+    uint64_t vtd_pmr_hi_size;
     /* VL policy at time of sealing */
     tb_hash_t pol_hash;
     /* verified launch measurements to be re-extended in DRTM PCRs */

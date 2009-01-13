@@ -11,10 +11,6 @@
  * build/support flags
  */
 
-/* only enable this if VT-d has been applied to xen */
-//#define VT_D
-
-
 /* address tboot will execute (not necessarily load) at */
 #define TBOOT_BASE_ADDR              0x1003000
 

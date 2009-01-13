@@ -75,6 +75,8 @@ extern char _mle_end[];           /* end of text section */
 extern char _post_launch_entry[]; /* entry point post SENTER, in boot.S */
 extern char _txt_wakeup[];        /* RLP join address for GETSEC[WAKEUP] */
 
+extern long s3_flag;
+
 /*
  * this is the structure whose addr we'll put in TXT heap
  * it needs to be within the MLE pages, so force it to the .text section
@@ -264,12 +266,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
                                  multiboot_info_t *mbi)
 {
     txt_heap_t *txt_heap;
-    os_sinit_data_t *os_sinit_data;
-    os_mle_data_t *os_mle_data;
     uint64_t *size;
-    uint64_t max_ram;
-    void *lcp_base = NULL;
-    uint32_t lcp_size = 0;
 
     txt_heap = get_txt_heap();
 
@@ -282,7 +279,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /*
      * OS/loader to MLE data
      */
-    os_mle_data = get_os_mle_data_start(txt_heap);
+    os_mle_data_t *os_mle_data = get_os_mle_data_start(txt_heap);
     size = (uint64_t *)((uint32_t)os_mle_data - sizeof(uint64_t));
     *size = sizeof(*os_mle_data) + sizeof(uint64_t);
     memset(os_mle_data, 0, sizeof(*os_mle_data));
@@ -293,7 +290,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /*
      * OS/loader to SINIT data
      */
-    os_sinit_data = get_os_sinit_data_start(txt_heap);
+    os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
     size = (uint64_t *)((uint32_t)os_sinit_data - sizeof(uint64_t));
     *size = sizeof(*os_sinit_data) + sizeof(uint64_t);
     memset(os_sinit_data, 0, sizeof(*os_sinit_data));
@@ -307,13 +304,15 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     os_sinit_data->mle_hdr_base = (uint64_t)(unsigned long)&g_mle_hdr -
         (uint64_t)(unsigned long)&_mle_start;
     /* VT-d PMRs */
-    max_ram = get_max_ram(mbi);
-    if ( max_ram == 0 ) {
-        printk("max_ram is 0\n");
+    uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
+    if ( !get_ram_ranges(mbi, &min_lo_ram, &max_lo_ram, &min_hi_ram,
+                         &max_hi_ram) )
         return NULL;
-    }
-    set_vtd_pmrs(os_sinit_data, max_ram);
+    set_vtd_pmrs(os_sinit_data, min_lo_ram, max_lo_ram, min_hi_ram,
+                 max_hi_ram);
     /* LCP manifest */
+    void *lcp_base = NULL;
+    uint32_t lcp_size = 0;
     find_lcp_manifest(mbi, &lcp_base, &lcp_size);
     os_sinit_data->lcp_po_base = (unsigned long)lcp_base;
     os_sinit_data->lcp_po_size = lcp_size;
@@ -426,6 +425,39 @@ static void txt_wakeup_cpus(void)
     /* enable SMIs (do this after APs have been awakened and sync'ed w/ BSP) */
     printk("enabling SMIs on BSP\n");
     __getsec_smctrl();
+}
+
+static bool reserve_vtd_delta_mem(txt_heap_t *txt_heap)
+{
+    uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
+    uint64_t base, length;
+
+    if ( !get_ram_ranges(NULL, &min_lo_ram, &max_lo_ram,
+                         &min_hi_ram, &max_hi_ram) )
+        return false;
+
+    os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
+
+    if ( max_lo_ram != (os_sinit_data->vtd_pmr_lo_base +
+                        os_sinit_data->vtd_pmr_lo_size) ) {
+        base = os_sinit_data->vtd_pmr_lo_base + os_sinit_data->vtd_pmr_lo_size;
+        length = max_lo_ram - base;
+        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
+               base, base + length);
+        if ( !e820_reserve_ram(base, length) )
+            return false;
+    }
+    if ( max_hi_ram != (os_sinit_data->vtd_pmr_hi_base +
+                        os_sinit_data->vtd_pmr_hi_size) ) {
+        base = os_sinit_data->vtd_pmr_hi_base + os_sinit_data->vtd_pmr_hi_size;
+        length = max_hi_ram - base;
+        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
+               base, base + length);
+        if ( !e820_reserve_ram(base, length) )
+            return false;
+    }
+
+    return true;
 }
 
 bool txt_is_launched(void)
@@ -703,6 +735,15 @@ tb_error_t txt_protect_mem_regions(void)
            base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
         return TB_ERR_FATAL;
+
+    /* if vtd_pmr_lo/hi sizes rounded to 2MB granularity are less than the
+       max_lo/hi_ram values determined from the e820 table, then we must
+       reserve the differences in e820 table so that unprotected memory is
+       not used by the kernel */
+    if ( !s3_flag && !reserve_vtd_delta_mem(txt_heap) ) {
+        printk("failed to reserve VT-d PMR delta memory\n");
+        return TB_ERR_POST_LAUNCH_VERIFICATION;
+    }
 
     return TB_ERR_NONE;
 }

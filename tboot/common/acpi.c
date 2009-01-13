@@ -222,7 +222,7 @@ static uint32_t get_acpi_table_entry(uint32_t start, uint32_t size, int type)
     return 0;
 }
 
-uint32_t get_acpi_dmar_table(void)
+static uint32_t get_acpi_dmar_table(void)
 {
     return get_acpi_table(ACPI_DMAR_TABLE_SIG);
 }
