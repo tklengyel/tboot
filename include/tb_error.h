@@ -59,8 +59,9 @@ typedef enum {
 
     TB_ERR_POST_LAUNCH_VERIFICATION,        /* verification of post-launch
                                                failed */
-    TB_ERR_PCR_HASH_INTEGRITY,              /* sealing/unsealing of PCR
-                                               hashes */
+    TB_ERR_S3_INTEGRITY,                    /* creation or verification of
+                                               S3 integrity measurements
+                                               failed */
 
     TB_ERR_FATAL,                           /* generic fatal error */
     TB_ERR_MAX

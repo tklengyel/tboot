@@ -207,7 +207,7 @@ static void post_launch(void)
      * seal hashes of modules and VL policy to current value of PCR17 & 18
      */
     if ( !seal_initial_measurements() )
-        apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
+        apply_policy(TB_ERR_S3_INTEGRITY);
 
     /*
      * init MLE/kernel shared data page
@@ -343,7 +343,7 @@ void s3_launch(void)
 
     /* verify saved hash integrity and re-extend PCRs */
     if ( !verify_integrity() )
-        apply_policy(TB_ERR_PCR_HASH_INTEGRITY);
+        apply_policy(TB_ERR_S3_INTEGRITY);
 
     print_tboot_shared(&_tboot_shared);
 

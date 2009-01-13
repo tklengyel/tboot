@@ -102,8 +102,8 @@ void print_tb_error_msg(tb_error_t error)
         case TB_ERR_POST_LAUNCH_VERIFICATION:
             printk("verification of post-launch failed.\n");
             break;
-        case TB_ERR_PCR_HASH_INTEGRITY:
-            printk("sealing or unsealing of hashes failed.\n");
+        case TB_ERR_S3_INTEGRITY:
+            printk("creation or verification of S3 measurements failed.\n");
             break;
         case TB_ERR_FATAL:
             printk("generic fatal error.\n");
