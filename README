@@ -1,7 +1,6 @@
 ******************************************************************************
-* The current version of tboot (both in the repository and .tar.gz)          *
-* requires version 17 or greater of the SINIT AC module.                     *
-* It will not work with some previous SINIT ACMs nor will it work on the TEP *
+* This is the last version of tboot that will work with Xen versions <3.4    *
+* (c/s <= 19110) or the below-referenced Linux patches                       *
 ******************************************************************************
 
 Trusted Boot (tboot) is an open source, pre- kernel/VMM module that uses
@@ -70,7 +69,9 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
            module /Q35_SINIT_17.BIN
 
 o  The appropriate SINIT AC Module can be downloaded from the tboot SourceForge
-   project site.
+   project site.  The current version of tboot (both in the repository and
+   .tar.gz) requires version 17 or greater of the SINIT AC module.  It will
+   not work with some previous SINIT ACMs nor will it work on the TEP.
 
 o  For Xen:  newer versions of Xen support the 'iommu=required' command line
    option, which causes Xen to fail to run if there is any error in
