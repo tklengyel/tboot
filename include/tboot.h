@@ -57,14 +57,26 @@ typedef struct __packed {
  * used to communicate between tboot and the launched kernel (i.e. Xen)
  */
 
+/* GAS - Generic Address Structure (ACPI 2.0+) */
 typedef struct __packed {
-    uint16_t pm1a_cnt;
-    uint16_t pm1b_cnt;
-    uint16_t pm1a_evt;
-    uint16_t pm1b_evt;
+    uint8_t  space_id;
+    uint8_t  bit_width;
+    uint8_t  bit_offset;
+    uint8_t  access_width;
+    uint64_t address;
+} tboot_acpi_generic_address_t;
+
+typedef struct __packed {
+    tboot_acpi_generic_address_t pm1a_cnt_blk;
+    tboot_acpi_generic_address_t pm1b_cnt_blk;
+    tboot_acpi_generic_address_t pm1a_evt_blk;
+    tboot_acpi_generic_address_t pm1b_evt_blk;
     uint16_t pm1a_cnt_val;
     uint16_t pm1b_cnt_val;
-} tboot_acpi_sleep_info;
+    uint64_t wakeup_vector;
+    uint32_t vector_width;
+    uint64_t kernel_s3_resume_vector;
+} tboot_acpi_sleep_info_t;
 
 typedef struct __packed {
     /* version 3+ fields: */
@@ -73,11 +85,8 @@ typedef struct __packed {
     uint32_t  log_addr;          /* physical addr of log or NULL if none */
     uint32_t  shutdown_entry;    /* entry point for tboot shutdown */
     uint32_t  shutdown_type;     /* type of shutdown (TB_SHUTDOWN_*) */
-    uint32_t  s3_tb_wakeup_entry;/* entry point for tboot s3 wake up */
-    uint32_t  s3_k_wakeup_entry; /* entry point for xen s3 wake up */
-    tboot_acpi_sleep_info
+    tboot_acpi_sleep_info_t
               acpi_sinfo;        /* where kernel put acpi sleep info in Sx */
-    uint8_t   reserved[52];      /* this pad is for compat with old field */
     uint32_t  tboot_base;        /* starting addr for tboot */
     uint32_t  tboot_size;        /* size of tboot */
 } tboot_shared_t;
@@ -122,10 +131,6 @@ static inline void print_tboot_shared(tboot_shared_t *tboot_shared)
     printk("\t log_addr: 0x%08x\n", tboot_shared->log_addr);
     printk("\t shutdown_entry: 0x%08x\n", tboot_shared->shutdown_entry);
     printk("\t shutdown_type: %d\n", tboot_shared->shutdown_type);
-    printk("\t s3_tb_wakeup_entry: 0x%08x\n",
-           tboot_shared->s3_tb_wakeup_entry);
-    printk("\t s3_k_wakeup_entry: 0x%08x\n", tboot_shared->s3_k_wakeup_entry);
-    printk("\t &acpi_sinfo: 0x%p\n", &tboot_shared->acpi_sinfo);
     printk("\t tboot_base: 0x%08x\n", tboot_shared->tboot_base);
     printk("\t tboot_size: 0x%x\n", tboot_shared->tboot_size);
 }

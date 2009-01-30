@@ -1,7 +1,7 @@
 /*
  * early_printk.c: printk to serial for very early boot stages
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -322,9 +322,6 @@ config_parsed:
  */
 
 #define VGABASE     0xb8000
-
-#define readw(x) (*(volatile unsigned short *)(x))
-#define writew(d,x) (*(volatile unsigned short *)(x) = (d))
 
 static const int max_ypos = 25;
 static const int max_xpos = 80;

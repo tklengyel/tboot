@@ -1,7 +1,7 @@
 /*
  * tpm.c: TPM-related support functions
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,9 +64,6 @@
 
 #define TPM_TAG_PCR_INFO_LONG       0x0006
 #define TPM_TAG_STORED_DATA12       0x0016
-
-#define readb(x) (*(volatile char *)(x))
-#define writeb(d,x) (*(volatile char *)(x) = (d))
 
 /*
  * TPM registers and data structures

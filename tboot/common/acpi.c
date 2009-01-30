@@ -1,8 +1,10 @@
 /*
  *  from xen/arch/x86/acpi/boot.c
  *       drivers/acpi/tables.c
+ *       drivers/acpi/hwregs.c
+ *       drivers/acpi/osl.c
  *
- *  Copyright(c) 2008 Intel Corporation. All rights reserved.
+ *  Copyright(c) 2008-2009 Intel Corporation. All rights reserved.
  *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.com>
  *  Copyright (C) 2001 Jun Nakajima <jun.nakajima@intel.com>
  *
@@ -42,6 +44,8 @@
 #define ACPI_RSDT_TABLE_SIG "RSDT"
 #define ACPI_MADT_TABLE_SIG "APIC"
 
+/* used by various fns below */
+static const tboot_acpi_sleep_info_t* g_acpi_sinfo;
 
 static unsigned long acpi_scan_rsdp(unsigned long start, unsigned long length)
 {
@@ -327,25 +331,318 @@ uint32_t get_acpi_ioapic_table(void)
 #define ACPI_BITMASK_WAKE_STATUS                0x8000
 #define ACPI_BITPOSITION_WAKE_STATUS            0x0F
 
-static int acpi_get_wake_status(const tboot_acpi_sleep_info* acpi_info)
+static acpi_status acpi_read_port(acpi_io_address port, u32* value, u32 width)
 {
-    uint16_t val;
+    if ( !value )
+        return AE_ERROR;
+
+    *value = 0;
+    if ( width <= 8 )
+        *(u8 *)value = inb(port);
+    else if ( width <= 16 )
+        *(u16 *)value = inw(port);
+    else if ( width <= 32 )
+        *(u32 *)value = in(port);
+    else
+        return AE_ERROR;
+
+    return AE_OK;
+}
+
+static acpi_status acpi_write_port(acpi_io_address port, u32 value, u32 width)
+{
+    switch ( width ) {
+    case 8:
+        outb(value, port);
+        break;
+    case 16:
+        outw(value, port);
+        break;
+    case 32:
+        out(value, port);
+        break;
+    default:
+        return AE_ERROR;
+    }
+
+    return AE_OK;
+}
+
+static acpi_status
+acpi_read_memory(acpi_physical_address addr, u32* value, u32 width)
+{
+    if ( !value )
+        return AE_ERROR;
+
+    *value = 0;
+    if ( width <= 8 )
+        *(u8 *)value = readb(addr);
+    else if ( width <= 16 )
+        *(u16 *)value = readw(addr);
+    else if ( width <= 32 )
+        *(u32 *)value = readl(addr);
+    else
+        return AE_ERROR;
+
+    return AE_OK;
+}
+
+static acpi_status
+acpi_write_memory(acpi_physical_address addr, u32 value, u32 width)
+{
+    switch ( width ) {
+    case 8:
+        writeb(value, addr);
+        break;
+    case 16:
+        writew(value, addr);
+        break;
+    case 32:
+        writel(value, addr);
+        break;
+    default:
+        return AE_ERROR;
+    }
+
+    return AE_OK;
+}
+
+static acpi_status 
+acpi_hw_low_level_read(u32 width, u32* value,
+		       const tboot_acpi_generic_address_t* reg)
+{
+    u64 address;
+    acpi_status status;
+
+    /*
+     * Must have a valid pointer to a GAS structure, and
+     * a non-zero address within. However, don't return an error
+     * because the PM1A/B code must not fail if B isn't present.
+     */
+    if ( !reg )
+        return AE_OK;
+
+    /* Get a local copy of the address. Handles possible alignment issues */
+    ACPI_MOVE_64_TO_64(&address, &reg->address);
+    if ( !address )
+        return AE_OK;
+
+    *value = 0;
+    switch ( reg->space_id ) {
+    case ACPI_ADR_SPACE_SYSTEM_MEMORY:
+        status = acpi_read_memory(
+                       (acpi_physical_address)(unsigned long)address,
+                       value, width);
+        break;
+    case ACPI_ADR_SPACE_SYSTEM_IO:
+        status = acpi_read_port((acpi_io_address)address,
+                                value, width);
+        break;
+    default:
+        return AE_BAD_PARAMETER;
+    }
+
+    return status;
+}
+
+static acpi_status
+acpi_hw_low_level_write(u32 width, u32 value,
+			const tboot_acpi_generic_address_t* reg)
+{
+    u64 address;
+    acpi_status status;
+
+    /*
+     * Must have a valid pointer to a GAS structure, and
+     * a non-zero address within. However, don't return an error
+     * because the PM1A/B code must not fail if B isn't present.
+     */
+    if ( !reg )
+        return AE_OK;
+
+    /* Get a local copy of the address. Handles possible alignment issues */
+    ACPI_MOVE_64_TO_64(&address, &reg->address);
+    if ( !address )
+        return AE_OK;
+
+    switch ( reg->space_id ) {
+    case ACPI_ADR_SPACE_SYSTEM_MEMORY:
+        status = acpi_write_memory(
+                       (acpi_physical_address)(unsigned long)address,
+                       value, width);
+        break;
+    case ACPI_ADR_SPACE_SYSTEM_IO:
+        status = acpi_write_port((acpi_io_address)address,
+                                 value, width);
+        break;
+    default:
+        return AE_BAD_PARAMETER;
+    }
+
+    return status;
+}
+
+static acpi_status
+acpi_hw_register_read(u32 register_id, u32* value)
+{
+    u32 value1 = 0;
+    u32 value2 = 0;
+    acpi_status status;
+
+    if ( !value )
+        return AE_ERROR;
+
+    switch ( register_id ) {
+    case ACPI_REGISTER_PM1_STATUS:    /* 16-bit access */
+        status = acpi_hw_low_level_read(16, &value1,
+					&g_acpi_sinfo->pm1a_evt_blk);
+        if ( ACPI_FAILURE(status) )
+            goto exit;
+        /* PM1B is optional */
+        status = acpi_hw_low_level_read(16, &value2,
+					&g_acpi_sinfo->pm1b_evt_blk);
+        value1 |= value2;
+        break;
+
+    case ACPI_REGISTER_PM1_CONTROL:    /* 16-bit access */
+        status = acpi_hw_low_level_read(16, &value1,
+					&g_acpi_sinfo->pm1a_cnt_blk);
+        if ( ACPI_FAILURE(status) )
+            goto exit;
+        status = acpi_hw_low_level_read(16, &value2,
+					&g_acpi_sinfo->pm1b_cnt_blk);
+        value1 |= value2;
+        break; 
+    default:
+        status = AE_BAD_PARAMETER;
+        break;
+    }
+
+exit:
+    if ( ACPI_SUCCESS(status) )
+        *value = value1;
+
+    return status;
+}
+
+static acpi_status
+acpi_hw_register_write(u32 register_id, u32 value)
+{
+    u32 value1 = 0;
+    acpi_status status;
+
+    switch ( register_id ) {
+    case ACPI_REGISTER_PM1_STATUS:    /* 16-bit access */
+        /* Perform a read first to preserve certain bits (per ACPI spec) */
+        status = acpi_hw_register_read(ACPI_REGISTER_PM1_STATUS, &value1);
+        if ( ACPI_FAILURE(status) )
+            goto exit;
+        /* Insert the bits to be preserved */
+        ACPI_INSERT_BITS(value, ACPI_PM1_STATUS_PRESERVED_BITS, value1);
+        /* Now we can write the data */
+        status  = acpi_hw_low_level_write(16, value,
+                   &g_acpi_sinfo->pm1a_evt_blk);
+        if ( ACPI_FAILURE(status) )
+            goto exit;
+        /* PM1B is optional */
+        status = acpi_hw_low_level_write(16, value,
+                   &g_acpi_sinfo->pm1b_evt_blk);
+        break;
+    case ACPI_REGISTER_PM1_CONTROL:    /* 16-bit access */
+        /* Perform a read first to preserve certain bits (per ACPI spec) */
+        status  = acpi_hw_register_read(ACPI_REGISTER_PM1_CONTROL, &value1);
+        if ( ACPI_FAILURE(status) )
+            goto exit;
+        /* Insert the bits to be preserved */
+        ACPI_INSERT_BITS(value, ACPI_PM1_CONTROL_PRESERVED_BITS, value1);
+        /* Now we can write the data */
+        status = acpi_hw_low_level_write(16, value,
+                  &g_acpi_sinfo->pm1a_cnt_blk);
+        if ( ACPI_FAILURE(status) )
+            goto exit;
+        status = acpi_hw_low_level_write(16, value,
+                  &g_acpi_sinfo->pm1b_cnt_blk);
+        break;
+    case ACPI_REGISTER_PM1A_CONTROL:    /* 16-bit access */
+        status = acpi_hw_low_level_write(16, value,
+                  &g_acpi_sinfo->pm1a_cnt_blk);
+        break;
+    case ACPI_REGISTER_PM1B_CONTROL:    /* 16-bit access */
+        status = acpi_hw_low_level_write(16, value,
+                  &g_acpi_sinfo->pm1b_cnt_blk);
+        break;
+    default:
+        status = AE_BAD_PARAMETER;
+        break;
+    }
+
+exit:
+    return status;
+}
+
+static int acpi_get_wake_status(void)
+{
+    uint32_t val;
+    acpi_status status;
 
     /* Wake status is the 15th bit of PM1 status register. (ACPI spec 3.0) */
-    val = inw(acpi_info->pm1a_evt) | inw(acpi_info->pm1b_evt);
+    status = acpi_hw_register_read(ACPI_REGISTER_PM1_STATUS, &val);
+    if ( ACPI_FAILURE(status) )
+        return 0;
+
     val &= ACPI_BITMASK_WAKE_STATUS;
     val >>= ACPI_BITPOSITION_WAKE_STATUS;
     return val;
 }
 
-void machine_sleep(const tboot_acpi_sleep_info* acpi_info)
+acpi_status machine_sleep(const tboot_acpi_sleep_info_t* acpi_sinfo)
 {
+    acpi_status status;
+
     wbinvd();
 
-    outw((u16)acpi_info->pm1a_cnt_val, acpi_info->pm1a_cnt);
-    if ( acpi_info->pm1b_cnt )
-        outw((u16)acpi_info->pm1b_cnt_val, acpi_info->pm1b_cnt);
-    
-    /* Wait until we enter sleep state, and spin until we wake */
-    while ( !acpi_get_wake_status(acpi_info) );
+    /* set for use by various ACPI fns above */
+    g_acpi_sinfo = acpi_sinfo;
+
+    status = acpi_hw_register_write(ACPI_REGISTER_PM1A_CONTROL,
+                                    g_acpi_sinfo->pm1a_cnt_val);
+    if ( ACPI_FAILURE(status) )
+        return AE_ERROR;
+
+    if ( g_acpi_sinfo->pm1b_cnt_blk.address ) {
+        status = acpi_hw_register_write(ACPI_REGISTER_PM1B_CONTROL,
+                                        g_acpi_sinfo->pm1b_cnt_val);
+        if ( ACPI_FAILURE(status) )
+            return AE_ERROR;
+    }
+   
+    /* Wait until we enter sleep state; we should never return to here */
+    while ( !acpi_get_wake_status() )
+        continue;
+
+    return AE_OK;
 }
+
+void set_s3_resume_vector(const tboot_acpi_sleep_info_t* acpi_sinfo,
+                          uint64_t resume_vector)
+{
+    if ( acpi_sinfo->vector_width <= 32 )
+        *(uint32_t *)(uintptr_t)acpi_sinfo->wakeup_vector =
+                                    (uint32_t)resume_vector;
+    else
+        *(uint64_t *)(uintptr_t)acpi_sinfo->wakeup_vector =
+                                    (uint64_t)resume_vector;
+    printk("kernel S3 resume vector: 0x%Lx\n", resume_vector);
+    printk("wakeup_vector: 0x%Lx\n", acpi_sinfo->wakeup_vector);
+}
+
+
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

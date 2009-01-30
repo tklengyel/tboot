@@ -84,6 +84,9 @@ extern tboot_shared_t _tboot_shared;
  */
 static __data uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
 
+/* kernel/VMM's S3 resume addr */
+__data uint64_t g_kernel_s3_resume_vector;
+
 
 static tb_error_t verify_platform(void)
 {
@@ -217,7 +220,6 @@ static void post_launch(void)
     _tboot_shared.version = 3;
     _tboot_shared.log_addr = (uint32_t)g_log;
     _tboot_shared.shutdown_entry = (uint32_t)shutdown_entry;
-    _tboot_shared.s3_tb_wakeup_entry = (uint32_t)TBOOT_S3_WAKEUP_ADDR;
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
     print_tboot_shared(&_tboot_shared);
@@ -266,6 +268,10 @@ void begin_launch(multiboot_info_t *mbi)
     printk("command line: %s\n", g_cmdline);
     if ( s3_flag )
         printk("resume from S3\n");
+
+    /* clear resume vector on S3 resume so any resets will not use it */
+    if ( !is_launched() & s3_flag )
+        set_s3_resume_vector(&_tboot_shared.acpi_sinfo, 0);
 
     /* we should only be executing on the BSP */
     rdmsrl(MSR_IA32_APICBASE, apicbase);
@@ -346,7 +352,7 @@ void s3_launch(void)
 
     print_tboot_shared(&_tboot_shared);
 
-    _prot_to_real(_tboot_shared.s3_k_wakeup_entry);
+    _prot_to_real(g_kernel_s3_resume_vector);
 }
 
 static void shutdown_system(uint32_t shutdown_type)
@@ -365,9 +371,17 @@ static void shutdown_system(uint32_t shutdown_type)
     switch( shutdown_type ) {
         case TB_SHUTDOWN_S3:
             copy_s3_wakeup_entry();
+            /* save kernel resume vector and write ours to ACPI resume addr */
+            g_kernel_s3_resume_vector =
+                _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
+            set_s3_resume_vector(&_tboot_shared.acpi_sinfo,
+                                 TBOOT_S3_WAKEUP_ADDR);
+            /* fall through for rest of Sx handling */
+        
         case TB_SHUTDOWN_S4:
         case TB_SHUTDOWN_S5:
             machine_sleep(&_tboot_shared.acpi_sinfo);
+            /* if machine_sleep() fails, fall through to reset */
 
         case TB_SHUTDOWN_REBOOT:
             if ( txt_is_powercycle_required() ) {

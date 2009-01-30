@@ -80,6 +80,16 @@ static inline void out(unsigned int value, unsigned short port)
     __asm__ __volatile__ ("out %0, %w1"
                           : : "a" (value), "Nd" (port));
 }
+/*
+ * from io.h
+ */
+
+#define readb(x)  (*(volatile char *)(x))
+#define readw(x)  (*(volatile short *)(x))
+#define readl(x)  (*(volatile int *)(x))
+#define writeb(d,x) (*(volatile char *)(x) = (d))
+#define writew(d,x) (*(volatile short *)(x) = (d))
+#define writel(d,x) (*(volatile int *)(x) = (d))
 
 /*
  * from lib.h
