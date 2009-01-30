@@ -1,6 +1,6 @@
 ******************************************************************************
-* This is the last version of tboot that will work with Xen versions <3.4    *
-* (c/s <= 19110) or the below-referenced Linux patches                       *
+* This version of tboot will not work with Xen versions <3.4 (c/s < 19115)   *
+* or the below-referenced Linux patches                                      *
 ******************************************************************************
 
 Trusted Boot (tboot) is an open source, pre- kernel/VMM module that uses
@@ -11,7 +11,7 @@ This version of tboot supports Intel (both retail and Software Development
 Platforms (SDPs)) and OEM systems that are Intel TXT-capable.
 
 This version of tboot only supports both the Xen virtual machine monitor
-(versions >= 3.2) and Linux kernel versions >= 2.6.20.
+(versions >= 3.4) and Linux kernel versions >= 2.6.20.
 
 The mercurial source code repository for this project is located at:
 http://www.bughost.org/repos.hg/tboot.hg.
