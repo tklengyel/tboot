@@ -2,7 +2,7 @@
  * tboot.h: shared data structure with MLE and kernel and functions
  *          used by kernel for runtime support
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,11 +67,11 @@ typedef struct __packed {
 } tboot_acpi_sleep_info;
 
 typedef struct __packed {
+    /* version 3+ fields: */
     uuid_t    uuid;              /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
-    uint32_t  version;           /* currently 0.2 */
+    uint32_t  version;           /* currently 0.3 */
     uint32_t  log_addr;          /* physical addr of log or NULL if none */
-    uint32_t  shutdown_entry32;  /* entry point for tboot shutdown from 32b */
-    uint32_t  shutdown_entry64;  /* entry point for tboot shutdown from 64b */
+    uint32_t  shutdown_entry;    /* entry point for tboot shutdown */
     uint32_t  shutdown_type;     /* type of shutdown (TB_SHUTDOWN_*) */
     uint32_t  s3_tb_wakeup_entry;/* entry point for tboot s3 wake up */
     uint32_t  s3_k_wakeup_entry; /* entry point for xen s3 wake up */
@@ -120,8 +120,7 @@ static inline void print_tboot_shared(tboot_shared_t *tboot_shared)
     printk("tboot_shared data:\n");
     printk("\t version: %d\n", tboot_shared->version);
     printk("\t log_addr: 0x%08x\n", tboot_shared->log_addr);
-    printk("\t shutdown_entry32: 0x%08x\n", tboot_shared->shutdown_entry32);
-    printk("\t shutdown_entry64: 0x%08x\n", tboot_shared->shutdown_entry64);
+    printk("\t shutdown_entry: 0x%08x\n", tboot_shared->shutdown_entry);
     printk("\t shutdown_type: %d\n", tboot_shared->shutdown_type);
     printk("\t s3_tb_wakeup_entry: 0x%08x\n",
            tboot_shared->s3_tb_wakeup_entry);

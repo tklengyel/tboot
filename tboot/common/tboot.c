@@ -2,7 +2,7 @@
  * tboot.c: main entry point and "generic" routines for measured launch
  *          support
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -214,10 +214,9 @@ static void post_launch(void)
      */
     memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
-    _tboot_shared.version = 0x02;
+    _tboot_shared.version = 3;
     _tboot_shared.log_addr = (uint32_t)g_log;
-    _tboot_shared.shutdown_entry32 = (uint32_t)shutdown_entry;
-    _tboot_shared.shutdown_entry64 = (uint32_t)shutdown_entry;
+    _tboot_shared.shutdown_entry = (uint32_t)shutdown_entry;
     _tboot_shared.s3_tb_wakeup_entry = (uint32_t)TBOOT_S3_WAKEUP_ADDR;
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
