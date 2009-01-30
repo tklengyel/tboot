@@ -1,6 +1,6 @@
 ******************************************************************************
 * The current version of tboot (both in the repository and .tar.gz)          *
-* requires the most recent version of the SINIT AC module.                   *
+* requires version 17 or greater of the SINIT AC module.                     *
 * It will not work with some previous SINIT ACMs nor will it work on the TEP *
 ******************************************************************************
 
@@ -60,15 +60,17 @@ Instructions for Use:
 ---------------------
 o  The new tboot module must be added as the 'kernel' in the grub.conf file.
    The existing 'kernel' entry should follow as a 'module'.  The SINIT AC
-   module (available with systems that support TXT) must be added to the
-   grub.conf boot config as the last module, e.g.:
+   module must be added to the grub.conf boot config as the last module, e.g.:
        title Xen w/ Intel(R) Trusted Execution Technology
            root (hd0,1)
            kernel /tboot.gz
            module /xen.gz iommu=required dom0_mem=524288 com1=115200,8n1
            module /vmlinuz-2.6.18-xen root=/dev/VolGroup00/LogVol00 ro
            module /initrd-2.6.18-xen.img
-           module /BRLK_SINIT_20070910_release.BIN
+           module /Q35_SINIT_17.BIN
+
+o  The appropriate SINIT AC Module can be downloaded from the tboot SourceForge
+   project site.
 
 o  For Xen:  newer versions of Xen support the 'iommu=required' command line
    option, which causes Xen to fail to run if there is any error in
@@ -88,7 +90,7 @@ o  For Linux:  the 'iommu=1' command line option will enabled VT-d.  There is
 o  Progress of the launch process is indicated via debug printk's using three
    different logging methods:
        serial - logging is traced over a COM/serial port to a remote console
-       vga - logging is traced to the local screen
+       vga    - logging is traced to the local screen
        memory - logging is traced to a memory location
    
    These three methods are not mutually exclusive - any combination can be
@@ -158,5 +160,5 @@ o  The code requires that VT be enabled as well as TXT.  This is because
    order to trap on INIT-SIPI-SIPI.
 
 o  The tools/txt-stat project is a Linux application that reads some of
-   the TXT registers will display the tboot boot log (if tboot was built with
-   MEM_LOGGING defined), in case a system does not have serial support.
+   the TXT registers and will display the tboot boot log if tboot was run
+   with 'logging=memory'.

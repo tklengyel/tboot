@@ -1,3 +1,15 @@
+20090130:
+	Fixed build issues with newer versions of gcc (e.g. in Fedora 9)
+	Increased CPU/core/thread support to 32 CPUs/cores/threads
+	Simpified tboot build process to be that of standard ELF binary
+	Enhanced logging support (see README)
+	Include tboot command line in its hash; support for including command
+            line in hash added to lcp_mlehash
+	Always extend measurement of module 0 to PCR 18
+	Added verification of memory layout on launch
+	Set VT-d PMR protections to cover all usable RAM
+	Misc. fixes
+
 20081008:
 	Fixed build error in lcptools/
 
