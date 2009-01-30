@@ -61,6 +61,7 @@
 #define TPM_ORD_OSAP                0x0000000B
 #define TPM_ORD_OIAP                0x0000000A
 #define TPM_ORD_SAVE_STATE          0x00000098
+#define TPM_ORD_GET_RANDOM          0x00000046
 
 #define TPM_TAG_PCR_INFO_LONG       0x0006
 #define TPM_TAG_STORED_DATA12       0x0016
@@ -1862,7 +1863,55 @@ uint32_t tpm_save_state(uint32_t locality)
     printk("TPM: save state, return value = %08X\n", ret);
     
     return ret;
+}
 
+uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
+                        uint32_t *data_size)
+{
+    uint32_t ret, in_size = 0, out_size;
+
+    if ( random_data == NULL || data_size == NULL )
+        return TPM_BAD_PARAMETER;
+    if ( *data_size == 0 )
+        return TPM_BAD_PARAMETER;
+
+    /* copy the *data_size into buf in reversed byte order */
+    reverse_copy(WRAPPER_IN_BUF + in_size, data_size, sizeof(*data_size));
+    in_size += sizeof(*data_size);
+
+    out_size = *data_size + sizeof(*data_size);
+    ret = tpm_submit_cmd(locality, TPM_ORD_GET_RANDOM, in_size, &out_size);
+
+#ifdef TPM_TRACE
+    printk("TPM: get random %u bytes, return value = %08X\n", *data_size, ret);
+#endif
+    if ( ret != TPM_SUCCESS ) {
+        printk("TPM: get random %u bytes, return value = %08X\n", *data_size,
+               ret);
+        return ret;
+    }
+
+#ifdef TPM_TRACE
+    {
+        printk("TPM: ");
+        print_hex(NULL, WRAPPER_OUT_BUF, out_size);
+    }
+#endif
+
+    if ( out_size <= sizeof(*data_size) ) {
+        *data_size = 0;
+        return ret;
+    }
+    
+    out_size -= sizeof(*data_size);
+    reverse_copy(data_size, WRAPPER_OUT_BUF, sizeof(*data_size));
+    if ( *data_size > 0 )
+        memcpy(random_data, WRAPPER_OUT_BUF + sizeof(*data_size), *data_size);
+
+    /* data might be used as key, so clear from buffer memory */
+    memset(WRAPPER_OUT_BUF + sizeof(*data_size), 0, *data_size);
+
+    return ret;
 }
 
 /*

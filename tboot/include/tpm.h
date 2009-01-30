@@ -1,7 +1,7 @@
 /*
  * tpm.h: TPM-related support functions
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,7 @@
  *      vendor defined non-fatal errors (00000C00 to 00000FFF).
  * Here only give definitions for a few commonly used return code.
  */
-#define TPM_BASE                0X00000000
+#define TPM_BASE                0x00000000
 #define TPM_SUCCESS             TPM_BASE
 #define TPM_BADINDEX            (TPM_BASE + 2)
 #define TPM_BAD_PARAMETER       (TPM_BASE + 3)
@@ -260,6 +260,15 @@ extern uint32_t tpm_get_nvindex_size(uint32_t locality,
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  */
 extern uint32_t tpm_save_state(uint32_t locality);
+
+
+/*
+ * tpm_get_random return TPM-generated random data.
+ *
+ * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
+ */
+extern uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
+                               uint32_t *data_size);
 
 #endif   /* __TPM_H__ */
 

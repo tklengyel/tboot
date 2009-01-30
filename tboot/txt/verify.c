@@ -221,10 +221,10 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
     /* calculate what they should have been */
     /* no e820 table on S3 resume, so use saved (sealed) values */
     if ( s3_flag ) {
-        min_lo_ram = g_s3_state.vtd_pmr_lo_base;
-        max_lo_ram = min_lo_ram + g_s3_state.vtd_pmr_lo_size;
-        min_hi_ram = g_s3_state.vtd_pmr_hi_base;
-        max_hi_ram = min_hi_ram + g_s3_state.vtd_pmr_hi_size;
+        min_lo_ram = g_pre_k_s3_state.vtd_pmr_lo_base;
+        max_lo_ram = min_lo_ram + g_pre_k_s3_state.vtd_pmr_lo_size;
+        min_hi_ram = g_pre_k_s3_state.vtd_pmr_hi_base;
+        max_hi_ram = min_hi_ram + g_pre_k_s3_state.vtd_pmr_hi_size;
     }
     else {
         os_mle_data_t *os_mle_data = get_os_mle_data_start(txt_heap);
@@ -254,10 +254,10 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
 
     if ( !s3_flag ) {
         /* save the verified values so that they can be sealed for S3 */
-        g_s3_state.vtd_pmr_lo_base = os_sinit_data->vtd_pmr_lo_base;
-        g_s3_state.vtd_pmr_lo_size = os_sinit_data->vtd_pmr_lo_size;
-        g_s3_state.vtd_pmr_hi_base = os_sinit_data->vtd_pmr_hi_base;
-        g_s3_state.vtd_pmr_hi_size = os_sinit_data->vtd_pmr_hi_size;
+        g_pre_k_s3_state.vtd_pmr_lo_base = os_sinit_data->vtd_pmr_lo_base;
+        g_pre_k_s3_state.vtd_pmr_lo_size = os_sinit_data->vtd_pmr_lo_size;
+        g_pre_k_s3_state.vtd_pmr_hi_base = os_sinit_data->vtd_pmr_hi_base;
+        g_pre_k_s3_state.vtd_pmr_hi_size = os_sinit_data->vtd_pmr_hi_size;
     }
 
     return true;

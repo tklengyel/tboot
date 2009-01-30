@@ -84,9 +84,6 @@ extern tboot_shared_t _tboot_shared;
  */
 static __data uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
 
-/* kernel/VMM's S3 resume addr */
-__data uint64_t g_kernel_s3_resume_vector;
-
 
 static tb_error_t verify_platform(void)
 {
@@ -209,7 +206,7 @@ static void post_launch(void)
     /*
      * seal hashes of modules and VL policy to current value of PCR17 & 18
      */
-    if ( !seal_initial_measurements() )
+    if ( !seal_pre_k_state() )
         apply_policy(TB_ERR_S3_INTEGRITY);
 
     /*
@@ -352,7 +349,7 @@ void s3_launch(void)
 
     print_tboot_shared(&_tboot_shared);
 
-    _prot_to_real(g_kernel_s3_resume_vector);
+    _prot_to_real(g_post_k_s3_state.kernel_s3_resume_vector);
 }
 
 static void shutdown_system(uint32_t shutdown_type)
@@ -371,9 +368,7 @@ static void shutdown_system(uint32_t shutdown_type)
     switch( shutdown_type ) {
         case TB_SHUTDOWN_S3:
             copy_s3_wakeup_entry();
-            /* save kernel resume vector and write ours to ACPI resume addr */
-            g_kernel_s3_resume_vector =
-                _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
+            /* write our S3 resume vector to ACPI resume addr */
             set_s3_resume_vector(&_tboot_shared.acpi_sinfo,
                                  TBOOT_S3_WAKEUP_ADDR);
             /* fall through for rest of Sx handling */
@@ -416,10 +411,11 @@ static void cap_pcrs(void)
     /* also cap every dynamic PCR we extended (only once) */
     /* don't cap static PCRs since then they would be wrong after S3 resume */
     memset(&was_capped, true, TPM_PCR_RESETABLE_MIN*sizeof(bool));
-    for ( int i = 0; i < g_s3_state.num_vl_entries; i++ ) {
-        if ( !was_capped[g_s3_state.vl_entries[i].pcr] ) {
-            tpm_pcr_extend(2, g_s3_state.vl_entries[i].pcr, &cap_val, NULL);
-            was_capped[g_s3_state.vl_entries[i].pcr] = true;
+    for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
+        if ( !was_capped[g_pre_k_s3_state.vl_entries[i].pcr] ) {
+            tpm_pcr_extend(2, g_pre_k_s3_state.vl_entries[i].pcr, &cap_val,
+                           NULL);
+            was_capped[g_pre_k_s3_state.vl_entries[i].pcr] = true;
         }
     }
 
@@ -441,6 +437,14 @@ void shutdown(void)
 
         /* restore DMAR table if needed */
         restore_vtd_dmar_table();
+
+        /* save kernel/VMM resume vector for sealing */
+        g_post_k_s3_state.kernel_s3_resume_vector =
+            _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
+
+        /* create and seal memory integrity measurement */
+        if ( !seal_post_k_state() )
+            apply_policy(TB_ERR_S3_INTEGRITY);
     }
 
     /* cap dynamic PCRs extended as part of launch (17, 18, ...) */

@@ -2,7 +2,7 @@
  * integrity.h: routines for memory integrity measurement & 
  *          verification. Memory integrity is protected with tpm seal
  *
- * Copyright (c) 2007-2008, Intel Corporation
+ * Copyright (c) 2007-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,11 +37,11 @@
 #ifndef _TBOOT_INTEGRITY_H_
 #define _TBOOT_INTEGRITY_H_
 
+#include <cmac.h>
+
 /*
- * hashes that we extend into DRTM PCRs and so need to preserve across S3
- * for verified launch (VL)
- * a given PCR may have more than one hash and will get extended in the order
- * it appears in the list
+ * state that must be saved across S3 and will be sealed for integrity
+ * before extending PCRs and launching kernel
  */
 #define MAX_VL_HASHES 32
 
@@ -53,19 +53,32 @@ typedef struct {
     uint64_t vtd_pmr_hi_size;
     /* VL policy at time of sealing */
     tb_hash_t pol_hash;
-    /* verified launch measurements to be re-extended in DRTM PCRs */
+    /* verified launch measurements to be re-extended in DRTM PCRs
+     * a given PCR may have more than one hash and will get extended in the
+     * order it appears in the list */
     uint8_t num_vl_entries;
     struct {
         uint8_t   pcr;
         tb_hash_t hash;
     } vl_entries[MAX_VL_HASHES];
-} s3_state_t;
+} pre_k_s3_state_t;
 
-extern s3_state_t g_s3_state;
+/*
+ * state that must be saved across S3 and will be sealed for integrity
+ * just before entering S3 (after kernel shuts down)
+ */
+typedef struct {
+    uint64_t kernel_s3_resume_vector;
+    cmac_t   kernel_integ;
+} post_k_s3_state_t;
 
-extern bool seal_initial_measurements(void);
+
+extern pre_k_s3_state_t g_pre_k_s3_state;
+extern post_k_s3_state_t g_post_k_s3_state;
+
+extern bool seal_pre_k_state(void);
+extern bool seal_post_k_state(void);
 extern bool verify_integrity(void);
-extern void display_vl_msmnts(void);
 
 #endif /* _TBOOT_INTEGRITY_H_ */
 
