@@ -703,7 +703,7 @@ tb_error_t txt_protect_mem_regions(void)
     size = read_pub_config_reg(TXTCR_HEAP_SIZE);
     printk("protecting TXT heap (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
+    if ( !e820_protect_region(base, size, E820_RESERVED) )
         return TB_ERR_FATAL;
 
     /* SINIT */
@@ -711,7 +711,15 @@ tb_error_t txt_protect_mem_regions(void)
     size = read_pub_config_reg(TXTCR_SINIT_SIZE);
     printk("protecting SINIT (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
+    if ( !e820_protect_region(base, size, E820_RESERVED) )
+        return TB_ERR_FATAL;
+
+    /* TXT private space */
+    base = TXT_PRIV_CONFIG_REGS_BASE;
+    size = NR_TXT_CONFIG_PAGES * PAGE_SIZE;
+    printk("protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
+           base, (base + size - 1));
+    if ( !e820_protect_region(base, size, E820_RESERVED) )
         return TB_ERR_FATAL;
 
     /* ensure that memory not marked as good RAM by the MDRs is RESERVED in
@@ -727,14 +735,6 @@ tb_error_t txt_protect_mem_regions(void)
         return TB_ERR_POST_LAUNCH_VERIFICATION;
     }
     printk("verification succeeded.\n");
-
-    /* TXT private space */
-    base = TXT_PRIV_CONFIG_REGS_BASE;
-    size = NR_TXT_CONFIG_PAGES * PAGE_SIZE;
-    printk("protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
-           base, (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        return TB_ERR_FATAL;
 
     /* if vtd_pmr_lo/hi sizes rounded to 2MB granularity are less than the
        max_lo/hi_ram values determined from the e820 table, then we must
