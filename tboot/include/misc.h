@@ -121,7 +121,7 @@ extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
 #define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
 
 /* from misc.c */
-extern void print_hex(const char *prefix, const uint8_t *str, size_t n);
+extern void print_hex(const char *prefix, const void *data, size_t n);
 
 /* from gcc gmacros.h */
 #define MIN(a, b)  (((a) < (b)) ? (a) : (b))

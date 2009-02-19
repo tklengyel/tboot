@@ -31,12 +31,12 @@ _L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,       /* 224-239 */
 _L,_L,_L,_L,_L,_L,_L,_P,_L,_L,_L,_L,_L,_L,_L,_L};      /* 240-255 */
 
 
-void print_hex(const char *prefix, const uint8_t *str, size_t n)
+void print_hex(const char *prefix, const void *data, size_t n)
 {
     for ( unsigned int i = 0; i < n; i++ ) {
         if ( i % 16 == 0 && prefix != NULL )
             printk("\n%s", prefix);
-		printk("%02x ", str[i]);
+		printk("%02x ", *(uint8_t *)data++);
     }
     printk("\n");
 }
