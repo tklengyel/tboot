@@ -214,11 +214,15 @@ static void post_launch(void)
      */
     memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
-    _tboot_shared.version = 3;
+    _tboot_shared.version = 4;
     _tboot_shared.log_addr = (uint32_t)g_log;
     _tboot_shared.shutdown_entry = (uint32_t)shutdown_entry;
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
+    uint32_t key_size = sizeof(_tboot_shared.s3_key);
+    if ( tpm_get_random(2, _tboot_shared.s3_key, &key_size) != TPM_SUCCESS ||
+         key_size != sizeof(_tboot_shared.s3_key) )
+        apply_policy(TB_ERR_S3_INTEGRITY);
     print_tboot_shared(&_tboot_shared);
 
     launch_kernel(true);
@@ -445,6 +449,9 @@ void shutdown(void)
         /* create and seal memory integrity measurement */
         if ( !seal_post_k_state() )
             apply_policy(TB_ERR_S3_INTEGRITY);
+
+        /* wipe S3 key from memory now that it is sealed */
+        memset(_tboot_shared.s3_key, 0, sizeof(_tboot_shared.s3_key));
     }
 
     /* cap dynamic PCRs extended as part of launch (17, 18, ...) */

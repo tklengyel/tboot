@@ -37,7 +37,7 @@
 #ifndef _TBOOT_INTEGRITY_H_
 #define _TBOOT_INTEGRITY_H_
 
-#include <cmac.h>
+#include <vmac.h>
 
 /*
  * state that must be saved across S3 and will be sealed for integrity
@@ -69,7 +69,7 @@ typedef struct {
  */
 typedef struct {
     uint64_t kernel_s3_resume_vector;
-    cmac_t   kernel_integ;
+    vmac_t   kernel_integ;
 } post_k_s3_state_t;
 
 

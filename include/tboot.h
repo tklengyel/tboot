@@ -57,10 +57,12 @@ typedef struct __packed {
  * used to communicate between tboot and the launched kernel (i.e. Xen)
  */
 
+#define TB_KEY_SIZE             64   /* 512 bits */
+
 #define MAX_TB_MAC_REGIONS      32
 typedef struct __packed {
-    uint64_t  start;
-    uint64_t  end;
+    uint64_t  start;         /* must be 64 byte -aligned */
+    uint32_t  size;          /* must be 64 byte -granular */
 } tboot_mac_region_t;
 
 /* GAS - Generic Address Structure (ACPI 2.0+) */
@@ -87,7 +89,7 @@ typedef struct __packed {
 typedef struct __packed {
     /* version 3+ fields: */
     uuid_t    uuid;              /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
-    uint32_t  version;           /* currently 0.3 */
+    uint32_t  version;           /* currently 0.4 */
     uint32_t  log_addr;          /* physical addr of log or NULL if none */
     uint32_t  shutdown_entry;    /* entry point for tboot shutdown */
     uint32_t  shutdown_type;     /* type of shutdown (TB_SHUTDOWN_*) */
@@ -98,6 +100,9 @@ typedef struct __packed {
     uint8_t   num_mac_regions;   /* number mem regions to MAC on S3 */
                                  /* contig regions memory to MAC on S3 */
     tboot_mac_region_t mac_regions[MAX_TB_MAC_REGIONS];
+    /* version 4+ fields: */
+                                 /* populated by tboot; will be encrypted */
+    uint8_t   s3_key[TB_KEY_SIZE];
 } tboot_shared_t;
 
 #define TB_SHUTDOWN_REBOOT      0

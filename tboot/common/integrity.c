@@ -46,8 +46,11 @@
 #include <tboot.h>
 #include <tb_policy.h>
 #include <tb_error.h>
-#include <cmac.h>
+#include <vmac.h>
 #include <integrity.h>
+
+#include <page.h>
+extern char _end[];
 
 /* put in .data section to that they aren't cleared on S3 resume */
 
@@ -70,6 +73,13 @@ static __data tpm_pcr_value_t post_launch_pcr17, post_launch_pcr18;
 extern tboot_shared_t _tboot_shared;
 
 extern bool hash_policy(tb_hash_t *hash, uint8_t hash_alg);
+
+
+typedef struct {
+    uint8_t mac_key[VMAC_KEY_LEN/8];
+    uint8_t shared_key[sizeof(_tboot_shared.s3_key)];
+} sealed_secrets_t;
+
 
 static bool extend_pcrs(void)
 {
@@ -118,13 +128,13 @@ static void print_post_k_s3_state(void)
     printk("post_k_s3_state:\n");
     printk("\t kernel_s3_resume_vector: 0x%Lx\n",
            g_post_k_s3_state.kernel_s3_resume_vector);
-    printk("\t kernel_integ:\n\t");
-    print_hex(NULL, g_post_k_s3_state.kernel_integ,
+    printk("\t kernel_integ: ");
+    print_hex(NULL, &g_post_k_s3_state.kernel_integ,
               sizeof(g_post_k_s3_state.kernel_integ));
 }
 
 static bool seal_data(const void *data, size_t data_size,
-                   const uint8_t *secret, size_t secret_size,
+                   const void *secrets, size_t secrets_size,
                    uint8_t *sealed_data, uint32_t *sealed_data_size,
                    const uint8_t pcr_indcs_create[], int nr_pcr_indcs_create,
                    const uint8_t pcr_indcs_release[], int nr_pcr_indcs_release,
@@ -133,7 +143,7 @@ static bool seal_data(const void *data, size_t data_size,
     /* TPM_Seal can only seal small data (like key or hash), so hash data */
     struct {
         tb_hash_t data_hash;
-        uint8_t   secret[secret_size];
+        uint8_t   secrets[secrets_size];
     } blob;
 
     memset(&blob, 0, sizeof(blob));
@@ -142,8 +152,8 @@ static bool seal_data(const void *data, size_t data_size,
         return false;
     }
 
-    if ( secret != NULL && secret_size > 0 )
-        memcpy(blob.secret, secret, secret_size);
+    if ( secrets != NULL && secrets_size > 0 )
+        memcpy(blob.secrets, secrets, secrets_size);
 
     if ( tpm_seal(2, TPM_LOC_TWO,
                   nr_pcr_indcs_create, pcr_indcs_create,
@@ -164,12 +174,12 @@ static bool seal_data(const void *data, size_t data_size,
 static bool verify_sealed_data(const uint8_t *sealed_data,
                                uint32_t sealed_data_size,
                                const void *curr_data, size_t curr_data_size,
-                               uint8_t *secret, size_t secret_size)
+                               void *secrets, size_t secrets_size)
 {
     /* sealed data is hash of state data and optional secret */
     struct {
         tb_hash_t data_hash;
-        uint8_t   secret[secret_size];
+        uint8_t   secrets[secrets_size];
     } blob;
 
     uint32_t data_size = sizeof(blob);
@@ -196,8 +206,8 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
         return false;
     }
 
-    if ( secret != NULL && secret_size > 0 ) {
-        memcpy(secret, &blob.secret, secret_size);
+    if ( secrets != NULL && secrets_size > 0 ) {
+        memcpy(secrets, &blob.secrets, secrets_size);
         /* clear secret from local memory */
         memset(&blob, 0, sizeof(blob));
     }
@@ -246,28 +256,32 @@ bool seal_pre_k_state(void)
     return true;
 }
 
-static bool measure_memory_integrity(cmac_t mac,
-                                     uint8_t key[AES_CMAC_KEY_LENGTH])
+static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 {
-    AES_CMAC_CTX ctx;
+    vmac_ctx_t ctx;
+    uint8_t nonce[16] = {};
 
-    memset(mac, 0, sizeof(cmac_t));
+/* even though we require callers to 64 byte align, VMAC only needs 16 */
+#define MAC_ALIGN   16
 
-    AES_CMAC_Init(&ctx);
-    AES_CMAC_SetKey(&ctx, key);
+    vmac_set_key(key, &ctx);
     for ( unsigned int i = 0; i < _tboot_shared.num_mac_regions; i++ ) {
-        uint64_t start = _tboot_shared.mac_regions[i].start;
-        uint64_t end = _tboot_shared.mac_regions[i].end;
-        
-        printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, end);
+        uint64_t start = _tboot_shared.mac_regions[i].start & ~(MAC_ALIGN-1);
+        uint32_t size = (_tboot_shared.mac_regions[i].size + MAC_ALIGN - 1) &
+                        ~(MAC_ALIGN-1);
+
+        printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, start + size);
         /* TBD: don't handle addrs > 4GB yet, so error */
-        if ( (start & 0xffffffff00000000L) || (end & 0xffffffff00000000L) ) {
+        if ( (start + size) & 0xffffffff00000000UL ) {
             printk("range is in memory > 4GB\n");
             return false;
         }
-        AES_CMAC_Update(&ctx, (const uint8_t *)(uintptr_t)start, end - start);
+        vmac_update((uint8_t *)(uintptr_t)start, size, &ctx);
     }
-    AES_CMAC_Final(mac, &ctx);
+    *mac = vmac(NULL, 0, nonce, NULL, &ctx);
+
+    /* wipe ctx to ensure key not left in memory */
+    memset(&ctx, 0, sizeof(ctx));
 
     return true;
 }
@@ -285,6 +299,12 @@ bool verify_integrity(void)
     tpm_pcr_value_t  pcr17, pcr18;
     const tpm_pcr_value_t *pcr_values_create[] = {&pcr17, &pcr18};
 
+    tpm_pcr_read(2, 17, &pcr17);
+    tpm_pcr_read(2, 18, &pcr18);
+    printk("PCRs before unseal:\n");
+    printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+
     /* verify integrity of pre-kernel state data */
     printk("verifying pre_k_s3_state\n");
     if ( !verify_sealed_data(sealed_pre_k_state, sealed_pre_k_state_size,
@@ -296,8 +316,6 @@ bool verify_integrity(void)
        verify that (creation) PCRs at mem integrity seal time are same as
        if we extend current PCRs with unsealed VL measurements */
     /* TBD: we should check all DRTM PCRs */
-    tpm_pcr_read(2, 17, &pcr17);
-    tpm_pcr_read(2, 18, &pcr18);
     for ( i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
         if ( g_pre_k_s3_state.vl_entries[i].pcr == 17 )
             extend_hash((tb_hash_t *)&pcr17,
@@ -316,22 +334,23 @@ bool verify_integrity(void)
 
     /* verify integrity of post-kernel state data */
     printk("verifying post_k_s3_state\n");
-    uint8_t key[AES_CMAC_KEY_LENGTH];
+    sealed_secrets_t secrets;
     if ( !verify_sealed_data(sealed_post_k_state, sealed_post_k_state_size,
                              &g_post_k_s3_state, sizeof(g_post_k_s3_state),
-                             key, sizeof(key)) )
+                             &secrets, sizeof(secrets)) )
         return false;
 
     /* Verify memory integrity against sealed value */
-    cmac_t mac;
-    if ( !measure_memory_integrity(mac, key) )
+    vmac_t mac;
+    if ( !measure_memory_integrity(&mac, secrets.mac_key) )
         return false;
     if ( memcmp(&mac, &g_post_k_s3_state.kernel_integ, sizeof(mac)) ) {
         printk("memory integrity lost on S3 resume\n");
-        printk("MAC of current image is:\n\t");
-        print_hex(NULL, mac, sizeof(cmac_t));
-        printk("MAC of pre-S3 image is:\n\t");
-        print_hex(NULL, g_post_k_s3_state.kernel_integ, sizeof(cmac_t));
+        printk("MAC of current image is: ");
+        print_hex(NULL, &mac, sizeof(mac));
+        printk("MAC of pre-S3 image is: ");
+        print_hex(NULL, &g_post_k_s3_state.kernel_integ,
+                  sizeof(g_post_k_s3_state.kernel_integ));
         return false;
     }
     printk("memory integrity OK\n");
@@ -339,6 +358,13 @@ bool verify_integrity(void)
     /* re-extend PCRs with VL measurements */
     if ( !extend_pcrs() )
         return false;
+
+    /* copy sealed shared key back to _tboot_shared.s3_key */
+    memcpy(_tboot_shared.s3_key, secrets.shared_key,
+           sizeof(_tboot_shared.s3_key));
+
+    /* wipe secrets from memory */
+    memset(&secrets, 0, sizeof(secrets));
 
     return true;
 }
@@ -353,39 +379,42 @@ bool seal_post_k_state(void)
     const uint8_t pcr_indcs_release[] = {17, 18};
     const tpm_pcr_value_t *pcr_values_release[] = {&post_launch_pcr17,
                                                    &post_launch_pcr18};
+    sealed_secrets_t secrets;
 
     /* since tboot relies on the module it launches for resource protection,
        that module should have at least one region for itself, otherwise
        it will not be protected against S3 resume attacks */
-    if ( _tboot_shared.num_mac_regions == 0 ) {
-        printk("no memory regions to MAC\n");
-        return false;
-    }
+    //    if ( _tboot_shared.num_mac_regions == 0 ) {
+    //        printk("no memory regions to MAC\n");
+    //        return false;
+    //    }
 
     /* calculate the memory integrity hash */
-    uint8_t key[AES_CMAC_KEY_LENGTH];
-    uint32_t key_size = sizeof(key);
+    uint32_t key_size = sizeof(secrets.mac_key);
     /* key must be random and secret even though auth not necessary */
-    if ( tpm_get_random(2, key, &key_size) != TPM_SUCCESS )
+    if ( tpm_get_random(2, secrets.mac_key, &key_size) != TPM_SUCCESS ||
+         key_size != sizeof(secrets.mac_key) )
         return false;
-    if ( key_size != sizeof(key) )
+    if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ,
+                                   secrets.mac_key) )
         return false;
-    if ( !measure_memory_integrity(g_post_k_s3_state.kernel_integ, key) )
-        return false;
+
+    /* copy s3_key into secrets to be sealed */
+    memcpy(secrets.shared_key, _tboot_shared.s3_key, sizeof(secrets.shared_key));
 
     print_post_k_s3_state();
 
     sealed_post_k_state_size = sizeof(sealed_post_k_state);
     if ( !seal_data(&g_post_k_s3_state, sizeof(g_post_k_s3_state),
-                    key, sizeof(key),
+                    &secrets, sizeof(secrets),
                     sealed_post_k_state, &sealed_post_k_state_size,
                     pcr_indcs_create, ARRAY_SIZE(pcr_indcs_create),
                     pcr_indcs_release, ARRAY_SIZE(pcr_indcs_release),
                     pcr_values_release) )
         return false;
 
-    /* wipe key from memory */
-    memset(key, 0, sizeof(key));
+    /* wipe secrets from memory */
+    memset(&secrets, 0, sizeof(secrets));
 
     return true;
 }
