@@ -326,7 +326,7 @@ ds16_desc:  /* ds16 */
 	.word   0x008f      /* granularity = 4096, D = 0 */
 		/* end (unused) */
 	.quad   0x0000000000000000
-gdt_table_end:
+ENTRY(gdt_table_end)
 
 /* IDT */
 idt_descr:

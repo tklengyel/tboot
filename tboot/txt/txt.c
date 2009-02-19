@@ -349,10 +349,6 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
 
 static void txt_wakeup_cpus(void)
 {
-    struct __packed {
-        uint16_t  limit;
-        uint32_t  base;
-    } gdt;
     uint16_t cs;
     mle_join_t mle_join;
     int ap_wakeup_count;
@@ -360,13 +356,13 @@ static void txt_wakeup_cpus(void)
     atomic_set(&ap_wfs_count, 0);
 
     /* RLPs will use our GDT and CS */
-    __asm__ __volatile__ ("sgdt (%0) \n" :: "a"(&gdt) : "memory");
+    extern char gdt_table[], gdt_table_end[];
     __asm__ __volatile__ ("mov %%cs, %0\n" : "=r"(cs));
 
     mle_join.entry_point = (uint32_t)(unsigned long)&_txt_wakeup;
     mle_join.seg_sel = cs;
-    mle_join.gdt_base = gdt.base;
-    mle_join.gdt_limit = gdt.limit;
+    mle_join.gdt_base = (uint32_t)gdt_table;
+    mle_join.gdt_limit = gdt_table_end - gdt_table - 1;
 
     printk("mle_join.entry_point = %x\n", mle_join.entry_point);
     printk("mle_join.seg_sel = %x\n", mle_join.seg_sel);
