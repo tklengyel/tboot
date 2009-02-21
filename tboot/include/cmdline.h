@@ -47,7 +47,7 @@ extern void get_tboot_log_targets(void);
 /* for parse cmdline of linux kernel, say vga and mem */
 extern void linux_parse_cmdline(char *cmdline);
 extern bool get_linux_vga(int *vid_mode);
-extern bool get_linux_mem(int *initrd_max_mem);
+extern bool get_linux_mem(uint64_t *initrd_max_mem);
 
 extern const char *skip_filename(const char *cmdline);
 

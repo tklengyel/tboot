@@ -11,8 +11,8 @@
  * build/support flags
  */
 
-/* address tboot will execute (not necessarily load) at */
-#define TBOOT_BASE_ADDR              0x1003000
+/* address tboot will load and execute at */
+#define TBOOT_BASE_ADDR              0x0803000
 
 
 /* address that tboot will do s3 resume at */

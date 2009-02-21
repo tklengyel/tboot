@@ -1,7 +1,7 @@
 /*
  * linux.c: support functions for manipulating Linux kernel binaries
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,38 +45,28 @@
 #include <tboot.h>
 #include <linux_defns.h>
 #include <cmdline.h>
-
-#define SECTOR_SIZE (1 << 9)      /* 0x200 */
-
-typedef struct __attribute__ ((__packed__)) {
-    uint16_t length;
-    uint32_t table;
-} gdt_t;
-
-#define __BOOT_CS    0x10
-#define __BOOT_DS    0x18
+#include <misc.h>
+#include <hash.h>
+#include <integrity.h>
 
 extern multiboot_info_t *g_mbi;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
-boot_params_t boot_params;
+static boot_params_t *boot_params;
 
 /* expand linux kernel with kernel image and initrd image */
 bool expand_linux_image(const void *linux_image, size_t linux_size,
                         const void *initrd_image, size_t initrd_size,
                         void **entry_point)
 {
-    linux_kernel_header_t *hd;
+    linux_kernel_header_t *hdr;
     uint32_t real_mode_base, protected_mode_base;
     unsigned long real_mode_size, protected_mode_size;
         /* Note: real_mode_size + protected_mode_size = linux_size */
     uint32_t initrd_base;
-    const char *kernel_cmdline;
-    screen_info_t *screen = (screen_info_t *)&boot_params;
     int vid_mode = 0;
-    int initrd_max_mem = 0;
 
     /* Check param */
 
@@ -95,9 +85,9 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         return false;
     }
 
-    hd = (linux_kernel_header_t *)(linux_image + KERNEL_HEADER_OFFSET);
+    hdr = (linux_kernel_header_t *)(linux_image + KERNEL_HEADER_OFFSET);
 
-    if ( hd == NULL ) {
+    if ( hdr == NULL ) {
         printk("Error: Linux kernel header is zero.\n");
         return false;
     }
@@ -115,88 +105,103 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     */
 
     /* if setup_sects is zero, set to default value 4 */
-    if ( hd->setup_sects == 0 )
-        hd->setup_sects = DEFAULT_SECTOR_NUM;
-    if ( hd->setup_sects > MAX_SECTOR_NUM ) {
+    if ( hdr->setup_sects == 0 )
+        hdr->setup_sects = DEFAULT_SECTOR_NUM;
+    if ( hdr->setup_sects > MAX_SECTOR_NUM ) {
         printk("Error: Linux setup sectors %d exceed maximum limitation 64.\n",
-                hd->setup_sects);
+                hdr->setup_sects);
         return false;
     }
 
     /* set vid_mode */
     linux_parse_cmdline((char *)g_mbi->cmdline);
     if ( get_linux_vga(&vid_mode) )
-        hd->vid_mode = vid_mode;
+        hdr->vid_mode = vid_mode;
 
     /* compare to the magic number */
-    if ( hd->header == HDRS_MAGIC ) {
-        if ( hd->version < 0x0205 ) {
-            printk("Error: Old kernel (<2.6.20) is not supported by tboot.\n");
-            return false;
-        }
-
-        /* boot loader is grub, set type_of_loader to 0x7 */
-        hd->type_of_loader = LOADER_TYPE_GRUB;
-
-        /* set loadflags and heap_end_ptr */
-        hd->loadflags |= FLAG_CAN_USE_HEAP;         /* can use heap */
-        hd->heap_end_ptr = KERNEL_CMDLINE_OFFSET - BOOT_SECTOR_OFFSET;
-
-        /* load initrd and set ramdisk_image and ramdisk_size */
-        /* The initrd should typically be located as high in memory as
-           possible, as it may otherwise get overwritten by the early
-           kernel initialization sequence. */
-        if ( get_linux_mem(&initrd_max_mem) )
-            initrd_base = initrd_max_mem - initrd_size;
-        else if ( (g_mbi->flags) & (1<<0) )
-            initrd_base = (g_mbi->mem_upper << 10) + 0x100000 - initrd_size;
-        else {
-            printk("Error: Cannot determine where to load initrd for Linux.\n");
-            return false;
-        }
-        initrd_base = initrd_base & PAGE_MASK;  /* page align */
-
-        /* Check max and gear */
-        /* should not exceed initrd_addr_max */
-        if ( initrd_base + initrd_size > hd->initrd_addr_max ) {
-            initrd_base = hd->initrd_addr_max - initrd_size;
-            initrd_base = initrd_base & PAGE_MASK;
-        }
-
-        memmove((void *)initrd_base, initrd_image, initrd_size);
-        printk("Initrd from 0x%lx to 0x%lx\n",
-               (unsigned long)initrd_base,
-               (unsigned long)(initrd_base + initrd_size));
-
-        hd->ramdisk_image = initrd_base;
-        hd->ramdisk_size = initrd_size;
-
-        /* set cmd_line_ptr */
-        real_mode_base = LEGACY_REAL_START;
-        if ( (g_mbi->flags) & (1<<0) )
-            real_mode_base = (g_mbi->mem_lower << 10) - REAL_MODE_SIZE;
-        if ( real_mode_base < TBOOT_KERNEL_CMDLINE_ADDR +
-             TBOOT_KERNEL_CMDLINE_SIZE )
-            real_mode_base = TBOOT_KERNEL_CMDLINE_ADDR +
-                TBOOT_KERNEL_CMDLINE_SIZE;
-        if ( real_mode_base > LEGACY_REAL_START )
-            real_mode_base = LEGACY_REAL_START;
-        hd->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
-    }
-    else {
+    if ( hdr->header != HDRS_MAGIC ) {
         /* old kernel */
         printk("Error: Old kernel (< 2.6.20) is not supported by tboot.\n");
         return false;
     }
 
-    real_mode_size = (hd->setup_sects + 1) * SECTOR_SIZE;
+    if ( hdr->version < 0x0205 ) {
+        printk("Error: Old kernel (<2.6.20) is not supported by tboot.\n");
+        return false;
+    }
+
+    /* boot loader is grub, set type_of_loader to 0x7 */
+    hdr->type_of_loader = LOADER_TYPE_GRUB;
+
+    /* set loadflags and heap_end_ptr */
+    hdr->loadflags |= FLAG_CAN_USE_HEAP;         /* can use heap */
+    hdr->heap_end_ptr = KERNEL_CMDLINE_OFFSET - BOOT_SECTOR_OFFSET;
+
+    /* load initrd and set ramdisk_image and ramdisk_size */
+    /* The initrd should typically be located as high in memory as
+       possible, as it may otherwise get overwritten by the early
+       kernel initialization sequence. */
+    uint64_t max_mem;
+    /* use the PMR values instead of get_ram_regions() because we
+       may have truncated them due to PMR 2MB granularity */
+    max_mem = g_pre_k_s3_state.vtd_pmr_lo_base +
+              g_pre_k_s3_state.vtd_pmr_lo_size;
+    /* if we haven't done a launch (i.e. some error) then PMRs are not set */
+    if ( max_mem == 0 ) {
+        uint64_t min_lo, min_hi, max_hi;
+        if ( !get_ram_ranges(g_mbi, &min_lo, &max_mem, &min_hi,
+                             &max_hi) ) {
+            printk("failed to get max ram\n");
+            return false;
+        }
+    }
+    /* check if Linux command line explicitly specified less memory */
+    uint64_t linux_max_mem;
+    if ( get_linux_mem(&linux_max_mem) ) {
+        if ( linux_max_mem < max_mem )
+            max_mem = linux_max_mem;
+    }
+    initrd_base = (max_mem - initrd_size) & PAGE_MASK;
+
+    /* should not exceed initrd_addr_max */
+    if ( initrd_base + initrd_size > hdr->initrd_addr_max ) {
+        initrd_base = hdr->initrd_addr_max - initrd_size;
+        initrd_base = initrd_base & PAGE_MASK;
+    }
+
+    memmove((void *)initrd_base, initrd_image, initrd_size);
+    printk("Initrd from 0x%lx to 0x%lx\n",
+           (unsigned long)initrd_base,
+           (unsigned long)(initrd_base + initrd_size));
+
+    hdr->ramdisk_image = initrd_base;
+    hdr->ramdisk_size = initrd_size;
+
+    /* set cmd_line_ptr */
+    real_mode_base = LEGACY_REAL_START;
+    if ( g_mbi->flags & MBI_MEMLIMITS )
+        real_mode_base = (g_mbi->mem_lower << 10) - REAL_MODE_SIZE;
+    if ( real_mode_base < TBOOT_KERNEL_CMDLINE_ADDR +
+         TBOOT_KERNEL_CMDLINE_SIZE )
+        real_mode_base = TBOOT_KERNEL_CMDLINE_ADDR +
+            TBOOT_KERNEL_CMDLINE_SIZE;
+    if ( real_mode_base > LEGACY_REAL_START )
+        real_mode_base = LEGACY_REAL_START;
+    hdr->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
+
+
+    real_mode_size = (hdr->setup_sects + 1) * SECTOR_SIZE;
+    if ( real_mode_size + sizeof(boot_params_t) > KERNEL_CMDLINE_OFFSET ) {
+        printk("relamode data is too large\n");
+        return false;
+    }
     protected_mode_size = linux_size - real_mode_size;
 
-    if ( hd->loadflags & FLAG_LOAD_HIGH ) {
+    if ( hdr->loadflags & FLAG_LOAD_HIGH ) {
         protected_mode_base = BZIMAGE_PROTECTED_START;
                 /* bzImage:0x100000 */
         /* Check: protected mode part cannot exceed mem_upper */
-        if ( (g_mbi->flags) & (1<<0) )
+        if ( g_mbi->flags & MBI_MEMLIMITS )
             if ( (protected_mode_base + protected_mode_size)
                     > ((g_mbi->mem_upper << 10) + 0x100000) ) {
                 printk("Error: Linux protected mode part (0x%lx ~ 0x%lx) "
@@ -208,9 +213,13 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
                 return false;
             }
     }
+    else {
+        printk("Error: Linux protected mode not loaded high\n");
+        return false;
+    }
 
     /* set address of tboot shared page */
-    hd->tboot_shared_addr = (uint32_t)&_tboot_shared;
+    hdr->tboot_shared_addr = (uint32_t)&_tboot_shared;
 
     /* load protected-mode part */
     memmove((void *)protected_mode_base, linux_image + real_mode_size,
@@ -226,36 +235,32 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
            (unsigned long)(real_mode_base + real_mode_size));
 
     /* copy cmdline */
-    kernel_cmdline = skip_filename((const char *)g_mbi->cmdline);
-    memcpy((void *)(real_mode_base + KERNEL_CMDLINE_OFFSET),
-           (void *)(kernel_cmdline), strlen(kernel_cmdline));
+    const char *kernel_cmdline = skip_filename((const char *)g_mbi->cmdline);
+    memcpy((void *)hdr->cmd_line_ptr, kernel_cmdline, strlen(kernel_cmdline));
 
-    memset(&boot_params, 0, sizeof(boot_params));
-    memcpy(&boot_params.hdr, hd, sizeof(*hd));
+    /* need to put boot_params in real mode area so it gets mapped */
+    boot_params = (boot_params_t *)(real_mode_base + real_mode_size);
+    memset(boot_params, 0, sizeof(*boot_params));
+    memcpy(&boot_params->hdr, hdr, sizeof(*hdr));
 
     /* detect e820 table */
-    if (( g_mbi->flags ) & ( 1<<6 )) {
-        memory_map_t *p;
-        uint64_t addr, size;
-        uint32_t type;
+    if ( g_mbi->flags & MBI_MEMMAP ) {
         int i;
 
-        for ( i = 0, p = (memory_map_t *)g_mbi->mmap_addr;
-              (uint32_t)p < g_mbi->mmap_addr + g_mbi->mmap_length;
-              i++,
-              p = (memory_map_t *)((uint32_t)p + p->size + sizeof(p->size)) ) {
-            addr = ((uint64_t)p->base_addr_high << 32)
-                | (uint64_t)p->base_addr_low;
-            size = ((uint64_t)p->length_high << 32)
-                | (uint64_t)p->length_low;
-            type = p->type;
-            boot_params.e820_map[i].addr = addr;
-            boot_params.e820_map[i].size = size;
-            boot_params.e820_map[i].type = type;
+        memory_map_t *p = (memory_map_t *)g_mbi->mmap_addr;
+        for ( i = 0; (uint32_t)p < g_mbi->mmap_addr + g_mbi->mmap_length; i++ )
+        {
+            boot_params->e820_map[i].addr = ((uint64_t)p->base_addr_high << 32)
+                                            | (uint64_t)p->base_addr_low;
+            boot_params->e820_map[i].size = ((uint64_t)p->length_high << 32)
+                                            | (uint64_t)p->length_low;
+            boot_params->e820_map[i].type = p->type;
+            p = (void *)p + p->size + sizeof(p->size);
         }
-        boot_params.e820_entries = i;
+        boot_params->e820_entries = i;
     }
 
+    screen_info_t *screen = (screen_info_t *)&boot_params->screen_info;
     screen->orig_video_mode = 3;       /* BIOS 80*25 text mode */
     screen->orig_video_lines = 25;
     screen->orig_video_cols = 80;
@@ -264,21 +269,30 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     screen->orig_y = 24;               /* start display text in the last line
                                        of screen */
 
-    *entry_point = (void *)hd->code32_start;
+    *entry_point = (void *)hdr->code32_start;
     return true;
 }
 
 /* jump to protected-mode code of kernel */
 bool jump_linux_image(void *entry_point)
 {
+#define __BOOT_CS    0x10
+#define __BOOT_DS    0x18
     static const uint64_t gdt_table[] __attribute__ ((aligned(16))) = {
-        0, 0, 0x00c09b000000ffff, 0x00c093000000ffff};
+        0,
+        0,
+        0x00c09b000000ffff,     /* cs */
+        0x00c093000000ffff      /* ds */
+    };
     /* both 4G flat, CS: execute/read, DS: read/write */
 
-    static gdt_t gdt;
+    static struct __packed {
+        uint16_t  length;
+        uint32_t  table;
+    } gdt_desc;
 
-    gdt.length = sizeof(gdt_table) - 1;
-    gdt.table = (uint32_t)&gdt_table;
+    gdt_desc.length = sizeof(gdt_table) - 1;
+    gdt_desc.table = (uint32_t)&gdt_table;
 
     /* load gdt with CS = 0x10 and DS = 0x18 */
     __asm__ __volatile__ (
@@ -290,17 +304,19 @@ bool jump_linux_image(void *entry_point)
      " mov %%ecx, %%gs;     "
      " mov %%ecx, %%ss;     "
      " ljmp %2, $(1f);      "
-     " 1: xor %%ebp, %%ebp; "
+     " 1:                   "
+     " xor %%ebp, %%ebp;    "
      " xor %%edi, %%edi;    "
      " xor %%ebx, %%ebx;    "
-     :: "m"(gdt), "i"(__BOOT_DS), "i"(__BOOT_CS));
+     :: "m"(gdt_desc), "i"(__BOOT_DS), "i"(__BOOT_CS));
 
     /* jump to protected-mode code */
     __asm__ __volatile__ (
+     " cli;           "
      " mov %0, %%esi; "    /* esi holds address of boot_params */
      " jmp *%%edx;    "
      " ud2;           "
-     :: "a"(&boot_params), "d"(entry_point));
+     :: "a"(boot_params), "d"(entry_point));
 
     return true;
 }

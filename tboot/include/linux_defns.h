@@ -1,7 +1,7 @@
 /*
  * linux_defns.h: Linux kernel type definitions
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,8 @@
 #ifndef __LINUX_DEFNS_H__
 #define __LINUX_DEFNS_H__
 
+#define SECTOR_SIZE (1 << 9)      /* 0x200 = 512B */
+
 #define KERNEL_HEADER_OFFSET    0x1F1
 
 /* linux kernel header */
@@ -61,15 +63,15 @@ typedef struct __attribute__ ((packed)) {
     uint16_t kernel_version; /* Points to kernel version string */
 
     uint8_t  type_of_loader; /* Boot loader identifier */
-        #define LOADER_TYPE_LILO            0x0
-        #define LOADER_TYPE_LOADLIN         0x1
-        #define LOADER_TYPE_BOOTSECT_LOADER 0x2
-        #define LOADER_TYPE_SYSLINUX        0x3
-        #define LOADER_TYPE_ETHERBOOT       0x4
-        #define LOADER_TYPE_ELILO           0x5
-        #define LOADER_TYPE_GRUB            0x7
-        #define LOADER_TYPE_U_BOOT          0x8
-        #define LOADER_TYPE_XEN             0x9
+        #define LOADER_TYPE_LILO            0x01
+        #define LOADER_TYPE_LOADLIN         0x10
+        #define LOADER_TYPE_BOOTSECT_LOADER 0x20
+        #define LOADER_TYPE_SYSLINUX        0x30
+        #define LOADER_TYPE_ETHERBOOT       0x40
+        #define LOADER_TYPE_ELILO           0x50
+        #define LOADER_TYPE_GRUB            0x71
+        #define LOADER_TYPE_U_BOOT          0x80
+        #define LOADER_TYPE_XEN             0x90
         #define LOADER_TYPE_UNKNOWN         0xFF
 
     uint8_t  loadflags;      /* Boot protocol option flags */

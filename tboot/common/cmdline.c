@@ -250,45 +250,36 @@ bool get_linux_vga(int *vid_mode)
     return true;
 }
 
-bool get_linux_mem(int *initrd_max_mem)
+bool get_linux_mem(uint64_t *max_mem)
 {
-#define MAX_INT 0x7FFFFFFF
-    unsigned int mem_value, mem_len, shift;
-
+    char *last = NULL;
     const char *mem = get_option_val(g_linux_cmdline_options,
                                      g_linux_param_values, "mem");
-    if ( mem == NULL || initrd_max_mem == NULL )
+    if ( mem == NULL || max_mem == NULL )
         return false;
 
-    mem_len = strlen(mem);
-    mem_value = simple_strtoul(mem, NULL, 0);
-    if ( mem_value == 0 )
+    *max_mem = simple_strtoul(mem, &last, 0);
+    if ( *max_mem == 0 )
         return false;
 
-    shift = 0;
-    switch (mem[mem_len]) {
+    if ( last == NULL )
+        return true;
+
+    switch (*last) {
         case 'G':
         case 'g':
-            shift = 30;
-            break;
+            *max_mem = *max_mem << 30;
+            return true;
         case 'M':
         case 'm':
-            shift = 20;
-            break;
+            *max_mem = *max_mem << 20;
+            return true;
         case 'K':
         case 'k':
-            shift = 10;
-            break;
+            *max_mem = *max_mem << 10;
+            return true;
     }
 
-    /* overflow */
-    if ( mem_value > (MAX_INT >> shift) )
-        return false;
-
-    if ( shift > 0 )
-        *initrd_max_mem = mem_value << shift;
-    else
-        *initrd_max_mem = mem_value;
     return true;
 }
 
