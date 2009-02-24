@@ -54,6 +54,8 @@ extern multiboot_info_t *g_mbi;
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
+extern char _end[];              /* end of tboot */
+
 static boot_params_t *boot_params;
 
 /* expand linux kernel with kernel image and initrd image */
@@ -177,7 +179,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     hdr->ramdisk_image = initrd_base;
     hdr->ramdisk_size = initrd_size;
 
-    /* set cmd_line_ptr */
+    /* calc location of real mode part */
     real_mode_base = LEGACY_REAL_START;
     if ( g_mbi->flags & MBI_MEMLIMITS )
         real_mode_base = (g_mbi->mem_lower << 10) - REAL_MODE_SIZE;
@@ -187,17 +189,28 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
             TBOOT_KERNEL_CMDLINE_SIZE;
     if ( real_mode_base > LEGACY_REAL_START )
         real_mode_base = LEGACY_REAL_START;
-    hdr->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
-
 
     real_mode_size = (hdr->setup_sects + 1) * SECTOR_SIZE;
     if ( real_mode_size + sizeof(boot_params_t) > KERNEL_CMDLINE_OFFSET ) {
         printk("relamode data is too large\n");
         return false;
     }
+
+    /* calc location of protected mode part */
     protected_mode_size = linux_size - real_mode_size;
 
-    if ( hdr->loadflags & FLAG_LOAD_HIGH ) {
+    /* if kernel is relocatable then move it above tboot */
+    /* else it may expand over top of tboot */
+    if ( hdr->relocatable_kernel ) {
+        /* get the end of tboot rounded to 2MB for VT-d, since that is what */
+        /* is reserved as UNUSABLE */
+        protected_mode_base = ((uintptr_t)&_end + 0x200000 - 1) & ~0x1fffff;
+        /* then round it up to kernel alignment */
+        protected_mode_base = (protected_mode_base + hdr->kernel_alignment - 1)
+                              & ~(hdr->kernel_alignment-1);
+        hdr->code32_start = protected_mode_base;
+    }
+    else if ( hdr->loadflags & FLAG_LOAD_HIGH ) {
         protected_mode_base = BZIMAGE_PROTECTED_START;
                 /* bzImage:0x100000 */
         /* Check: protected mode part cannot exceed mem_upper */
@@ -217,6 +230,9 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         printk("Error: Linux protected mode not loaded high\n");
         return false;
     }
+
+    /* set cmd_line_ptr */
+    hdr->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
 
     /* set address of tboot shared page */
     hdr->tboot_shared_addr = (uint32_t)&_tboot_shared;
