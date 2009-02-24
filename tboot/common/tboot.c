@@ -174,21 +174,13 @@ static void post_launch(void)
     else
         printk(": succeeded.\n");
 
-    /* protect ourselves and the page table we created */
+    /* protect ourselves, MLE page table, and MLE/kernel shared page */
     /* (rounded up to 2MB to account for VT-d PMR 2MB size granularity) */
     base = (uint64_t)((unsigned long)&_start - 3*PAGE_SIZE);
     size = (uint64_t)(unsigned long)&_end - base;
     size = (size + 0x200000UL - 1ULL) & ~0x1fffffULL;
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
-        apply_policy(TB_ERR_FATAL);
-
-    /* protect the MLE/kernel shared page */
-    base = (uint32_t)&_tboot_shared;
-    size = PAGE_SIZE;
-    printk("protecting MLE/kernel shared (%Lx - %Lx) in e820 table\n",
-           base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
         apply_policy(TB_ERR_FATAL);
 
