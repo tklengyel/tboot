@@ -103,6 +103,9 @@ typedef struct __packed {
     /* version 4+ fields: */
                                  /* populated by tboot; will be encrypted */
     uint8_t   s3_key[TB_KEY_SIZE];
+    /* version 5+ fields: */
+    uint8_t   reserved_align[3]; /* used to 4byte-align num_in_wfs */
+    uint32_t  num_in_wfs;        /* number of processors in wait-for-SIPI */
 } tboot_shared_t;
 
 #define TB_SHUTDOWN_REBOOT      0
@@ -110,6 +113,7 @@ typedef struct __packed {
 #define TB_SHUTDOWN_S4          2
 #define TB_SHUTDOWN_S3          3
 #define TB_SHUTDOWN_HALT        4
+#define TB_SHUTDOWN_WFS         5
 
 /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
 #define TBOOT_SHARED_UUID    {0x663c8dff, 0xe8b3, 0x4b82, 0xaabf, \
@@ -147,6 +151,7 @@ static inline void print_tboot_shared(tboot_shared_t *tboot_shared)
     printk("\t shutdown_type: %d\n", tboot_shared->shutdown_type);
     printk("\t tboot_base: 0x%08x\n", tboot_shared->tboot_base);
     printk("\t tboot_size: 0x%x\n", tboot_shared->tboot_size);
+    printk("\t num_in_wfs: %u\n", tboot_shared->num_in_wfs);
 }
 
 

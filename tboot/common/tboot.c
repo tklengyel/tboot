@@ -46,12 +46,14 @@
 #include <misc.h>
 #include <page.h>
 #include <msr.h>
+#include <atomic.h>
 #include <e820.h>
 #include <uuid.h>
 #include <loader.h>
 #include <hash.h>
 #include <tb_error.h>
 #include <txt/txt.h>
+#include <txt/vmcs.h>
 #include <tb_policy.h>
 #include <tboot.h>
 #include <acpi.h>
@@ -65,12 +67,17 @@ extern void verify_all_modules(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
 void s3_launch(void);
 
+/* counter timeout for waiting for all APs to exit guests */
+#define AP_GUEST_EXIT_TIMEOUT     0x01000000
+
 extern long s3_flag;
 
 extern char _start[];            /* start of tboot */
 extern char _end[];              /* end of tboot */
 extern char s3_wakeup_16[];
 extern char s3_wakeup_end[];
+
+extern atomic_t ap_wfs_count;
 
 /* multiboot struct saved so that post_launch() can use it */
 __data multiboot_info_t *g_mbi = NULL;
@@ -216,7 +223,7 @@ static void post_launch(void)
      */
     memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
-    _tboot_shared.version = 4;
+    _tboot_shared.version = 5;
     _tboot_shared.log_addr = (uint32_t)g_log;
     _tboot_shared.shutdown_entry = (uint32_t)shutdown_entry;
     _tboot_shared.tboot_base = (uint32_t)&_start;
@@ -225,6 +232,7 @@ static void post_launch(void)
     if ( tpm_get_random(2, _tboot_shared.s3_key, &key_size) != TPM_SUCCESS ||
          key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
+    _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
     print_tboot_shared(&_tboot_shared);
 
     launch_kernel(true);
@@ -353,6 +361,9 @@ void s3_launch(void)
     if ( !verify_integrity() )
         apply_policy(TB_ERR_S3_INTEGRITY);
 
+    /* need to re-initialize this */
+    _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
+
     print_tboot_shared(&_tboot_shared);
 
     _prot_to_real(g_post_k_s3_state.kernel_s3_resume_vector);
@@ -430,6 +441,13 @@ static void cap_pcrs(void)
 
 void shutdown(void)
 {
+    /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
+    if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
+        printk("shutdown(): TB_SHUTDOWN_WFS\n");
+        handle_init_sipi_sipi(get_apicid());
+        apply_policy(TB_ERR_FATAL);
+    }
+
     /* re-initialize serial port since kernel may have used it */
     early_serial_init();
 
@@ -457,15 +475,39 @@ void shutdown(void)
     }
 
     /* cap dynamic PCRs extended as part of launch (17, 18, ...) */
-    if ( is_launched() )
+    if ( is_launched() ) {
+
+        /* cap PCRs to ensure no follow-on code can access sealed data */
         cap_pcrs();
 
-    /* scrub any secrets by clearing their memory, then flush cache */
-    /* we don't have any secrets to scrub, however */
-    ;
+        /* scrub any secrets by clearing their memory, then flush cache */
+        /* we don't have any secrets to scrub, however */
+        ;
 
-    if ( is_launched() )
+        /* force APs to exit mini-guests if any are in and wait until all */
+        /* are out before shutting down TXT */
+        printk("waiting for APs (%u) to exit guests...\n",
+               atomic_read(&ap_wfs_count));
+        force_aps_exit();
+        uint32_t timeout = AP_GUEST_EXIT_TIMEOUT;
+        do {
+            if ( timeout % 0x8000 == 0 )
+                printk(".");
+            else
+                cpu_relax();
+            if ( timeout % 0x200000 == 0 )
+                printk("\n");
+            timeout--;
+        } while ( ( atomic_read(&ap_wfs_count) > 0 ) && timeout > 0 );
+        printk("\n");
+        if ( timeout == 0 )
+            printk("AP guest exit loop timed-out\n");
+        else
+            printk("all APs exited guests\n");
+
+        /* turn off TXT (GETSEC[SEXIT]) */
         txt_shutdown();
+    }
 
     /* machine shutdown */
     shutdown_system(_tboot_shared.shutdown_type);

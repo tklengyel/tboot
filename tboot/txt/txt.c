@@ -77,6 +77,8 @@ extern char _txt_wakeup[];        /* RLP join address for GETSEC[WAKEUP] */
 
 extern long s3_flag;
 
+extern void apply_policy(tb_error_t error);
+
 /*
  * this is the structure whose addr we'll put in TXT heap
  * it needs to be within the MLE pages, so force it to the .text section
@@ -657,10 +659,17 @@ tb_error_t txt_post_launch(void)
     return TB_ERR_NONE;
 }
 
-void txt_cpu_wakeup(uint32_t cpuid)
+void txt_cpu_wakeup(void)
 {
     txt_heap_t *txt_heap;
     os_mle_data_t *os_mle_data;
+    unsigned int cpuid = get_apicid();
+
+    if ( cpuid > NR_CPUS-1 ) {
+        printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
+        apply_policy(TB_ERR_FATAL);
+        return;
+    }
 
     printk("cpu %x waking up from TXT sleep\n", cpuid);
 

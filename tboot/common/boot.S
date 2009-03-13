@@ -182,11 +182,15 @@ ENTRY(__start)
  */
 ENTRY(vmx_asm_vmexit_handler)
         call vmx_vmexit_handler
+	/* fall through to loop if callee returns (shouldn't happen) */
 
 ENTRY(_mini_guest)
-1:      hlt
-        jmp 1b
-
+1:	pause
+	cmp $0, (aps_exit_guest)
+	je 1b
+	/* VMCALL out of guest */
+	.byte 0x0f,0x01,0xc1
+	jmp 1b
 
 #include "shutdown.S"
 
@@ -218,17 +222,20 @@ ENTRY(_txt_wakeup)
 	xor	%ebx, %ebx
 	cpuid
 	shr	$24, %ebx
-	and	$0xff, %ebx
 
 	# set stack as id-based offset from AP stack base
-	mov	$AP_STACK_SIZE, %eax
+	# "truncate" if too big (txt_cpu_wakeup() will handle failure) */
+	# so that we at least have a stack (even if shared with another AP) */
+	cmp	$NR_CPUS, %ebx
+	jl	2f
+	mov	$NR_CPUS-1, %ebx
+2:	mov	$AP_STACK_SIZE, %eax
 	mul	%ebx
 	sub	$AP_STACK_SIZE, %eax
 	mov	$ap_stacks, %ecx
 	sub	%eax, %ecx
 	mov	%ecx, %esp
 
-	push	%ebx
 	call	txt_cpu_wakeup
 
 
@@ -395,7 +402,6 @@ ENTRY(host_vmcs)
 /* the input info when os/vmm kerneltrap into tboot */
 ENTRY(ap_vmcs)
         .fill (NR_CPUS-1) * PAGE_SIZE, 1, 0
-ENTRY(vmcs_end)
 
 
 /*

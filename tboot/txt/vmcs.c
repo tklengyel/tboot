@@ -46,7 +46,6 @@
 /* Basic flags for VM-Entry controls. */
 #define MONITOR_VM_ENTRY_CONTROLS                       0x00000000
 
-#define GUEST_SEGMENT_LIMIT     0xffffffff
 #define EXCEPTION_BITMAP_BP     (1 << 3)        /* Breakpoint */
 #define EXCEPTION_BITMAP_PG     (1 << 14)       /* Page Fault */
 #define MONITOR_DEFAULT_EXCEPTION_BITMAP        \
@@ -62,6 +61,9 @@ DEFINE_SPINLOCK(ap_init_lock);
 /* counter for APs entering/exiting wait-for-sipi */
 extern atomic_t ap_wfs_count;
 
+/* flag for (all APs) exiting mini guest (1 = exit) */
+uint32_t aps_exit_guest;
+
 /* Dynamic (run-time adjusted) execution control flags. */
 static uint32_t vmx_pin_based_exec_control;
 static uint32_t vmx_cpu_based_exec_control;
@@ -69,6 +71,11 @@ static uint32_t vmx_vmexit_control;
 static uint32_t vmx_vmentry_control;
 
 static uint32_t vmcs_revision_id;
+
+/* MLE/kernel shared data page (in boot.S) */
+extern tboot_shared_t _tboot_shared;
+
+extern char _end[];
 
 extern void print_cr0(const char *s);
 extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
@@ -138,25 +145,23 @@ static void vmx_init_vmcs_config(void)
 }
 
 extern uint32_t idle_pg_table[PAGE_SIZE / 4];
-extern char vmcs_end[];             /* end of vmcs region */
 
-/* build a 1-level identity-map page table on AP for vmxon*/
+/* build a 1-level identity-map page table [0, _end] on AP for vmxon */
 static void build_ap_pagetable(void)
 {
-    uint32_t pt_entry = 0xe3; /* PRESENT+RW+A+D+4MB */
+#define PTE_FLAGS   0xe3 /* PRESENT+RW+A+D+4MB */
+    uint32_t pt_entry = PTE_FLAGS;
     uint32_t *pte = &idle_pg_table[0];
-    uint32_t tboot_end = (uint32_t)&vmcs_end;
 
-    while ( pt_entry <= tboot_end + 0xe3 ) {
+    while ( pt_entry <= (uint32_t)&_end + PTE_FLAGS ) {
         *pte = pt_entry;
-        pt_entry += ( 1 << L2_PAGETABLE_SHIFT );
+        pt_entry += 1 << L2_PAGETABLE_SHIFT;
         pte++;
     }
 }
 
 extern char host_vmcs[PAGE_SIZE];
 extern char ap_vmcs[NR_CPUS-1][PAGE_SIZE];
-static int exit_state[NR_CPUS-1];
 
 static bool start_vmx(unsigned int cpuid)
 {
@@ -165,14 +170,13 @@ static bool start_vmx(unsigned int cpuid)
 
     set_in_cr4(X86_CR4_VMXE);
 
-    vmcs = (struct vmcs_struct*)host_vmcs;
+    vmcs = (struct vmcs_struct *)host_vmcs;
 
     /* only initialize this data the first time */
     spin_lock(&ap_init_lock);
 
     if ( !init_done ) {
         /*printk("one-time initializing VMX mini-guest\n");*/
-
         memset(vmcs, 0, PAGE_SIZE);
 
         vmx_init_vmcs_config();
@@ -181,12 +185,20 @@ static bool start_vmx(unsigned int cpuid)
         /* enable paging as required by vmentry */
         build_ap_pagetable();
 
+        /* mark all AP VMCSes as free */
+        for ( unsigned int i = 0; i < ARRAY_SIZE(ap_vmcs); i++ ) {
+            ((struct vmcs_struct*)&ap_vmcs[i])->vmcs_revision_id =
+                                                            ~vmcs_revision_id;
+        }
+
         init_done = true;
     }
     spin_unlock(&ap_init_lock);
 
-    /*printk("per-cpu initializing VMX mini-guest\n");*/
+    /*printk("per-cpu initializing VMX mini-guest on cpu %u\n", cpuid);*/
 
+    /* enable paging using 1:1 page table [0, _end] */
+    /* addrs outside of tboot (e.g. MMIO) are not mapped) */
     write_cr3((unsigned long)idle_pg_table);
     set_in_cr4(X86_CR4_PSE);
     write_cr0(read_cr0() | X86_CR0_PG);
@@ -199,22 +211,27 @@ static bool start_vmx(unsigned int cpuid)
         return false;
     }
 
-    /* initialize vmexit state */
-    exit_state[cpuid] = AP_WAIT_INIT;
-
     printk("VMXON done for cpu %u\n", cpuid);
     return true;
 }
 
 static void stop_vmx(unsigned int cpuid)
 {
+    struct vmcs_struct *vmcs = NULL;
+
     if ( !(read_cr4() & X86_CR4_VMXE) ) {
         printk("stop_vmx() called when VMX not enabled\n");
         return;
     }
 
-    __vmpclear((unsigned long)&ap_vmcs[cpuid-1]);
+    __vmptrst((unsigned long)vmcs);
+
+    __vmpclear((unsigned long)vmcs);
+
     __vmxoff();
+
+    /* mark VMCS as free */
+    vmcs->vmcs_revision_id = ~vmcs_revision_id;
 
     clear_in_cr4(X86_CR4_VMXE);
 
@@ -276,6 +293,7 @@ static void construct_vmcs(void)
     __vmwrite(HOST_RIP, (unsigned long)vmx_asm_vmexit_handler);
 
     /* segment limits */
+#define GUEST_SEGMENT_LIMIT     0xffffffff
     __vmwrite(GUEST_ES_LIMIT, GUEST_SEGMENT_LIMIT);
     __vmwrite(GUEST_SS_LIMIT, GUEST_SEGMENT_LIMIT);
     __vmwrite(GUEST_DS_LIMIT, GUEST_SEGMENT_LIMIT);
@@ -329,10 +347,10 @@ static void construct_vmcs(void)
     __vmwrite(HOST_TR_BASE, 0);
 
 
-    /* tboot do not use ldt */
+    /* tboot does not use ldt */
     arbytes.bytes = 0;
     arbytes.fields.s = 0;                   /* not code or data segement */
-    arbytes.fields.seg_type = 0x2;          /* LTD */
+    arbytes.fields.seg_type = 0x2;          /* LDT */
     arbytes.fields.p = 1;                   /* segment present */
     arbytes.fields.default_ops_size = 0;    /* 16-bit */
     arbytes.fields.g = 1;
@@ -404,8 +422,7 @@ static void construct_vmcs(void)
 
     __vmwrite(CR3_TARGET_COUNT, 0);
 
-    /* guest need do nothing but vmexit when INIT-SIPI-SIPI */
-    __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_HALT);
+    __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_ACTIVE);
 
     __vmwrite(GUEST_INTERRUPTIBILITY_INFO, 0);
     __vmwrite(VMCS_LINK_POINTER, ~0UL);
@@ -417,9 +434,21 @@ static void construct_vmcs(void)
     /*printk("vmcs setup done.\n");*/
 }
 
-static void vmx_create_vmcs(unsigned int cpuid)
+static bool vmx_create_vmcs(unsigned int cpuid)
 {
-    struct vmcs_struct *vmcs = (struct vmcs_struct*)&ap_vmcs[cpuid-1];
+    struct vmcs_struct *vmcs = NULL;
+    unsigned int i;
+
+    /* find free VMCS */
+    for ( i = 0; i < ARRAY_SIZE(ap_vmcs); i++ ) {
+        vmcs = (struct vmcs_struct*)&ap_vmcs[i];
+        if ( vmcs->vmcs_revision_id == ~vmcs_revision_id )
+            break;
+    }
+    if ( i == ARRAY_SIZE(ap_vmcs) ) {
+        printk("no free AP VMCSes\n");
+        return false;
+    }
 
     memset(vmcs, 0, PAGE_SIZE);
 
@@ -431,6 +460,8 @@ static void vmx_create_vmcs(unsigned int cpuid)
     __vmptrld((unsigned long)vmcs);
 
     construct_vmcs();
+
+    return true;
 }
 
 static void launch_mini_guest(unsigned int cpuid)
@@ -441,11 +472,13 @@ static void launch_mini_guest(unsigned int cpuid)
 
     /* this is close enough to entering wait-for-sipi, so inc counter */
     atomic_inc(&ap_wfs_count);
+    atomic_inc((atomic_t *)&_tboot_shared.num_in_wfs);
 
     __vmlaunch();
 
     /* should not reach here */
     atomic_dec(&ap_wfs_count);
+    atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);
     error = __vmread(VM_INSTRUCTION_ERROR);
     printk("vmlaunch failed for cpu %u, error code %lx\n", cpuid, error);
     apply_policy(TB_ERR_FATAL);
@@ -481,7 +514,7 @@ static void print_failed_vmentry_reason(unsigned int exit_reason)
  */
 void vmx_vmexit_handler(void)
 {
-    unsigned int apicid = cpuid_ebx(1) >> 24;
+    unsigned int apicid = get_apicid();
 
     unsigned int exit_reason = __vmread(VM_EXIT_REASON);
     /*printk("vmx_vmexit_handler, exit_reason=%x.\n", exit_reason);*/
@@ -490,13 +523,11 @@ void vmx_vmexit_handler(void)
         print_failed_vmentry_reason(exit_reason);
         stop_vmx(apicid);
         atomic_dec(&ap_wfs_count);
-        return;
+        atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);
+        apply_policy(TB_ERR_FATAL);
     }
     else if ( exit_reason == EXIT_REASON_INIT ) {
-        if ( exit_state[apicid-1] == AP_WAIT_INIT ) {
-            exit_state[apicid-1] = AP_WAIT_SIPI1;
-            __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
-        }
+        __vmwrite(GUEST_ACTIVITY_STATE, GUEST_STATE_WAIT_SIPI);
         __vmresume();
     }
     else if ( exit_reason == EXIT_REASON_SIPI ) {
@@ -504,17 +535,26 @@ void vmx_vmexit_handler(void)
         /* there is no need to wait for second SIPI (which may not */
         /* always be delivered) */
         /* but we should expect there to already have been INIT */
-        if ( exit_state[apicid-1] == AP_WAIT_SIPI1 ) {
-            /* disable VT then jump to xen code */
-            unsigned long exit_qual = __vmread(EXIT_QUALIFICATION);
-            uint32_t sipi_vec = (exit_qual & 0xffUL) << PAGE_SHIFT;
-            /* printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
-            stop_vmx(apicid);
-            atomic_dec(&ap_wfs_count);
-            cpu_wakeup(apicid, sipi_vec);
-            return; 
-        }
-        __vmresume();
+        /* disable VT then jump to xen code */
+        unsigned long exit_qual = __vmread(EXIT_QUALIFICATION);
+        uint32_t sipi_vec = (exit_qual & 0xffUL) << PAGE_SHIFT;
+        /* printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
+        stop_vmx(apicid);
+        atomic_dec(&ap_wfs_count);
+        atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);
+        cpu_wakeup(apicid, sipi_vec);
+
+        /* cpu_wakeup() doesn't return, so we should never get here */
+        printk("cpu_wakeup() failed\n");
+        apply_policy(TB_ERR_FATAL);
+    }
+    else if ( exit_reason == EXIT_REASON_VMCALL ) {
+        stop_vmx(apicid);
+        atomic_dec(&ap_wfs_count);
+        atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);
+        /* spin */
+        while ( true )
+            __asm__ __volatile__("cli; hlt;");
     }
     else {
         printk("can't handle vmexit due to 0x%x.\n", exit_reason);
@@ -525,11 +565,6 @@ void vmx_vmexit_handler(void)
 /* Launch a mini guest to handle the physical INIT-SIPI-SIPI from BSP */
 void handle_init_sipi_sipi(unsigned int cpuid)
 {
-    unsigned int apicid = cpuid_ebx(1) >> 24;
-
-    if ( apicid != cpuid )
-        printk("apicid and cpuid do not match\n");
-
     if ( cpuid > NR_CPUS-1 ) {
         printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
@@ -544,18 +579,26 @@ void handle_init_sipi_sipi(unsigned int cpuid)
     
     /* prepare a guest for INIT-SIPI-SIPI handling */
     /* 1: setup VMX environment and VMXON */
-    if ( !start_vmx(cpuid) )
+    if ( !start_vmx(cpuid) ) {
+        apply_policy(TB_ERR_FATAL);
         return;
+    }
 
     /* 2: setup VMCS */
-    vmx_create_vmcs(cpuid);
+    if ( vmx_create_vmcs(cpuid) ) {
 
-    /* 3: launch VM */
-    launch_mini_guest(cpuid);
+        /* 3: launch VM */
+        launch_mini_guest(cpuid);
+    }
 
     printk("control should not return here from launch_mini_guest\n");
     apply_policy(TB_ERR_FATAL);
     return;
+}
+
+void force_aps_exit(void)
+{
+    aps_exit_guest = 1;
 }
 
 

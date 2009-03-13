@@ -200,6 +200,7 @@ enum guest_activity_state {
 
 #define EXIT_REASON_INIT                3
 #define EXIT_REASON_SIPI                4
+#define EXIT_REASON_VMCALL              18
 
 #define EXIT_REASON_INVALID_GUEST_STATE 33
 #define EXIT_REASON_MSR_LOADING         34
@@ -316,6 +317,7 @@ static inline int __vmxon (uint64_t addr)
 }
 
 extern void handle_init_sipi_sipi(unsigned int cpuid);
+extern void force_aps_exit(void);
 
 #endif      /* __TXT_VMCS_H__ */
 
