@@ -184,6 +184,16 @@ static void post_launch(void)
     if ( !e820_protect_region(base, size, E820_UNUSABLE) )
         apply_policy(TB_ERR_FATAL);
 
+    /* if using memory logging, reserve log area */
+    if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY ) {
+        base = TBOOT_SERIAL_LOG_ADDR;
+        size = TBOOT_SERIAL_LOG_SIZE;
+        printk("reserving tboot memory log (%Lx - %Lx) in e820 table\n", base,
+               (base + size - 1));
+        if ( !e820_protect_region(base, size, E820_RESERVED) )
+            apply_policy(TB_ERR_FATAL);
+    }
+
     /* replace map in mbi with copy */
     replace_e820_map(g_mbi);
 
