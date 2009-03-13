@@ -311,6 +311,11 @@ static always_inline void rep_nop(void)
 
 #define cpu_relax() rep_nop()
 
+static inline unsigned int get_apicid(void)
+{
+    return cpuid_ebx(1) >> 24;
+}
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* __ASM_X86_PROCESSOR_H */
