@@ -9,7 +9,7 @@
  * fast accessors such as _atomic_read() and _atomic_set() which don't give
  * the compiler a fit.
  */
-typedef struct { int counter; } atomic_t;
+typedef struct __packed { uint32_t counter; } atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
 
