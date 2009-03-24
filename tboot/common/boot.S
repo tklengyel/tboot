@@ -224,8 +224,8 @@ ENTRY(_txt_wakeup)
 	shr	$24, %ebx
 
 	# set stack as id-based offset from AP stack base
-	# "truncate" if too big (txt_cpu_wakeup() will handle failure) */
-	# so that we at least have a stack (even if shared with another AP) */
+	# "truncate" if too big (txt_cpu_wakeup() will handle failure)
+	# so that we at least have a stack (even if shared with another AP)
 	cmp	$NR_CPUS, %ebx
 	jl	2f
 	mov	$NR_CPUS-1, %ebx

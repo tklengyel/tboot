@@ -50,7 +50,6 @@ compat_mode_entry:
 
 shutdown_entry32:
 	/* restore tboot context */
-        cli
         lgdt    %cs:gdt_descr
         mov     $(ds_sel),%ecx
         mov     %ecx,%ds
@@ -58,17 +57,31 @@ shutdown_entry32:
         mov     %ecx,%fs
         mov     %ecx,%gs
         mov     %ecx,%ss
-
-#if 0
-/* set the tr? */
-        mov     $0x18, %eax
-        ltr     %ax
-#endif
-
         ljmp    $(cs_sel),$(1f)
-1:      leal	bsp_stack,%esp
+1:      leal	bsp_stack,%esp	# default to BSP stack
 
-        /* Reset EFLAGS (subsumes CLI and CLD). */
+	# get initial APIC ID for this processor
+	mov	$0x01, %eax
+	xor	%ebx, %ebx
+	cpuid
+	shr	$24, %ebx
+	cmp	$0, %ebx	# BSP has separate stack (above)
+	je	3f
+
+	# set stack as id-based offset from AP stack base
+	# "truncate" if too big so that we at least have a stack
+	# (even if shared with another AP)
+	cmp	$NR_CPUS, %ebx
+	jl	2f
+	mov	$NR_CPUS-1, %ebx
+2:	mov	$AP_STACK_SIZE, %eax
+	mul	%ebx
+	sub	$AP_STACK_SIZE, %eax
+	mov	$ap_stacks, %ecx
+	sub	%eax, %ecx
+	mov	%ecx, %esp
+
+3:	/* Reset EFLAGS (subsumes CLI and CLD). */
         pushl   $0x0
         popf
 
@@ -81,7 +94,7 @@ shutdown_entry32:
         mov %eax, %cr0
         jmp 1f
 
-1:      /* restore cr4 */
+1:      /* clear cr4 except for SMXE */
         mov     $0x4000, %eax
         mov     %eax, %cr4
 
@@ -95,6 +108,7 @@ shutdown_entry32:
 ENTRY(shutdown_entry)
 	.code64
 	cli
+	wbinvd
 
 	movl    $MSR_EFER,%ecx
 	rdmsr
