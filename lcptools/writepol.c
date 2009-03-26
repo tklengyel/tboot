@@ -54,9 +54,9 @@ static unsigned char *policy_data = NULL;
 static char *password = NULL;
 static uint32_t passwd_length = 0;
 static int help_input = 0;
-static unsigned char *empty_pol_data = {0};
+static unsigned char empty_pol_data[] = {0};
 
-static const char *short_option = " ehi:f:p:";
+static const char *short_option = "ehi:f:p:";
 static const char *usage_string = "lcp_writepol -i index_value "\
                             "[-f policy_file] [-e] [-p passwd] [-h]";
 

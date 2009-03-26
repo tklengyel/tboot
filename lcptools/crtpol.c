@@ -91,7 +91,7 @@ static const char * option_strings[] ={
             "\t\tLCP_POLHALG_SHA1: 0 or \"sha1\" \n"\
             "\tCurrently we only support SHA-1 algorithm.\n",
         "-v version: uint8. version number.\n"\
-            "\tCurrently only 0 is allowed.\n",
+            "\tCurrently 0 or 1 is allowed.\n",
         "-s PConf file name: String. File name of PConf data.\n",
         "-m MLE hash file name: String. File containing the MLE hashes.\n",
         "-o LCPPOLICY file name: String. File to save the output Policy.\n",
@@ -157,9 +157,9 @@ parse_cmdline(int argc, const char * argv[])
                 if ( strtonum(optarg, &temp) )
                     return LCP_E_INVALID_PARAMETER;
                 /*
-                 * Currently we only support version 0.
+                 * Currently we only support version 0 or 1.
                  */
-                if ( temp > 0 ) {
+                if ( temp > 1 ) {
                     log_error("version %d is not supported!\n", ver);
                     return LCP_E_INVALID_PARAMETER;
                 }
