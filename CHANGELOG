@@ -1,3 +1,12 @@
+20090330:
+	Added s3_key and num_in_wfs fields to tboot_shared_t and rev'ed
+	    version to 5
+	Use VMAC as S3 integrity MAC algo
+	Changed tboot load/start addr to 0x800000 (8MB)
+	Fixed support for newer Linux kernels
+	Support TB_SHUTDONW_WFS shutdown type for APs
+	Misc. fixes
+
 20090130:
 	Fixed build issues with newer versions of gcc (e.g. in Fedora 9)
 	Increased CPU/core/thread support to 32 CPUs/cores/threads

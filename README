@@ -62,7 +62,7 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
    module must be added to the grub.conf boot config as the last module, e.g.:
        title Xen w/ Intel(R) Trusted Execution Technology
            root (hd0,1)
-           kernel /tboot.gz
+           kernel /tboot.gz logging=serial,vga,memory
            module /xen.gz iommu=required dom0_mem=524288 com1=115200,8n1
            module /vmlinuz-2.6.18-xen root=/dev/VolGroup00/LogVol00 ro
            module /initrd-2.6.18-xen.img
@@ -79,14 +79,12 @@ o  For Xen:  newer versions of Xen support the 'iommu=required' command line
    Older versions of Xen used the param 'vtd=1' or 'iommu=1', which enables
    VT-d but does not fail if it cannot be enabled.
 
-o  For Linux:  the 'iommu=1' command line option will enabled VT-d.  There is
-   currently no way to force its use, but this will be added later.  The Linux
-   kernel patches can be found on the LKML archives at:
-       http://lkml.org/lkml/2008/10/7/424
-       http://lkml.org/lkml/2008/10/7/427
-       http://lkml.org/lkml/2008/10/7/429
-       http://lkml.org/lkml/2008/10/7/442
-       http://lkml.org/lkml/2008/10/7/445
+o  For Linux:  the 'intel_iommu=on' command line option will enabled VT-d.
+   There is currently no way to force its use, but this will be added later.
+   The Linux kernel patches can be found on the LKML archives at:
+       http://lkml.org/lkml/2009/3/31/22
+       http://lkml.org/lkml/2009/3/31/23
+       http://lkml.org/lkml/2009/3/31/24
 
 o  Progress of the launch process is indicated via debug printk's using three
    different logging methods:
@@ -154,7 +152,7 @@ o  Tboot will copy and alter the e820 table provided by GRUB to "reserve"
    launch fails for any reason.
 
 o  Tboot is always built 32bit and runs in protected mode without PAE or
-   paging enabled.  Tboot loads and executes at 0x1003000 (16MB).
+   paging enabled.  Tboot loads and executes at 0x803000 (8MB).
 
 o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
