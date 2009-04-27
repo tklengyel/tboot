@@ -456,9 +456,6 @@ void shutdown(void)
     release_locality(1);
 
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
-        /* have TPM save static PCRs (in case VMM/kernel didn't) */
-        tpm_save_state(2);
-
         /* restore DMAR table if needed */
         restore_vtd_dmar_table();
 
@@ -479,6 +476,12 @@ void shutdown(void)
 
         /* cap PCRs to ensure no follow-on code can access sealed data */
         cap_pcrs();
+
+        /* have TPM save static PCRs (in case VMM/kernel didn't) */
+        /* per TCG spec, TPM can invalidate saved state if any other TPM
+           operation is performed afterwards--so do this last */
+        if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 )
+            tpm_save_state(2);
 
         /* scrub any secrets by clearing their memory, then flush cache */
         /* we don't have any secrets to scrub, however */
