@@ -50,6 +50,10 @@ extern tb_error_t txt_post_launch_verify_platform(void);
 extern bool txt_s3_launch_environment(void);
 extern void txt_shutdown(void);
 extern bool txt_is_powercycle_required(void);
+extern bool find_sinit_module(multiboot_info_t *mbi, void **base,
+                              uint32_t *size);
+extern bool find_lcp_module(multiboot_info_t *mbi, void **base,
+                            uint32_t *size);
 
 #endif      /* __TXT_TXT_H__ */
 

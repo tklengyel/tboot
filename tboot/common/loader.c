@@ -48,6 +48,8 @@
 #include <tboot.h>
 #include <elf_defns.h>
 #include <linux_defns.h>
+#include <tb_error.h>
+#include <txt/txt.h>
 
 /* copy of kernel/VMM command line so that can append 'tboot=0x1234' */
 static char *new_cmdline = (char *)TBOOT_KERNEL_CMDLINE_ADDR;
@@ -166,6 +168,21 @@ bool launch_kernel(bool is_measured_launch)
         return false;
 
     module_t *m = (module_t *)g_mbi->mods_addr;
+
+    /* if this is not a measured launch then make sure to remove SINIT
+       and LCP policy data modules */
+    if ( !is_measured_launch ) {
+        void *base = NULL;
+
+        if ( find_sinit_module(g_mbi, &base, NULL) ) {
+            if ( remove_module(g_mbi, base) == NULL )
+                printk("failed to remove SINIT module from module list\n");
+        }
+        if ( find_lcp_module(g_mbi, &base, NULL) ) {
+            if ( remove_module(g_mbi, base) == NULL )
+                printk("failed to remove LCP module from module list\n");
+        }
+    }
 
     void *kernel_image = (void *)m->mod_start;
     size_t kernel_size = m->mod_end - m->mod_start;

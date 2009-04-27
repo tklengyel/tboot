@@ -190,18 +190,15 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
 }
 
 /* size can be NULL */
-static bool find_sinit(multiboot_info_t *mbi, void **base, uint32_t *size)
+bool find_sinit_module(multiboot_info_t *mbi, void **base, uint32_t *size)
 {
     module_t *mods;
     uint32_t size2 = 0;
     void *base2 = NULL;
     int i;
 
-    if ( base == NULL ) {
-        printk("find_sinit() base is NULL\n");
-        return false;
-    }
-    *base = NULL;
+    if ( base != NULL )
+        *base = NULL;
     if ( size != NULL )
         *size = 0;
 
@@ -225,23 +222,20 @@ static bool find_sinit(multiboot_info_t *mbi, void **base, uint32_t *size)
     }
     printk("user-provided SINIT found: %s\n", (const char *)mods[i].string);
 
-    *base = base2;
+    if ( base != NULL )
+        *base = base2;
     if ( size != NULL )
         *size = size2;
     return true;
 }
 
-static bool find_lcp_manifest(multiboot_info_t *mbi, void **base,
-                              uint32_t *size)
+bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
 {
     size_t size2 = 0;
     void *base2 = NULL;
 
-    if ( base == NULL ) {
-        printk("find_lcp_manifest() base is NULL\n");
-        return false;
-    }
-    *base = NULL;
+    if ( base != NULL )
+        *base = NULL;
     if ( size != NULL )
         *size = 0;
 
@@ -249,13 +243,14 @@ static bool find_lcp_manifest(multiboot_info_t *mbi, void **base,
 
     /* not found */
     if ( base2 == NULL ) {
-        printk("no LCP manifest found\n");
+        printk("no LCP module found\n");
         return false;
     }
 
-    printk("LCP manifest found\n");
+    printk("LCP module found\n");
 
-    *base = base2;
+    if ( base != NULL )
+        *base = base2;
     if ( size != NULL )
         *size = size2;
     return true;
@@ -315,7 +310,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /* LCP manifest */
     void *lcp_base = NULL;
     uint32_t lcp_size = 0;
-    find_lcp_manifest(mbi, &lcp_base, &lcp_size);
+    find_lcp_module(mbi, &lcp_base, &lcp_size);
     os_sinit_data->lcp_po_base = (unsigned long)lcp_base;
     os_sinit_data->lcp_po_size = lcp_size;
     /* if we found a manifest, remove it from module list so that */
@@ -477,7 +472,7 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
     /*
      * find SINIT AC module in modules list (it should be one of last three)
      */
-    if ( find_sinit(mbi, (void **)&sinit, NULL) ) {
+    if ( find_sinit_module(mbi, (void **)&sinit, NULL) ) {
         /* check if it matches chipset */
         if ( !does_acmod_match_chipset(sinit) ) {
             printk("SINIT does not match chipset\n");
