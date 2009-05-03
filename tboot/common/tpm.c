@@ -1380,7 +1380,8 @@ static uint32_t _tpm_wrap_unseal(uint32_t locality, const uint8_t *in_data,
     return ret;
 }
 
-static bool init_pcr_info(tpm_locality_selection_t release_locs,
+static bool init_pcr_info(uint32_t locality,
+                          tpm_locality_selection_t release_locs,
                           uint32_t nr_create, const uint8_t indcs_create[],
                           uint32_t nr_release, const uint8_t indcs_release[],
                           const tpm_pcr_value_t *values_release[],
@@ -1388,10 +1389,16 @@ static bool init_pcr_info(tpm_locality_selection_t release_locs,
 {
     uint32_t offset;
     uint32_t i, blob_size;
+    static tpm_locality_selection_t localities[TPM_NR_LOCALITIES] = {
+        TPM_LOC_ZERO, TPM_LOC_ONE, TPM_LOC_TWO, TPM_LOC_THREE, TPM_LOC_FOUR
+    };
+
 
     if ( (release_locs & TPM_LOC_RSVD) != 0 )
         return TPM_BAD_PARAMETER;
     if ( pcr_info == NULL )
+        return TPM_BAD_PARAMETER;
+    if ( locality >= TPM_NR_LOCALITIES )
         return TPM_BAD_PARAMETER;
     if ( indcs_create == NULL )
         nr_create = 0;
@@ -1407,7 +1414,7 @@ static bool init_pcr_info(tpm_locality_selection_t release_locs,
     
     memset(pcr_info, 0, sizeof(*pcr_info));
     pcr_info->tag = TPM_TAG_PCR_INFO_LONG;
-    pcr_info->locality_at_creation = 0x1f;   /* default per spec */
+    pcr_info->locality_at_creation = localities[locality];
     pcr_info->locality_at_release = release_locs;
     pcr_info->creation_pcr_selection.size_of_select = 3;
     for ( i = 0; i < nr_create; i++ )
@@ -1451,9 +1458,9 @@ uint32_t tpm_seal(uint32_t locality, tpm_locality_selection_t release_locs,
         return TPM_BAD_PARAMETER;
     }
 
-    if ( !init_pcr_info(release_locs, pcr_nr_create, pcr_indcs_create,
-                        pcr_nr_release, pcr_indcs_release, pcr_values_release,
-                        &pcr_info) ) {
+    if ( !init_pcr_info(locality, release_locs, pcr_nr_create,
+                        pcr_indcs_create, pcr_nr_release, pcr_indcs_release,
+                        pcr_values_release, &pcr_info) ) {
         printk("TPM: tpm_seal() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
@@ -1868,12 +1875,16 @@ uint32_t tpm_save_state(uint32_t locality)
 uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
                         uint32_t *data_size)
 {
-    uint32_t ret, in_size = 0, out_size;
+    uint32_t ret, in_size = 0, out_size, requested_size;
+    static bool first_attempt;
 
     if ( random_data == NULL || data_size == NULL )
         return TPM_BAD_PARAMETER;
     if ( *data_size == 0 )
         return TPM_BAD_PARAMETER;
+
+    first_attempt = true;
+    requested_size = *data_size;
 
     /* copy the *data_size into buf in reversed byte order */
     reverse_copy(WRAPPER_IN_BUF + in_size, data_size, sizeof(*data_size));
@@ -1910,6 +1921,22 @@ uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
 
     /* data might be used as key, so clear from buffer memory */
     memset(WRAPPER_OUT_BUF + sizeof(*data_size), 0, *data_size);
+
+    /* if TPM doesn't return all requested random bytes, try one more time */
+    if ( *data_size < requested_size ) {
+        printk("requested %x random bytes but only got %x\n", requested_size,
+               *data_size);
+        /* we're only going to try twice */
+        if ( first_attempt ) {
+            first_attempt = false;
+            uint32_t second_size = requested_size - *data_size;
+            printk("trying one more time to get remaining %x bytes\n",
+                   second_size);
+            ret = tpm_get_random(locality, random_data + *data_size,
+                                 &second_size);
+            *data_size += second_size;
+        }
+    }
 
     return ret;
 }
