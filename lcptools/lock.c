@@ -112,15 +112,16 @@ main (int argc, char *argv[])
      * Check whether force to lock.
      */
     if ( force == 0 ) {
+        int dummy;
         /*
          * If haven't input force to lock, reminder to confirm
          * whether lock or not.
          */
         do {
             log_info("Really want to lock TPM NV? (Y/N) ");
-            scanf("%s", confirm_lock);
+            dummy = scanf("%s", confirm_lock);
         } while (strcmp(confirm_lock, "N") && strcmp(confirm_lock, "n") &&
-                    strcmp(confirm_lock, "Y") && strcmp(confirm_lock, "y"));
+		 strcmp(confirm_lock, "Y") && strcmp(confirm_lock, "y"));
         if ( !strcmp(confirm_lock, "N") || !strcmp(confirm_lock, "n") ) {
             ret_value = LCP_SUCCESS;
             return ret_value;

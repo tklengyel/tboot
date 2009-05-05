@@ -198,7 +198,7 @@ static void display_tboot_log(void *log_base)
           curr_pos += sizeof(buf)-1 ) {
         strncpy(buf, log_buf + curr_pos, sizeof(buf)-1);
         buf[sizeof(buf)-1] = '\0';
-        printf(buf);
+        printf("%s", buf);
     }
     printf("\n");
 }

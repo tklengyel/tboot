@@ -357,6 +357,9 @@ int main(int argc, char* argv[])
                 }
                 strcpy(cmdline, optarg);
                 break;
+            default:
+                printf("Unknonw command line option\n");
+                break;
         }
     }
     if ( help || (optind == argc) ) {

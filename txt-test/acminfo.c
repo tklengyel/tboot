@@ -99,7 +99,7 @@ static void print_hex(const char* prefix, uint8_t *start, size_t len)
 {
     uint8_t *end = start + len;
     while ( start < end ) {
-        printf(prefix);
+        printf("%s", prefix);
         for ( int i = 0; i < 16; i++ ) {
             if ( start < end )
                 printf("%02x ", *start);

@@ -274,7 +274,7 @@ static bool validate_params(param_data_t *params)
     }
 
 error:
-    error_msg(msg);
+    error_msg("%s", msg);
     if ( verbose )
         print_params(params);
     return false;
@@ -408,7 +408,7 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
 void display_help_msg(void)
 {
     for ( int i = 0; help[i] != NULL; i++ )
-        printf(help[i]);
+        printf("%s", help[i]);
 }
 
 

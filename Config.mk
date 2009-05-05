@@ -32,7 +32,7 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 
 
 HOSTCC            = gcc
-HOSTCFLAGS        = -Wall -Werror -Wstrict-prototypes
+HOSTCFLAGS        = -Wall -Wformat-security -Werror -Wstrict-prototypes
 HOSTCFLAGS       += -O2 -std=gnu99 -fno-strict-aliasing
 
 HOSTCFLAGS_x86_32 = -m32
@@ -60,7 +60,7 @@ INSTALL_PROG = $(INSTALL) -m0755 -p
 #
 TARGET_ARCH  ?= $(shell uname -m | sed -e s/i.86/x86_32/ -e s/i86pc/x86_32/)
 
-CFLAGS += -Wall -Werror -Wstrict-prototypes
+CFLAGS += -Wall -Wformat-security -Werror -Wstrict-prototypes
 CFLAGS += -fno-strict-aliasing -std=gnu99
 # due to bug in gcc v4.2,3,?
 CFLAGS += $(call cc-option,$(CC),-Wno-array-bounds,)

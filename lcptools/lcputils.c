@@ -571,7 +571,7 @@ void print_locality(unsigned char loc)
 	s[strlen(s) - 2] = '\0';
     }
 
-    log_info(s);
+    log_info("%s", s);
 }
 
 void print_permissions(UINT32 perms, const char *prefix)

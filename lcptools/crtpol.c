@@ -1,5 +1,5 @@
 /*
- * Copyright 2001 - 2007 Intel Corporation. All Rights Reserved. 
+ * Copyright 2001 - 2009 Intel Corporation. All Rights Reserved. 
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -231,8 +231,7 @@ read_data(const char *filename, unsigned int *size, unsigned char *data)
         fclose(pfile);
         return -1;
     }
-    fread(data, 1, len, pfile);
-    *size = len;
+    *size = fread(data, 1, len, pfile);
     fclose(pfile);
     return 0;
 }
