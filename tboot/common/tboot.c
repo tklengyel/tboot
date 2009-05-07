@@ -316,7 +316,7 @@ void begin_launch(multiboot_info_t *mbi)
     apply_policy(err);
 
     /* ensure there are modules */
-    if ( !verify_mbi(g_mbi) )
+    if ( !s3_flag && !verify_mbi(g_mbi) )
         apply_policy(TB_ERR_FATAL);
 
     /* this is being called post-measured launch */
