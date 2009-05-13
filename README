@@ -3,7 +3,7 @@
 * or the below-referenced Linux patches                                      *
 ******************************************************************************
 
-Trusted Boot (tboot) is an open source, pre- kernel/VMM module that uses
+Trusted Boot (tboot) is an open source, pre-kernel/VMM module that uses
 Intel(R) Trusted Execution Technology (Intel(R) TXT) to perform a measured
 and verified launch of an OS kernel/VMM.
 
