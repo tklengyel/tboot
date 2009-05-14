@@ -79,12 +79,17 @@ o  For Xen:  newer versions of Xen support the 'iommu=required' command line
    Older versions of Xen used the param 'vtd=1' or 'iommu=1', which enables
    VT-d but does not fail if it cannot be enabled.
 
-o  For Linux:  the 'intel_iommu=on' command line option will enabled VT-d.
-   There is currently no way to force its use, but this will be added later.
+o  For Linux:  the 'intel_iommu=on' command line option will enable VT-d and
+   the TXT code in Linux will force this if it is not specified.
+   The boot protocol (how the shared page is communicated) has been changed
+   in the latest Linux patches (v3) below and thus requires this latest version
+   of tboot to work.  Coversely, this latest version of tboot will not work
+   with earlier versions of the Linux patches.
    The Linux kernel patches can be found on the LKML archives at:
-       http://lkml.org/lkml/2009/3/31/22
-       http://lkml.org/lkml/2009/3/31/23
-       http://lkml.org/lkml/2009/3/31/24
+       http://marc.info/?l=linux-kernel&m=124175817408843&w=2
+       http://marc.info/?l=linux-kernel&m=124175817408846&w=2
+       http://marc.info/?l=linux-kernel&m=124175830809009&w=2
+       http://marc.info/?l=linux-kernel&m=124175830909012&w=2
 
 o  Progress of the launch process is indicated via debug printk's using three
    different logging methods:

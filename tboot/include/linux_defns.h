@@ -99,13 +99,13 @@ typedef struct __attribute__ ((packed)) {
     uint32_t payload_offset;
     uint32_t payload_length;
     uint64_t setup_data;
-    uint32_t tboot_shared_addr;        /* Address of tboot shared page */
 } linux_kernel_header_t;
 
 typedef struct __attribute__ ((packed)) {
     uint8_t               screen_info[0x040-0x000];                 /* 0x000 */
     uint8_t               apm_bios_info[0x054-0x040];               /* 0x040 */
-    uint8_t               _pad2[12];                                /* 0x054 */
+    uint8_t               _pad2[4];                                 /* 0x054 */
+    uint8_t               tboot_shared_addr[8];                     /* 0x058 */
     uint8_t               ist_info[0x070-0x060];                    /* 0x060 */
     uint8_t               _pad3[16];                                /* 0x070 */
     uint8_t               hd0_info[16];     /* obsolete! */         /* 0x080 */

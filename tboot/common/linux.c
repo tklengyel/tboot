@@ -234,9 +234,6 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* set cmd_line_ptr */
     hdr->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
 
-    /* set address of tboot shared page */
-    hdr->tboot_shared_addr = (uint32_t)&_tboot_shared;
-
     /* load protected-mode part */
     memmove((void *)protected_mode_base, linux_image + real_mode_size,
             protected_mode_size);
@@ -284,6 +281,10 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     screen->orig_video_isVGA = 1;      /* use VGA text screen setups */
     screen->orig_y = 24;               /* start display text in the last line
                                        of screen */
+
+    /* set address of tboot shared page */
+    uint64_t *tboot_shared_addr = (uint64_t *)&boot_params->tboot_shared_addr;
+    *tboot_shared_addr = (uintptr_t)&_tboot_shared;
 
     *entry_point = (void *)hdr->code32_start;
     return true;
