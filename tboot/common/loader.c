@@ -159,6 +159,18 @@ static bool adjust_kernel_cmdline(multiboot_info_t *mbi,
     return true;
 }
 
+bool is_kernel_linux(void)
+{
+    if ( !verify_mbi(g_mbi) )
+        return false;
+
+    module_t *m = (module_t *)g_mbi->mods_addr;
+    void *kernel_image = (void *)m->mod_start;
+    size_t kernel_size = m->mod_end - m->mod_start;
+
+    return !is_elf_image(kernel_image, kernel_size);
+}
+
 bool launch_kernel(bool is_measured_launch)
 {
     enum { ELF, LINUX } kernel_type;

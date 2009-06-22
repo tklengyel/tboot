@@ -38,6 +38,7 @@
 
 extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
                                 size_t *size, const uuid_t *uuid);
+extern bool is_kernel_linux(void);
 extern bool launch_kernel(bool is_measured_launch);
 extern bool verify_mbi(multiboot_info_t *mbi);
 extern bool verify_modules(multiboot_info_t *mbi);

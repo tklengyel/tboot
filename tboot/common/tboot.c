@@ -165,7 +165,7 @@ static void post_launch(void)
     if ( !verify_modules(g_mbi) )
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
-    /* marked mem regions used by TXT (heap, SINIT, etc.) as E820_UNUSABLE */
+    /* marked mem regions used by TXT (heap, SINIT, etc.) as E820_RESERVED */
     err = txt_protect_mem_regions();
     apply_policy(err);
 
@@ -182,13 +182,13 @@ static void post_launch(void)
         printk(": succeeded.\n");
 
     /* protect ourselves, MLE page table, and MLE/kernel shared page */
-    /* (rounded up to 2MB to account for VT-d PMR 2MB size granularity) */
     base = (uint64_t)((unsigned long)&_start - 3*PAGE_SIZE);
     size = (uint64_t)(unsigned long)&_end - base;
-    size = (size + 0x200000UL - 1ULL) & ~0x1fffffULL;
+    size = (size + PAGE_SIZE - 1ULL) & ~(PAGE_SIZE - 1);
+    uint32_t mem_type = is_kernel_linux() ? E820_RESERVED : E820_UNUSABLE;
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
-    if ( !e820_protect_region(base, size, E820_UNUSABLE) )
+    if ( !e820_protect_region(base, size, mem_type) )
         apply_policy(TB_ERR_FATAL);
 
     /* if using memory logging, reserve log area */
