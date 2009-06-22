@@ -1,7 +1,7 @@
 /*
  * vmcs.c: create and manage mini-VT VM for APs to handle INIT-SIPI-SIPI
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2009, Intel Corporation
  * All rights reserved.
  *
  */
@@ -56,7 +56,8 @@
 extern char gdt_table[];
 #define RESET_TSS_DESC(n)   gdt_table[((n)<<3)+5] = 0x89
 
-DEFINE_SPINLOCK(ap_init_lock);
+/* lock that protects APs against race conditions on wakeup and shutdown */
+DEFINE_SPINLOCK(ap_lock);
 
 /* counter for APs entering/exiting wait-for-sipi */
 extern atomic_t ap_wfs_count;
@@ -173,8 +174,6 @@ static bool start_vmx(unsigned int cpuid)
     vmcs = (struct vmcs_struct *)host_vmcs;
 
     /* only initialize this data the first time */
-    spin_lock(&ap_init_lock);
-
     if ( !init_done ) {
         /*printk("one-time initializing VMX mini-guest\n");*/
         memset(vmcs, 0, PAGE_SIZE);
@@ -185,15 +184,8 @@ static bool start_vmx(unsigned int cpuid)
         /* enable paging as required by vmentry */
         build_ap_pagetable();
 
-        /* mark all AP VMCSes as free */
-        for ( unsigned int i = 0; i < ARRAY_SIZE(ap_vmcs); i++ ) {
-            ((struct vmcs_struct*)&ap_vmcs[i])->vmcs_revision_id =
-                                                            ~vmcs_revision_id;
-        }
-
         init_done = true;
     }
-    spin_unlock(&ap_init_lock);
 
     /*printk("per-cpu initializing VMX mini-guest on cpu %u\n", cpuid);*/
 
@@ -229,9 +221,6 @@ static void stop_vmx(unsigned int cpuid)
     __vmpclear((unsigned long)vmcs);
 
     __vmxoff();
-
-    /* mark VMCS as free */
-    vmcs->vmcs_revision_id = ~vmcs_revision_id;
 
     clear_in_cr4(X86_CR4_VMXE);
 
@@ -436,19 +425,7 @@ static void construct_vmcs(void)
 
 static bool vmx_create_vmcs(unsigned int cpuid)
 {
-    struct vmcs_struct *vmcs = NULL;
-    unsigned int i;
-
-    /* find free VMCS */
-    for ( i = 0; i < ARRAY_SIZE(ap_vmcs); i++ ) {
-        vmcs = (struct vmcs_struct*)&ap_vmcs[i];
-        if ( vmcs->vmcs_revision_id == ~vmcs_revision_id )
-            break;
-    }
-    if ( i == ARRAY_SIZE(ap_vmcs) ) {
-        printk("no free AP VMCSes\n");
-        return false;
-    }
+    struct vmcs_struct *vmcs = (struct vmcs_struct *)&ap_vmcs[cpuid-1];
 
     memset(vmcs, 0, PAGE_SIZE);
 
@@ -568,6 +545,7 @@ void handle_init_sipi_sipi(unsigned int cpuid)
     if ( cpuid > NR_CPUS-1 ) {
         printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
+        spin_unlock(&ap_lock);
         return;
     }
         
@@ -581,11 +559,13 @@ void handle_init_sipi_sipi(unsigned int cpuid)
     /* 1: setup VMX environment and VMXON */
     if ( !start_vmx(cpuid) ) {
         apply_policy(TB_ERR_FATAL);
+        spin_unlock(&ap_lock);
         return;
     }
 
     /* 2: setup VMCS */
     if ( vmx_create_vmcs(cpuid) ) {
+        spin_unlock(&ap_lock);
 
         /* 3: launch VM */
         launch_mini_guest(cpuid);

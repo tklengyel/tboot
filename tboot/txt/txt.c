@@ -2,7 +2,7 @@
  * txt.c: Intel(r) TXT support functions, including initiating measured
  *        launch, post-launch, AP wakeup, etc.
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 #include <processor.h>
 #include <printk.h>
 #include <atomic.h>
+#include <spinlock.h>
 #include <tpm.h>
 #include <e820.h>
 #include <uuid.h>
@@ -76,6 +77,8 @@ extern char _post_launch_entry[]; /* entry point post SENTER, in boot.S */
 extern char _txt_wakeup[];        /* RLP join address for GETSEC[WAKEUP] */
 
 extern long s3_flag;
+
+extern spinlock_t ap_lock;
 
 extern void apply_policy(tb_error_t error);
 
@@ -350,6 +353,11 @@ static void txt_wakeup_cpus(void)
     mle_join_t mle_join;
     int ap_wakeup_count;
 
+    /* enable SMIs on BSP before waking APs (which will enable them on APs)
+       because some SMM may take immediate SMI and hang if AP gets in first */
+    printk("enabling SMIs on BSP\n");
+    __getsec_smctrl();
+
     atomic_set(&ap_wfs_count, 0);
 
     /* RLPs will use our GDT and CS */
@@ -414,10 +422,6 @@ static void txt_wakeup_cpus(void)
         printk("wait-for-sipi loop timed-out\n");
     else
         printk("all APs in wait-for-sipi\n");
-
-    /* enable SMIs (do this after APs have been awakened and sync'ed w/ BSP) */
-    printk("enabling SMIs on BSP\n");
-    __getsec_smctrl();
 }
 
 static bool reserve_vtd_delta_mem(txt_heap_t *txt_heap)
@@ -665,6 +669,8 @@ void txt_cpu_wakeup(void)
         apply_policy(TB_ERR_FATAL);
         return;
     }
+
+    spin_lock(&ap_lock);
 
     printk("cpu %x waking up from TXT sleep\n", cpuid);
 

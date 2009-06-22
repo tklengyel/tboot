@@ -47,6 +47,7 @@
 #include <page.h>
 #include <msr.h>
 #include <atomic.h>
+#include <spinlock.h>
 #include <e820.h>
 #include <uuid.h>
 #include <loader.h>
@@ -78,6 +79,8 @@ extern char s3_wakeup_16[];
 extern char s3_wakeup_end[];
 
 extern atomic_t ap_wfs_count;
+
+extern spinlock_t ap_lock;
 
 /* multiboot struct saved so that post_launch() can use it */
 __data multiboot_info_t *g_mbi = NULL;
@@ -443,6 +446,7 @@ void shutdown(void)
 {
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
+        spin_lock(&ap_lock);
         printk("shutdown(): TB_SHUTDOWN_WFS\n");
         handle_init_sipi_sipi(get_apicid());
         apply_policy(TB_ERR_FATAL);
