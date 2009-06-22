@@ -224,12 +224,14 @@ ENTRY(_txt_wakeup)
 	shr	$24, %ebx
 
 	# set stack as id-based offset from AP stack base
-	# "truncate" if too big (txt_cpu_wakeup() will handle failure)
-	# so that we at least have a stack (even if shared with another AP)
+	# spin hlt if we exceed, since C code can't handle shared stack
 	cmp	$NR_CPUS, %ebx
-	jl	2f
-	mov	$NR_CPUS-1, %ebx
-2:	mov	$AP_STACK_SIZE, %eax
+	jl      3f
+	# TBD: increment global counter so BSP can tell we exceeded NR_CPUS
+2:	cli
+	hlt
+	jmp     2b
+3:	mov     $AP_STACK_SIZE, %eax
 	mul	%ebx
 	sub	$AP_STACK_SIZE, %eax
 	mov	$ap_stacks, %ecx
