@@ -1,7 +1,7 @@
 /*
  * e820.h: support functions for manipulating the e820 table
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,6 +77,9 @@ extern uint32_t e820_check_region(uint64_t base, uint64_t length);
 extern bool get_ram_ranges(multiboot_info_t *mbi,
                            uint64_t *min_lo_ram, uint64_t *max_lo_ram,
                            uint64_t *min_hi_ram, uint64_t *max_hi_ram);
+extern void get_highest_sized_ram(multiboot_info_t *mbi,
+                                  uint64_t size, uint64_t limit,
+                                  uint64_t *ram_base, uint64_t *ram_size);
 
 #endif    /* __E820_H__ */
 

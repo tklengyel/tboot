@@ -1,7 +1,7 @@
 /*
  * e820.c: support functions for manipulating the e820 table
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -623,6 +623,58 @@ bool get_ram_ranges(multiboot_info_t *mbi,
     return true;
 }
 
+/* find highest (< <limit>) RAM region of at least <size> bytes */
+void get_highest_sized_ram(multiboot_info_t *mbi,
+                           uint64_t size, uint64_t limit,
+                           uint64_t *ram_base, uint64_t *ram_size)
+{
+    uint64_t last_fit_base = 0, last_fit_size = 0;
+
+    if ( ram_base == NULL || ram_size == NULL )
+        return;
+
+    if ( mbi == NULL || mbi->flags & MBI_MEMMAP ) {
+        uint32_t map_addr;
+        uint32_t map_len;
+        uint32_t entry_offset = 0;
+
+        if ( mbi == NULL ) {
+            map_addr = (uint32_t)g_copy_e820_map;
+            map_len = g_nr_map * sizeof(memory_map_t);
+        }
+        else {
+            map_addr = mbi->mmap_addr;
+            map_len = mbi->mmap_length;
+        }
+
+        while ( entry_offset < map_len ) {
+            memory_map_t *entry = (memory_map_t *)(map_addr + entry_offset);
+            if ( entry->type == E820_RAM ) {
+                uint64_t base = e820_base_64(entry);
+                uint64_t length = e820_length_64(entry);
+
+                /* over 4GB so use the last region that fit */
+                if ( base + length > limit )
+                    break;
+                if ( size <= length ) {
+                    last_fit_base = base;
+                    last_fit_size = length;
+                }
+            }
+            entry_offset += entry->size + sizeof(entry->size);
+        }
+    }
+    if ( last_fit_size == 0 && mbi->flags & MBI_MEMLIMITS ) {
+        last_fit_base = 0;
+        last_fit_size = (((uint64_t)mbi->mem_upper) << 10) + 0x100000ULL -
+                        last_fit_base;
+        if ( last_fit_base + last_fit_size > limit )
+            last_fit_size = limit - last_fit_base;
+    }
+
+    *ram_base = last_fit_base;
+    *ram_size = last_fit_size;
+}
 
 /*
  * Local variables:

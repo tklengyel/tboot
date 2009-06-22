@@ -143,27 +143,21 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* The initrd should typically be located as high in memory as
        possible, as it may otherwise get overwritten by the early
        kernel initialization sequence. */
-    uint64_t max_mem;
-    /* use the PMR values instead of get_ram_regions() because we
-       may have truncated them due to PMR 2MB granularity */
-    max_mem = g_pre_k_s3_state.vtd_pmr_lo_base +
-              g_pre_k_s3_state.vtd_pmr_lo_size;
-    /* if we haven't done a launch (i.e. some error) then PMRs are not set */
-    if ( max_mem == 0 ) {
-        uint64_t min_lo, min_hi, max_hi;
-        if ( !get_ram_ranges(g_mbi, &min_lo, &max_mem, &min_hi,
-                             &max_hi) ) {
-            printk("failed to get max ram\n");
-            return false;
-        }
+
+    /* check if Linux command line explicitly specified a memory limit */
+    uint64_t mem_limit;
+    get_linux_mem(&mem_limit);
+    if ( mem_limit > 0x100000000ULL || mem_limit == 0 )
+        mem_limit = 0x100000000ULL;
+
+    uint64_t max_ram_base, max_ram_size;
+    get_highest_sized_ram(g_mbi, initrd_size, mem_limit,
+                          &max_ram_base, &max_ram_size);
+    if ( max_ram_size == 0 ) {
+        printk("not enough RAM for initrd\n");
+        return false;
     }
-    /* check if Linux command line explicitly specified less memory */
-    uint64_t linux_max_mem;
-    if ( get_linux_mem(&linux_max_mem) ) {
-        if ( linux_max_mem < max_mem )
-            max_mem = linux_max_mem;
-    }
-    initrd_base = (max_mem - initrd_size) & PAGE_MASK;
+    initrd_base = (max_ram_base + max_ram_size - initrd_size) & PAGE_MASK;
 
     /* should not exceed initrd_addr_max */
     if ( initrd_base + initrd_size > hdr->initrd_addr_max ) {
