@@ -141,10 +141,11 @@ static bool seal_data(const void *data, size_t data_size,
                    const tpm_pcr_value_t *pcr_values_release[])
 {
     /* TPM_Seal can only seal small data (like key or hash), so hash data */
-    struct {
+    struct __packed {
         tb_hash_t data_hash;
         uint8_t   secrets[secrets_size];
     } blob;
+    uint32_t err;
 
     memset(&blob, 0, sizeof(blob));
     if ( !hash_buffer(data, data_size, &blob.data_hash, TB_HALG_SHA1) ) {
@@ -155,20 +156,19 @@ static bool seal_data(const void *data, size_t data_size,
     if ( secrets != NULL && secrets_size > 0 )
         memcpy(blob.secrets, secrets, secrets_size);
 
-    if ( tpm_seal(2, TPM_LOC_TWO,
-                  nr_pcr_indcs_create, pcr_indcs_create,
-                  nr_pcr_indcs_release, pcr_indcs_release,
-                  pcr_values_release,
-                  sizeof(blob), (const uint8_t *)&blob,
-                  sealed_data_size, sealed_data) != TPM_SUCCESS ) {
+    err = tpm_seal(2, TPM_LOC_TWO,
+                   nr_pcr_indcs_create, pcr_indcs_create,
+                   nr_pcr_indcs_release, pcr_indcs_release,
+                   pcr_values_release,
+                   sizeof(blob), (const uint8_t *)&blob,
+                   sealed_data_size, sealed_data);
+    if ( err != TPM_SUCCESS )
         printk("failed to seal data\n");
-        return false;
-    }
 
     /* since blob might contain secret, clear it */
     memset(&blob, 0, sizeof(blob));
 
-    return true;
+    return (err == TPM_SUCCESS) ? true : false;
 }
 
 static bool verify_sealed_data(const uint8_t *sealed_data,
@@ -177,10 +177,11 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
                                void *secrets, size_t secrets_size)
 {
     /* sealed data is hash of state data and optional secret */
-    struct {
+    struct __packed {
         tb_hash_t data_hash;
         uint8_t   secrets[secrets_size];
     } blob;
+    bool err = true;
 
     uint32_t data_size = sizeof(blob);
     if ( tpm_unseal(2, sealed_data_size, sealed_data,
@@ -190,7 +191,7 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
     }
     if ( data_size != sizeof(blob) ) {
         printk("unsealed state data size mismatch\n");
-        return false;
+        goto done;
     }
 
     /* verify that (hash of) current data maches sealed hash */
@@ -199,20 +200,23 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
     if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash,
                       TB_HALG_SHA1) ) {
         printk("failed to hash state data\n");
-        return false;
+        goto done;
     }
     if ( !are_hashes_equal(&blob.data_hash, &curr_data_hash, TB_HALG_SHA1) ) {
         printk("sealed hash does not match current hash\n");
-        return false;
+        goto done;
     }
 
-    if ( secrets != NULL && secrets_size > 0 ) {
+    if ( secrets != NULL && secrets_size > 0 )
         memcpy(secrets, &blob.secrets, secrets_size);
-        /* clear secret from local memory */
-        memset(&blob, 0, sizeof(blob));
-    }
 
-    return true;
+    err = false;
+
+ done:
+    /* clear secret from local memory */
+    memset(&blob, 0, sizeof(blob));
+
+    return !err;
 }
 
 /*
