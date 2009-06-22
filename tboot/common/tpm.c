@@ -424,7 +424,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     {
         printk("TPM: response size = %d\n", *out_size);
         printk("TPM: response content: ");
-        print_hex("TPM: \t", out, out_size);
+        print_hex("TPM: \t", out, *out_size);
     }
 #endif
 
