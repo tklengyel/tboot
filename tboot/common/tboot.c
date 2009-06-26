@@ -95,6 +95,11 @@ extern tboot_shared_t _tboot_shared;
 static __data uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
 
 
+void *get_tboot_mem_end(void)
+{
+    return (void *)(((unsigned long)&_end + PAGE_SIZE - 1ULL) & ~(PAGE_SIZE - 1));
+}
+
 static tb_error_t verify_platform(void)
 {
     return txt_verify_platform();
@@ -186,8 +191,7 @@ static void post_launch(void)
 
     /* protect ourselves, MLE page table, and MLE/kernel shared page */
     base = (uint64_t)((unsigned long)&_start - 3*PAGE_SIZE);
-    size = (uint64_t)(unsigned long)&_end - base;
-    size = (size + PAGE_SIZE - 1ULL) & ~(PAGE_SIZE - 1);
+    size = (uintptr_t)get_tboot_mem_end() - base;
     uint32_t mem_type = is_kernel_linux() ? E820_RESERVED : E820_UNUSABLE;
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));

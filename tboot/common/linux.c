@@ -54,14 +54,15 @@ extern multiboot_info_t *g_mbi;
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
-extern char _end[];              /* end of tboot */
-
 static boot_params_t *boot_params;
+
+extern void *get_tboot_mem_end(void);
+
 
 /* expand linux kernel with kernel image and initrd image */
 bool expand_linux_image(const void *linux_image, size_t linux_size,
                         const void *initrd_image, size_t initrd_size,
-                        void **entry_point)
+                        void **entry_point, bool is_measured_launch)
 {
     linux_kernel_header_t *hdr;
     uint32_t real_mode_base, protected_mode_base;
@@ -196,10 +197,8 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* if kernel is relocatable then move it above tboot */
     /* else it may expand over top of tboot */
     if ( hdr->relocatable_kernel ) {
-        /* get the end of tboot rounded to 2MB for VT-d, since that is what */
-        /* is reserved as UNUSABLE */
-        protected_mode_base = ((uintptr_t)&_end + 0x200000 - 1) & ~0x1fffff;
-        /* then round it up to kernel alignment */
+        protected_mode_base = (uint32_t)get_tboot_mem_end();
+        /* round it up to kernel alignment */
         protected_mode_base = (protected_mode_base + hdr->kernel_alignment - 1)
                               & ~(hdr->kernel_alignment-1);
         hdr->code32_start = protected_mode_base;
@@ -274,11 +273,12 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     screen->orig_video_points = 16;    /* set font height to 16 pixels */
     screen->orig_video_isVGA = 1;      /* use VGA text screen setups */
     screen->orig_y = 24;               /* start display text in the last line
-                                       of screen */
+                                          of screen */
 
     /* set address of tboot shared page */
-    uint64_t *tboot_shared_addr = (uint64_t *)&boot_params->tboot_shared_addr;
-    *tboot_shared_addr = (uintptr_t)&_tboot_shared;
+    if ( is_measured_launch )
+        *(uint64_t *)&boot_params->tboot_shared_addr =
+                                             (uintptr_t)&_tboot_shared;
 
     *entry_point = (void *)hdr->code32_start;
     return true;

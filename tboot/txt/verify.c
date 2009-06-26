@@ -59,9 +59,6 @@
 #include <txt/heap.h>
 #include <txt/verify.h>
 
-extern char _start[];           /* start of module */
-extern char _end[];             /* end of module */
-
 extern long s3_flag;
 
 /*

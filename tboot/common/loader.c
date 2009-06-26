@@ -64,7 +64,7 @@ extern bool is_elf_image(const void *image, size_t size);
 extern bool expand_elf_image(const elf_header_t *elf, void **entry_point);
 extern bool expand_linux_image(const void *linux_image, size_t linux_size,
                                const void *initrd_image, size_t initrd_size,
-                               void **entry_point);
+                               void **entry_point, bool is_measured_launch);
 extern bool jump_elf_image(void *entry_point);
 extern bool jump_linux_image(void *entry_point);
 
@@ -228,7 +228,7 @@ bool launch_kernel(bool is_measured_launch)
 
         expand_linux_image(kernel_image, kernel_size,
                            initrd_image, initrd_size,
-                           &kernel_entry_point);
+                           &kernel_entry_point, is_measured_launch);
         printk("transfering control to kernel @0x%p...\n", kernel_entry_point);
         return jump_linux_image(kernel_entry_point);
     }
