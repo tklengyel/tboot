@@ -283,7 +283,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     size = (uint64_t *)((uint32_t)os_mle_data - sizeof(uint64_t));
     *size = sizeof(*os_mle_data) + sizeof(uint64_t);
     memset(os_mle_data, 0, sizeof(*os_mle_data));
-    os_mle_data->version = 0x01;
+    os_mle_data->version = 0x02;
     os_mle_data->mbi = mbi;
     rdmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
 
@@ -310,19 +310,19 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
         return NULL;
     set_vtd_pmrs(os_sinit_data, min_lo_ram, max_lo_ram, min_hi_ram,
                  max_hi_ram);
-    /* LCP manifest */
+    /* LCP owner policy data */
     void *lcp_base = NULL;
     uint32_t lcp_size = 0;
     find_lcp_module(mbi, &lcp_base, &lcp_size);
-    os_sinit_data->lcp_po_base = (unsigned long)lcp_base;
-    os_sinit_data->lcp_po_size = lcp_size;
-    /* if we found a manifest, remove it from module list so that */
-    /* VMM/kernel doesn't see an extra file */
-    if ( lcp_base != NULL ) {
-        if ( remove_module(mbi, lcp_base) == NULL ) {
-            printk("failed to remove LCP manifest from module list\n");
+    if ( lcp_size > 0 ) {
+        /* copy to heap */
+        if ( lcp_size > sizeof(os_mle_data->lcp_po_data) ) {
+            printk("LCP owner policy data file is too large (%u)\n", lcp_size);
             return NULL;
         }
+        memcpy(os_mle_data->lcp_po_data, lcp_base, lcp_size);
+        os_sinit_data->lcp_po_base = (unsigned long)&os_mle_data->lcp_po_data;
+        os_sinit_data->lcp_po_size = lcp_size;
     }
     /* capabilities : choose monitor wake mechanism first */
     txt_caps_t sinit_caps = get_sinit_capabilities(sinit);
@@ -482,12 +482,6 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
             printk("SINIT does not match chipset\n");
             sinit = NULL;
         }
-        /* remove it from module list so that VMM/kernel doesn't see an */
-        /* extra file */
-        if ( remove_module(mbi, sinit) == NULL ) {
-            printk("failed to remove SINIT module from module list\n");
-            return TB_ERR_FATAL;
-        }
     }
 
     /* if it is newer than BIOS-provided version, then copy it to */
@@ -527,6 +521,28 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
     printk("ERROR--we should not get here!\n");
     return TB_ERR_FATAL;
+}
+
+bool txt_s3_launch_environment(void)
+{
+    acm_hdr_t *sinit;
+
+    /* initial launch's TXT heap data is still in place and assumed valid */
+    /* so don't re-create; this is OK because it was untrusted initially */
+    /* and would be untrusted now */
+
+    /* get sinit binary loaded */
+    sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
+    if ( sinit == NULL )
+        return false;
+
+    /* set MTRRs properly for AC module (SINIT) */
+    set_mtrrs_for_acmod(sinit);
+
+    printk("executing GETSEC[SENTER]...\n");
+    __getsec_senter((uint32_t)sinit, (sinit->size)*4);
+    printk("ERROR--we should not get here!\n");
+    return false;
 }
 
 bool txt_prepare_cpu(void)
@@ -798,24 +814,6 @@ void txt_shutdown(void)
     printk("executing GETSEC[SEXIT]...\n");
     __getsec_sexit();
     printk("measured environment torn down\n");
-}
-
-bool txt_s3_launch_environment(void)
-{
-    acm_hdr_t *sinit;
-
-    /* get sinit binary loaded */
-    sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
-    if ( sinit == NULL )
-        return false;
-
-    /* set MTRRs properly for AC module (SINIT) */
-    set_mtrrs_for_acmod(sinit);
-
-    printk("executing GETSEC[SENTER]...\n");
-    __getsec_senter((uint32_t)sinit, (sinit->size)*4);
-    printk("ERROR--we should not get here!\n");
-    return false;
 }
 
 bool txt_is_powercycle_required(void)

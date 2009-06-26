@@ -115,11 +115,6 @@ static bool prepare_cpu(void)
     return txt_prepare_cpu();
 }
 
-static tb_error_t launch_environment(multiboot_info_t *mbi)
-{
-    return txt_launch_environment(mbi);
-}
-
 static void copy_s3_wakeup_entry(void)
 {
     if ( s3_wakeup_end - s3_wakeup_16 > PAGE_SIZE ) {
@@ -352,7 +347,7 @@ void begin_launch(multiboot_info_t *mbi)
         apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* launch the measured environment */
-    err = launch_environment(mbi);
+    err = txt_launch_environment(mbi);
     apply_policy(err);
 }
 

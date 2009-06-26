@@ -137,6 +137,42 @@ bool verify_mbi(multiboot_info_t *mbi)
     return true;
 }
 
+static void *remove_module(multiboot_info_t *mbi, void *mod_start)
+{
+    module_t *m = NULL;
+    int i;
+
+    if ( !verify_mbi(mbi) )
+        return NULL;
+
+    for ( i = 0; i < mbi->mods_count; i++ ) {
+        m = get_module(mbi, i);
+        if ( mod_start == NULL || (void *)m->mod_start == mod_start )
+            break;
+    }
+
+    /* not found */
+    if ( m == NULL ) {
+        printk("could not find module to remove\n");
+        return NULL;
+    }
+
+    /* if we're removing the first module (i.e. the "kernel") then need to */
+    /* adjust some mbi fields as well */
+    if ( mod_start == NULL ) {
+        mbi->cmdline = m->string;
+        mbi->flags |= MBI_CMDLINE;
+        mod_start = (void *)m->mod_start;
+    }
+
+    /* copy remaing mods down by one */
+    memmove(m, m + 1, (mbi->mods_count - i - 1)*sizeof(module_t));
+
+    mbi->mods_count--;
+
+    return mod_start;
+}
+
 static bool adjust_kernel_cmdline(multiboot_info_t *mbi,
                                   const void *tboot_shared_addr)
 {
@@ -181,18 +217,18 @@ bool launch_kernel(bool is_measured_launch)
 
     module_t *m = (module_t *)g_mbi->mods_addr;
 
-    /* if this is not a measured launch then make sure to remove SINIT
-       and LCP policy data modules */
-    if ( !is_measured_launch ) {
-        void *base = NULL;
-
-        if ( find_sinit_module(g_mbi, &base, NULL) ) {
-            if ( remove_module(g_mbi, base) == NULL )
-                printk("failed to remove SINIT module from module list\n");
+    /* remove SINIT and LCP policy data modules (if present) */
+    void *base = NULL;
+    if ( find_sinit_module(g_mbi, &base, NULL) ) {
+        if ( remove_module(g_mbi, base) == NULL ) {
+            printk("failed to remove SINIT module from module list\n");
+            return false;
         }
-        if ( find_lcp_module(g_mbi, &base, NULL) ) {
-            if ( remove_module(g_mbi, base) == NULL )
-                printk("failed to remove LCP module from module list\n");
+    }
+    if ( find_lcp_module(g_mbi, &base, NULL) ) {
+        if ( remove_module(g_mbi, base) == NULL ) {
+            printk("failed to remove LCP module from module list\n");
+            return false;
         }
     }
 
@@ -322,42 +358,6 @@ bool verify_modules(multiboot_info_t *mbi)
     }
 
     return true;
-}
-
-void *remove_module(multiboot_info_t *mbi, void *mod_start)
-{
-    module_t *m = NULL;
-    int i;
-
-    if ( !verify_mbi(mbi) )
-        return NULL;
-
-    for ( i = 0; i < mbi->mods_count; i++ ) {
-        m = get_module(mbi, i);
-        if ( mod_start == NULL || (void *)m->mod_start == mod_start )
-            break;
-    }
-
-    /* not found */
-    if ( m == NULL ) {
-        printk("could not find module to remove\n");
-        return NULL;
-    }
-
-    /* if we're removing the first module (i.e. the "kernel") then need to */
-    /* adjust some mbi fields as well */
-    if ( mod_start == NULL ) {
-        mbi->cmdline = m->string;
-        mbi->flags |= MBI_CMDLINE;
-        mod_start = (void *)m->mod_start;
-    }
-
-    /* copy remaing mods down by one */
-    memmove(m, m + 1, (mbi->mods_count - i - 1)*sizeof(module_t));
-
-    mbi->mods_count--;
-
-    return mod_start;
 }
 
 

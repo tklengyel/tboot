@@ -140,8 +140,8 @@ static bool verify_os_mle_data(txt_heap_t *txt_heap)
                "(%Lx, heap size=%Lx)\n", size, heap_size);
         return false;
     }
-    if ( size < sizeof(os_mle_data_t) ) {
-        printk("OS to MLE data size (%Lx) is smaller than "
+    if ( size != (sizeof(os_mle_data_t) + sizeof(size)) ) {
+        printk("OS to MLE data size (%Lx) is not equal to "
                "os_mle_data_t size (%x)\n", size, sizeof(os_mle_data_t));
         return false;
     }
@@ -151,7 +151,7 @@ static bool verify_os_mle_data(txt_heap_t *txt_heap)
     /* check version */
     /* since this data is from our pre-launch to post-launch code only, it */
     /* should always be this */
-    if ( os_mle_data->version != 1 ) {
+    if ( os_mle_data->version != 2 ) {
         printk("unsupported OS to MLE data version (%u)\n",
                os_mle_data->version);
         return false;
