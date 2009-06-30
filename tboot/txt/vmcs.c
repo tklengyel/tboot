@@ -4,6 +4,33 @@
  * Copyright (c) 2003-2009, Intel Corporation
  * All rights reserved.
  *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
 #include <config.h>
@@ -27,21 +54,15 @@
 
 /* no vmexit on external intr as mini guest only handle INIT & SIPI */
 #define MONITOR_PIN_BASED_EXEC_CONTROLS                 \
-      (PIN_BASED_NMI_EXITING)
-
-#define MONITOR_CPU_BASED_EXEC_CONTROLS_SUBARCH 0
-
-#define MONITOR_VM_EXIT_CONTROLS_SUBARCH 0
+    ( PIN_BASED_NMI_EXITING )
 
 /* no vmexit on hlt as guest only run this instruction */
 #define MONITOR_CPU_BASED_EXEC_CONTROLS                 \
-    ( MONITOR_CPU_BASED_EXEC_CONTROLS_SUBARCH |         \
-      CPU_BASED_INVDPG_EXITING |                        \
+    ( CPU_BASED_INVDPG_EXITING |                        \
       CPU_BASED_MWAIT_EXITING )
 
 #define MONITOR_VM_EXIT_CONTROLS                        \
-    ( MONITOR_VM_EXIT_CONTROLS_SUBARCH |                \
-      VM_EXIT_ACK_INTR_ON_EXIT )
+    ( VM_EXIT_ACK_INTR_ON_EXIT )
 
 /* Basic flags for VM-Entry controls. */
 #define MONITOR_VM_ENTRY_CONTROLS                       0x00000000
@@ -65,14 +86,6 @@ extern atomic_t ap_wfs_count;
 /* flag for (all APs) exiting mini guest (1 = exit) */
 uint32_t aps_exit_guest;
 
-/* Dynamic (run-time adjusted) execution control flags. */
-static uint32_t vmx_pin_based_exec_control;
-static uint32_t vmx_cpu_based_exec_control;
-static uint32_t vmx_vmexit_control;
-static uint32_t vmx_vmentry_control;
-
-static uint32_t vmcs_revision_id;
-
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
 
@@ -83,66 +96,42 @@ extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 
 extern void apply_policy(tb_error_t error);
 
-static uint32_t adjust_vmx_controls(uint32_t ctrls, uint32_t msr)
+static uint32_t vmcs_rev_id;
+static uint32_t pin_based_vm_exec_ctrls;
+static uint32_t proc_based_vm_exec_ctrls;
+static uint32_t vm_exit_ctrls;
+static uint32_t vm_entry_ctrls;
+
+static void init_vmx_ctrl(uint32_t msr, uint32_t ctrl_val, uint32_t *ctrl)
 {
-    uint32_t vmx_msr_low, vmx_msr_high;
+    uint32_t lo, hi;
 
-    rdmsr(msr, vmx_msr_low, vmx_msr_high);
+    rdmsr(msr, lo, hi);
+    *ctrl = (ctrl_val & hi) | lo;
 
-    /* Bit == 0 means must be zero. */
-    if ( ctrls & ~vmx_msr_high )
+    /* make sure that the conditions we want are actually allowed */
+    if ( (*ctrl & ctrl_val) != ctrl_val )
         apply_policy(TB_ERR_FATAL);
-
-    /* Bit == 1 means must be one. */
-    ctrls |= vmx_msr_low;
-
-    return ctrls;
 }
 
-static void vmx_init_vmcs_config(void)
+static void init_vmcs_config(void)
 {
-    uint32_t vmx_msr_low, vmx_msr_high;
-    uint32_t _vmx_pin_based_exec_control;
-    uint32_t _vmx_cpu_based_exec_control;
-    uint32_t _vmx_vmexit_control;
-    uint32_t _vmx_vmentry_control;
-    static int vmcs_config_init = 0;
+    uint32_t lo, hi;
 
-    _vmx_pin_based_exec_control =
-        adjust_vmx_controls(MONITOR_PIN_BASED_EXEC_CONTROLS,
-                            MSR_IA32_VMX_PINBASED_CTLS_MSR);
-    _vmx_cpu_based_exec_control =
-        adjust_vmx_controls(MONITOR_CPU_BASED_EXEC_CONTROLS,
-                            MSR_IA32_VMX_PROCBASED_CTLS_MSR);
-    _vmx_vmexit_control =
-        adjust_vmx_controls(MONITOR_VM_EXIT_CONTROLS,
-                            MSR_IA32_VMX_EXIT_CTLS_MSR);
-    _vmx_vmentry_control =
-        adjust_vmx_controls(MONITOR_VM_ENTRY_CONTROLS,
-                            MSR_IA32_VMX_ENTRY_CTLS_MSR);
+    rdmsr(MSR_IA32_VMX_BASIC_MSR, lo, hi);
+    vmcs_rev_id = lo;
 
-    rdmsr(MSR_IA32_VMX_BASIC_MSR, vmx_msr_low, vmx_msr_high);
+    init_vmx_ctrl(MSR_IA32_VMX_PINBASED_CTLS_MSR,
+                  MONITOR_PIN_BASED_EXEC_CONTROLS, &pin_based_vm_exec_ctrls);
 
-    if ( vmcs_config_init == 0 ) {
-        vmcs_revision_id = vmx_msr_low;
-        vmx_pin_based_exec_control = _vmx_pin_based_exec_control;
-        vmx_cpu_based_exec_control = _vmx_cpu_based_exec_control;
-        vmx_vmexit_control         = _vmx_vmexit_control;
-        vmx_vmentry_control        = _vmx_vmentry_control;
-        vmcs_config_init = 1;
-    }
-    else if ( (vmcs_revision_id != vmx_msr_low) ||
-            (vmx_pin_based_exec_control != _vmx_pin_based_exec_control) ||
-            (vmx_cpu_based_exec_control != _vmx_cpu_based_exec_control) ||
-            (vmx_vmexit_control != _vmx_vmexit_control) ||
-            (vmx_vmentry_control != _vmx_vmentry_control) )
-        printk("vmx_init_config different on different AP.\n");
+    init_vmx_ctrl(MSR_IA32_VMX_PROCBASED_CTLS_MSR,
+                  MONITOR_CPU_BASED_EXEC_CONTROLS, &proc_based_vm_exec_ctrls);
 
-    /* IA-32 SDM Vol 3B: VMCS size is never greater than 4kB. */
-    if ( (vmx_msr_high & 0x1fff) > PAGE_SIZE ) {
-        printk("vmcs size wrong.\n");
-        apply_policy(TB_ERR_FATAL);
-    }
+    init_vmx_ctrl(MSR_IA32_VMX_EXIT_CTLS_MSR,
+                  MONITOR_VM_EXIT_CONTROLS, &vm_exit_ctrls);
+
+    init_vmx_ctrl(MSR_IA32_VMX_ENTRY_CTLS_MSR,
+                  MONITOR_VM_ENTRY_CONTROLS, &vm_entry_ctrls);
 }
 
 extern uint32_t idle_pg_table[PAGE_SIZE / 4];
@@ -173,13 +162,14 @@ static bool start_vmx(unsigned int cpuid)
 
     vmcs = (struct vmcs_struct *)host_vmcs;
 
+    /* TBD: it would be good to check VMX config is same on all CPUs */
     /* only initialize this data the first time */
     if ( !init_done ) {
         /*printk("one-time initializing VMX mini-guest\n");*/
         memset(vmcs, 0, PAGE_SIZE);
 
-        vmx_init_vmcs_config();
-        vmcs->vmcs_revision_id = vmcs_revision_id;
+        init_vmcs_config();
+        vmcs->vmcs_revision_id = vmcs_rev_id;
 
         /* enable paging as required by vmentry */
         build_ap_pagetable();
@@ -248,10 +238,10 @@ static void construct_vmcs(void)
     union vmcs_arbytes arbytes;
     uint16_t seg;
 
-    __vmwrite(PIN_BASED_VM_EXEC_CONTROL, vmx_pin_based_exec_control);
-    __vmwrite(VM_EXIT_CONTROLS, vmx_vmexit_control);
-    __vmwrite(VM_ENTRY_CONTROLS, vmx_vmentry_control);
-    __vmwrite(CPU_BASED_VM_EXEC_CONTROL, vmx_cpu_based_exec_control);
+    __vmwrite(PIN_BASED_VM_EXEC_CONTROL, pin_based_vm_exec_ctrls);
+    __vmwrite(VM_EXIT_CONTROLS, vm_exit_ctrls);
+    __vmwrite(VM_ENTRY_CONTROLS, vm_entry_ctrls);
+    __vmwrite(CPU_BASED_VM_EXEC_CONTROL, proc_based_vm_exec_ctrls);
 
     /* segments selectors. */
     __asm__ __volatile__ ("mov %%ss, %0\n" : "=r"(seg));
@@ -429,7 +419,7 @@ static bool vmx_create_vmcs(unsigned int cpuid)
 
     memset(vmcs, 0, PAGE_SIZE);
 
-    vmcs->vmcs_revision_id = vmcs_revision_id;
+    vmcs->vmcs_revision_id = vmcs_rev_id;
 
     /* vir addr equal to phy addr as we setup identity page table */
     __vmpclear((unsigned long)vmcs);
@@ -548,7 +538,7 @@ void handle_init_sipi_sipi(unsigned int cpuid)
         spin_unlock(&ap_lock);
         return;
     }
-        
+
     /* setup a dummy tss as vmentry require a non-zero host TR */
     load_TR(3);
 

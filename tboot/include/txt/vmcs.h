@@ -1,3 +1,38 @@
+/*
+ * vmcs.h: VMCS definitions for creation of APs mini-guests
+ *
+ * Copyright (c) 2003-2009, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
 #ifndef __TXT_VMCS_H__
 #define __TXT_VMCS_H__
 
@@ -163,14 +198,6 @@ enum vmcs_field {
     HOST_RIP                        = 0x00006c16,
 };
 
-/* VMX stuff */
-enum ap_init_state {
-    AP_WAIT_INIT                = 0,
-    AP_WAIT_SIPI1               = 1,
-    AP_WAIT_SIPI2               = 2,
-    AP_WAIT_DONE                = 3,
-};
-
 enum guest_activity_state {
     GUEST_STATE_ACTIVE          = 0,
     GUEST_STATE_HALT            = 1,
@@ -201,10 +228,8 @@ enum guest_activity_state {
 #define EXIT_REASON_INIT                3
 #define EXIT_REASON_SIPI                4
 #define EXIT_REASON_VMCALL              18
-
 #define EXIT_REASON_INVALID_GUEST_STATE 33
 #define EXIT_REASON_MSR_LOADING         34
-
 #define EXIT_REASON_MACHINE_CHECK       41
 
 static inline void __vmptrld(uint64_t addr)
@@ -266,21 +291,6 @@ static inline void __vmwrite(unsigned long field, unsigned long value)
                            : 
                            : "a" (field) , "c" (value)
                            : "memory");
-}
-
-static inline unsigned long __vmread_safe(unsigned long field, int *error)
-{
-    unsigned long ecx;
-
-    __asm__ __volatile__ ( VMREAD_OPCODE
-                           MODRM_EAX_ECX
-                           /* CF==1 or ZF==1 --> rc = -1 */
-                           "setna %b0 ; neg %0"
-                           : "=q" (*error), "=c" (ecx)
-                           : "0" (0), "a" (field)
-                           : "memory");
-
-    return ecx;
 }
 
 static inline void __vmlaunch (void)
