@@ -337,6 +337,11 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
         printk("SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
         return NULL;
     }
+    /* capabilities : require MLE pagetable in ECX on launch */
+    /* TODO when SINIT ready
+     * os_sinit_data->capabilities.ecx_pgtbl = 1;
+     */
+    os_sinit_data->capabilities.ecx_pgtbl = 0;
 
     print_os_sinit_data(os_sinit_data);
 

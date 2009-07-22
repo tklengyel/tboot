@@ -44,7 +44,8 @@ typedef union {
     struct {
         uint32_t  rlp_wake_getsec     : 1;
         uint32_t  rlp_wake_monitor    : 1;
-        uint32_t  reserved            : 30;
+        uint32_t  ecx_pgtbl           : 1;
+        uint32_t  reserved            : 29;
     };
 } txt_caps_t;
 
@@ -73,7 +74,8 @@ typedef struct {
  * values supported by current version of tboot
  */
 #define MLE_HDR_VER       0x00020001     /* 2.1 */
-#define MLE_HDR_CAPS      0x00000003     /* rlp_wake_{getsec, monitor} = 1 */
+#define MLE_HDR_CAPS      0x00000007     /* rlp_wake_{getsec, monitor} = 1,
+                                            ecx_pgtbl = 1 */
 
 #endif      /* __MLE_H__ */
 

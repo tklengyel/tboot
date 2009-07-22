@@ -113,6 +113,7 @@ void print_txt_caps(const char *prefix, txt_caps_t caps)
     printk("%scapabilities: 0x%08x\n", prefix, caps._raw);
     printk("%s    rlp_wake_getsec: %d\n", prefix, caps.rlp_wake_getsec);
     printk("%s    rlp_wake_monitor: %d\n", prefix, caps.rlp_wake_monitor);
+    printk("%s    ecx_pgtbl: %d\n", prefix, caps.ecx_pgtbl);
 }
 
 static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
@@ -471,8 +472,7 @@ bool verify_acmod(acm_hdr_t *acm_hdr)
     }
 
     /* check capabilities */
-    /* currently we need to match one of rlp_wake_{getsec, monitor} */
-    /* if other caps become mandatory then further tests will be needed */
+    /* we need to match one of rlp_wake_{getsec, monitor} */
     txt_caps_t caps_mask = { 0 };
     caps_mask.rlp_wake_getsec = caps_mask.rlp_wake_monitor = 1;
 
@@ -480,6 +480,13 @@ bool verify_acmod(acm_hdr_t *acm_hdr)
            ( info_table->capabilities._raw & caps_mask._raw) ) == 0 ) {
         printk("SINIT and MLE not support compatible RLP wake mechanisms\n");
         return false;
+    }
+    /* we also expect ecx_pgtbl to be set */
+    if ( !info_table->capabilities.ecx_pgtbl ) {
+        printk("SINIT does not support launch with MLE pagetable in ECX\n");
+        /* TODO when SINIT ready
+         * return false;
+         */
     }
 
     /* check for version of OS to SINIT data */
