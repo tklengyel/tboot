@@ -308,11 +308,13 @@ error:
 
 static mle_hdr_t *find_mle_hdr(void *start, size_t size)
 {
-    while ( size > 0 ) {
+    void *end;
+
+    end = start + size - sizeof(uuid_t);
+    while ( start <= end ) {
         if ( are_uuids_equal((const uuid_t *)start, &((uuid_t)MLE_HDR_UUID)) )
             return (mle_hdr_t *)start;
         start += sizeof(uuid_t);
-        size -= sizeof(uuid_t);
     }
     return NULL;
 }
