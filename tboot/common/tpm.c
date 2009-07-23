@@ -183,11 +183,29 @@ static bool tpm_validate_locality(uint32_t locality)
 #define TIMEOUT_B       (TIMEOUT_UNIT * 2000) /* 2s */
 #define TIMEOUT_C       (TIMEOUT_UNIT * 750)  /* 750ms */
 #define TIMEOUT_D       (TIMEOUT_UNIT * 750)  /* 750ms */
-#define TPM_ACTIVE_LOCALITY_TIME_OUT    TIMEOUT_A   /* according to spec */ 
-#define TPM_CMD_READY_TIME_OUT          TIMEOUT_B   /* according to spec */
-#define TPM_CMD_WRITE_TIME_OUT          TIMEOUT_A   /* let it long enough */
-#define TPM_DATA_AVAIL_TIME_OUT         TIMEOUT_B   /* let it long enough */
-#define TPM_RSP_READ_TIME_OUT           TIMEOUT_A   /* let it long enough */
+
+typedef struct __packed {
+    uint32_t timeout_a;
+    uint32_t timeout_b;
+    uint32_t timeout_c;
+    uint32_t timeout_d;
+} tpm_timeout_t;
+
+static tpm_timeout_t g_timeout = {TIMEOUT_A,
+                                  TIMEOUT_B,
+                                  TIMEOUT_C,
+                                  TIMEOUT_D};
+
+#define TPM_ACTIVE_LOCALITY_TIME_OUT    \
+          (TIMEOUT_UNIT * g_timeout.timeout_a)  /* according to spec */
+#define TPM_CMD_READY_TIME_OUT          \
+          (TIMEOUT_UNIT * g_timeout.timeout_b)  /* according to spec */
+#define TPM_CMD_WRITE_TIME_OUT          \
+          (TIMEOUT_UNIT * g_timeout.timeout_d)  /* let it long enough */
+#define TPM_DATA_AVAIL_TIME_OUT         \
+          (TIMEOUT_UNIT * g_timeout.timeout_c)  /* let it long enough */
+#define TPM_RSP_READ_TIME_OUT           \
+          (TIMEOUT_UNIT * g_timeout.timeout_d)  /* let it long enough */
 
 static uint32_t tpm_wait_cmd_ready(uint32_t locality)
 {
@@ -210,15 +228,17 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
     reg_acc.request_use = 1;
     write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
 
-    for ( i = TPM_ACTIVE_LOCALITY_TIME_OUT; i > 0; i-- ) {
+    i = 0;
+    do {
         read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
         if ( reg_acc.active_locality == 1 )
             break;
         else
             cpu_relax();
-    }
+        i++;
+    } while ( i <= TPM_ACTIVE_LOCALITY_TIME_OUT);
     
-    if ( i <= 0 ) {
+    if ( i > TPM_ACTIVE_LOCALITY_TIME_OUT ) {
         printk("TPM: access reg request use timeout\n");
         return TPM_FAIL;
     }
@@ -227,7 +247,8 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
 #ifdef TPM_TRACE
     printk("TPM: wait for cmd ready ");
 #endif
-    for ( i = TPM_CMD_READY_TIME_OUT; i > 0; i-- ) {
+    i = 0;
+    do {
         /* write 1 to TPM_STS_x.commandReady to let TPM enter ready state */
         memset((void *)&reg_sts, 0, sizeof(reg_sts));
         reg_sts.command_ready = 1;
@@ -243,12 +264,13 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
             break;
         else
             cpu_relax();
-    }
+        i++;
+    } while ( i <= TPM_CMD_READY_TIME_OUT );
 #ifdef TPM_TRACE
     printk("\n");
 #endif
 
-    if ( i <= 0 ) {
+    if ( i > TPM_CMD_READY_TIME_OUT ) {
         printk("TPM: status reg content: %02x %02x %02x\n", 
                (uint32_t)reg_sts._raw[0], 
                (uint32_t)reg_sts._raw[1], 
@@ -338,7 +360,8 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     /* write the command to the TPM FIFO */
     offset = 0;
     do {
-        for ( i = TPM_CMD_WRITE_TIME_OUT; i > 0; i-- ) {
+        i = 0;
+        do {
             read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
             /* find out how many bytes the TPM can accept in a row */
             row_size = reg_sts.burst_count;
@@ -346,8 +369,9 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
                 break;
             else
                 cpu_relax();
-        }
-        if ( i <= 0 ) {
+            i++;
+        } while ( i <= TPM_CMD_WRITE_TIME_OUT );
+        if ( i > TPM_CMD_WRITE_TIME_OUT ) {
             printk("TPM: write cmd timeout\n");
             ret = TPM_FAIL;
             goto RelinquishControl;
@@ -364,14 +388,16 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
 
     /* check for data available */
-    for ( i = TPM_DATA_AVAIL_TIME_OUT; i > 0; i-- ) {
+    i = 0;
+    do {
         read_tpm_reg(locality,TPM_REG_STS, &reg_sts);
         if ( reg_sts.sts_valid == 1 && reg_sts.data_avail == 1 )
             break;
         else
             cpu_relax();
-    }
-    if ( i <= 0 ) {
+        i++;
+    } while ( i <= TPM_DATA_AVAIL_TIME_OUT );
+    if ( i > TPM_DATA_AVAIL_TIME_OUT ) {
         printk("TPM: wait for data available timeout\n");
         ret = TPM_FAIL;
         goto RelinquishControl;
@@ -381,15 +407,17 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     offset = 0;
     do {
         /* find out how many bytes the TPM returned in a row */
-        for ( i = TPM_RSP_READ_TIME_OUT; i > 0; i-- ) {
+        i = 0;
+        do {
             read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
             row_size = reg_sts.burst_count;
             if ( row_size > 0 )
                 break;
             else
                 cpu_relax();
-        }
-        if ( i <= 0 ) {
+            i++;
+        } while ( i <= TPM_RSP_READ_TIME_OUT );
+        if ( i > TPM_RSP_READ_TIME_OUT ) {
             printk("TPM: read rsp timeout\n");
             ret = TPM_FAIL;
             goto RelinquishControl;
@@ -1777,8 +1805,50 @@ static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
     return ret;
 }
 
+#define TPM_CAP_PROPERTY          0x00000005
+#define TPM_CAP_PROP_TIS_TIMEOUT  0x00000115
+
+static uint32_t tpm_get_timeout(uint32_t locality,
+                       uint8_t *prop, uint32_t prop_size)
+{
+    uint32_t ret, offset, resp_size, prop_id = TPM_CAP_PROP_TIS_TIMEOUT;
+    uint8_t sub_cap[sizeof(prop_id)];
+    uint32_t resp[4];
+
+    if ( (prop == NULL) || (prop_size < sizeof(resp)) ) {
+        printk("TPM: tpm_get_timeout() bad parameter\n");
+        return TPM_BAD_PARAMETER;
+    }
+
+    offset = 0;
+    UNLOAD_INTEGER(sub_cap, offset, prop_id);
+
+    resp_size = prop_size;
+    ret = tpm_get_capability(locality, TPM_CAP_PROPERTY, sizeof(sub_cap),
+                             sub_cap, &resp_size, prop);
+
+#ifdef TPM_TRACE
+    printk("TPM: get prop %08X, return value = %08X\n", prop_id, ret);
+#endif
+    if ( ret != TPM_SUCCESS )
+        return ret;
+
+    if ( resp_size != prop_size ) {
+        printk("TPM: tpm_get_property() response size incorrect\n");
+        return TPM_FAIL;
+    }
+
+    offset = 0;
+    LOAD_INTEGER(prop, offset, resp);
+    offset = 0;
+    UNLOAD_BLOB_TYPE(prop, offset, &resp);
+
+    return ret;
+}
+
 bool release_locality(uint32_t locality)
 {
+    uint32_t i;
 #ifdef TPM_TRACE
     printk("TPM: releasing locality %u\n", locality);
 #endif
@@ -1793,13 +1863,15 @@ bool release_locality(uint32_t locality)
     reg_acc.active_locality = 1;
     write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
 
-    for ( uint32_t i = TPM_ACTIVE_LOCALITY_TIME_OUT; i > 0; i-- ) {
+    i = 0;
+    do {
         read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
         if ( reg_acc.active_locality == 0 )
             return true;
         else
             cpu_relax();
-    }
+        i++;
+    } while ( i <= TPM_ACTIVE_LOCALITY_TIME_OUT );
     
     printk("TPM: access reg release locality timeout\n");
     return false;
@@ -1820,6 +1892,7 @@ bool is_tpm_ready(uint32_t locality)
 {
     tpm_permanent_flags_t pflags;
     tpm_stclear_flags_t vflags;
+    uint32_t timeout[4];
     uint32_t ret;
 
     if ( !tpm_validate_locality(locality) ) {
@@ -1854,6 +1927,18 @@ bool is_tpm_ready(uint32_t locality)
 
     printk("TPM is ready\n");
     printk("TPM nv_locked: %s\n", (pflags.nv_locked != 0) ? "TRUE" : "FALSE");
+
+    /* get tpm timeout values */
+    ret = tpm_get_timeout(locality, (uint8_t *)&timeout, sizeof(timeout));
+    if ( ret != TPM_SUCCESS )
+        printk("TPM timeout values are not achieved, "
+               "default values will be used.\n");
+    else {
+        g_timeout.timeout_a = timeout[0];
+        g_timeout.timeout_b = timeout[1];
+        g_timeout.timeout_c = timeout[2];
+        g_timeout.timeout_d = timeout[3];
+    }
 
     return true;
 }
