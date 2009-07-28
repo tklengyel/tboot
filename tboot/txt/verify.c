@@ -290,6 +290,12 @@ void set_vtd_pmrs(os_sinit_data_t *os_sinit_data,
 tb_error_t txt_verify_platform(void)
 {
     txt_heap_t *txt_heap;
+    tb_error_t err;
+
+    /* check TXT supported */
+    err = supports_txt();
+    if ( err != TB_ERR_NONE )
+        return err;
 
     /* check is TXT_RESET.STS is set, since if it is SENTER will fail */
     txt_ests_t ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
