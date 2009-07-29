@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <types.h>
+#include <stdbool.h>
 #include <page.h>
 #include <misc.h>
 #include <div64.h>

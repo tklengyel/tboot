@@ -214,15 +214,18 @@ bool find_sinit_module(multiboot_info_t *mbi, void **base, uint32_t *size)
     for ( i = mbi->mods_count - 1; i > 0; i-- ) {
         base2 = (void *)mods[i].mod_start;
         size2 = mods[i].mod_end - (unsigned long)(base2);
+        printk("checking whether module %i is an SINIT AC module...\n", i);
         /* check if this is really an SINIT AC module */
         if ( is_sinit_acmod(base2, size2) )
             break;
+        printk(" : failed.\n");
     }
     /* not found */
     if ( i == 0 ) {
         printk("no SINIT AC module found\n");
         return false;
     }
+    printk(" : succeeded.\n");
     printk("user-provided SINIT found: %s\n", (const char *)mods[i].string);
 
     if ( base != NULL )

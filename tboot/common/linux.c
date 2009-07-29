@@ -158,10 +158,27 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         printk("not enough RAM for initrd\n");
         return false;
     }
+    if ( initrd_size > max_ram_size ) {
+        printk("initrd_size is too large\n");
+        return false;
+    }
+    if ( max_ram_base > ((uint64_t)(uint32_t)(~0)) ) {
+        printk("max_ram_base is too high\n");
+        return false;
+    }
+    if ( plus_overflow_u32((uint32_t)max_ram_base,
+             (uint32_t)(max_ram_size - initrd_size)) ) {
+        printk("max_ram overflows\n");
+        return false;
+    }
     initrd_base = (max_ram_base + max_ram_size - initrd_size) & PAGE_MASK;
 
     /* should not exceed initrd_addr_max */
     if ( initrd_base + initrd_size > hdr->initrd_addr_max ) {
+        if ( hdr->initrd_addr_max < initrd_size ) {
+            printk("initrd_addr_max is too small\n");
+            return false;
+        }
         initrd_base = hdr->initrd_addr_max - initrd_size;
         initrd_base = initrd_base & PAGE_MASK;
     }
@@ -187,7 +204,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
 
     real_mode_size = (hdr->setup_sects + 1) * SECTOR_SIZE;
     if ( real_mode_size + sizeof(boot_params_t) > KERNEL_CMDLINE_OFFSET ) {
-        printk("relamode data is too large\n");
+        printk("realmode data is too large\n");
         return false;
     }
 
@@ -198,6 +215,12 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* else it may expand over top of tboot */
     if ( hdr->relocatable_kernel ) {
         protected_mode_base = (uint32_t)get_tboot_mem_end();
+        /* overflow? */
+        if ( plus_overflow_u32(protected_mode_base,
+                 hdr->kernel_alignment - 1) ) {
+            printk("protected_mode_base overflows\n");
+            return false;
+        }
         /* round it up to kernel alignment */
         protected_mode_base = (protected_mode_base + hdr->kernel_alignment - 1)
                               & ~(hdr->kernel_alignment-1);
@@ -206,6 +229,11 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     else if ( hdr->loadflags & FLAG_LOAD_HIGH ) {
         protected_mode_base = BZIMAGE_PROTECTED_START;
                 /* bzImage:0x100000 */
+        /* overflow? */
+        if ( plus_overflow_u32(protected_mode_base, protected_mode_size) ) {
+            printk("protected_mode_base plus protected_mode_size overflows\n");
+            return false;
+        }
         /* Check: protected mode part cannot exceed mem_upper */
         if ( g_mbi->flags & MBI_MEMLIMITS )
             if ( (protected_mode_base + protected_mode_size)

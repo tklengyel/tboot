@@ -153,8 +153,7 @@ static const tb_policy_t* g_policy = &_def_policy;
  *
  * policy_index_size is in/out
  */
-static bool read_policy_from_tpm(void* policy_index,
-                                 unsigned int *policy_index_size)
+static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
 {
 #define NV_READ_SEG_SIZE    256
     int offset = 0;
@@ -214,9 +213,9 @@ static bool read_policy_from_tpm(void* policy_index,
 tb_error_t set_policy(void)
 {
     /* try to read policy from TPM NV */
-    unsigned int policy_index_size = sizeof(_policy_index_buf);
+    size_t policy_index_size = sizeof(_policy_index_buf);
     if ( read_policy_from_tpm(_policy_index_buf, &policy_index_size) ) {
-        printk("read verified launch policy (%u bytes) from TPM NV\n",
+        printk("read verified launch policy (%lu bytes) from TPM NV\n",
                policy_index_size);
         if ( verify_policy((tb_policy_t *)_policy_index_buf,
                            policy_index_size, true) ) {
@@ -252,7 +251,7 @@ bool hash_policy(tb_hash_t *hash, uint8_t hash_alg)
 /* generate hash by hashing cmdline and module image */
 static bool hash_module(tb_hash_t *hash, uint8_t hash_alg, 
                         const char* cmdline, void *base,
-                        uint32_t size)
+                        size_t size)
 {
     if ( hash == NULL ) {
         printk("Error: input parameter is wrong.\n");
@@ -384,7 +383,7 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
     /* assumes module is valid */
 
     void *base = (void *)module->mod_start;
-    uint32_t size = module->mod_end - module->mod_start;
+    size_t size = module->mod_end - module->mod_start;
     char *cmdline = (char *)module->string;
 
     if ( pol_entry != NULL )

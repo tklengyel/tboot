@@ -35,12 +35,12 @@
 
 #include <config.h>
 #include <types.h>
+#include <stdbool.h>
 #include <ctype.h>
 #include <compiler.h>
 #include <string2.h>
 #include <misc.h>
 #include <printk.h>
-#include <stdbool.h>
 #include <cmdline.h>
 
 

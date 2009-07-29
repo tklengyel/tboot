@@ -326,6 +326,21 @@ bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only)
     size2 = get_os_mle_data_size(txt_heap);
     size3 = get_os_sinit_data_size(txt_heap);
     size4 = get_sinit_mle_data_size(txt_heap);
+
+    /* overflow? */
+    if ( plus_overflow_u64(size1, size2) ) {
+        printk("TXT heap data size overflows\n");
+        return false;
+    }
+    if ( plus_overflow_u64(size3, size4) ) {
+        printk("TXT heap data size overflows\n");
+        return false;
+    }
+    if ( plus_overflow_u64(size1 + size2, size3 + size4) ) {
+        printk("TXT heap data size overflows\n");
+        return false;
+    }
+
     if ( (size1 + size2 + size3 + size4) >
          read_priv_config_reg(TXTCR_HEAP_SIZE) ) {
         printk("TXT heap data sizes (%Lx, %Lx, %Lx, %Lx) are larger than\n"

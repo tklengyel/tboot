@@ -274,6 +274,12 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
         uint32_t size = (_tboot_shared.mac_regions[i].size + MAC_ALIGN - 1) &
                         ~(MAC_ALIGN-1);
 
+        /* overflow? */
+        if ( plus_overflow_u64(start, size) ) {
+            printk("start plus size overflows during MACing\n");
+            return false;
+        }
+
         printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, start + size);
         /* TBD: don't handle addrs > 4GB yet, so error */
         if ( (start + size) & 0xffffffff00000000UL ) {

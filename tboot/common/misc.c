@@ -1,5 +1,6 @@
 #include <config.h>
 #include <types.h>
+#include <stdbool.h>
 #include <ctype.h>
 #include <printk.h>
 
@@ -40,6 +41,32 @@ void print_hex(const char *prefix, const void *data, size_t n)
     }
     printk("\n");
 }
+
+bool multiply_overflow_u32(const uint32_t x, const uint32_t y)
+{
+    return (x > 0) ? ((((uint32_t)(~0))/x) < y) : false;
+}
+
+bool plus_overflow_u32(const uint32_t x, const uint32_t y)
+{
+    return (x + y) < x;
+}
+
+bool plus_overflow_u64(const uint64_t x, const uint64_t y)
+{
+    return (x + y) < x;
+}
+
+bool multiply_overflow_ul(const unsigned long x, const unsigned long y)
+{
+    return (x > 0) ? ((((unsigned long)(~0))/x) < y) : false;
+}
+
+bool plus_overflow_ul(const unsigned long x, const unsigned long y)
+{
+    return (x + y) < x;
+}
+
 
 /*
  * Local variables:

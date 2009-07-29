@@ -123,6 +123,12 @@ extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
 /* from misc.c */
 extern void print_hex(const char *prefix, const void *data, size_t n);
 
+extern bool multiply_overflow_u32(const uint32_t x, const uint32_t y);
+extern bool plus_overflow_u32(const uint32_t x, const uint32_t y);
+extern bool plus_overflow_u64(const uint64_t x, const uint64_t y);
+extern bool multiply_overflow_ul(const unsigned long x, const unsigned long y);
+extern bool plus_overflow_ul(const unsigned long x, const unsigned long y);
+
 /* from gcc gmacros.h */
 #define MIN(a, b)  (((a) < (b)) ? (a) : (b))
 

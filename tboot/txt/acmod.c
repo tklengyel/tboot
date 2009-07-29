@@ -58,14 +58,38 @@ static acm_info_table_t *get_acmod_info_table(acm_hdr_t* hdr)
 {
     uint32_t user_area_off;
 
+    /* overflow? */
+    if ( plus_overflow_u32(hdr->header_len, hdr->scratch_size) ) {
+        printk("ACM header length plus scratch size overflows\n");
+        return NULL;
+    }
+
+    if ( multiply_overflow_u32((hdr->header_len + hdr->scratch_size), 4) ) {
+        printk("ACM header length and scratch size in bytes overflows\n");
+        return NULL;
+    }
+
     /* this fn assumes that the ACM has already passed at least the initial */
     /* is_acmod() checks */
 
     user_area_off = (hdr->header_len + hdr->scratch_size) * 4;
+
+    /* overflow? */
+    if ( plus_overflow_u32(user_area_off, sizeof(acm_info_table_t)) ) {
+        printk("user_area_off plus acm_info_table_t size overflows\n");
+        return NULL;
+    }
+
     /* check that table is within module */
     if ( user_area_off + sizeof(acm_info_table_t) > hdr->size*4 ) {
         printk("ACM info table size too large: %x\n",
                user_area_off + (uint32_t)sizeof(acm_info_table_t));
+        return NULL;
+    }
+
+    /* overflow? */
+    if ( plus_overflow_ul((unsigned long)hdr, user_area_off) ) {
+        printk("hdr plus user_area_off overflows\n");
         return NULL;
     }
 
@@ -87,6 +111,12 @@ static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
 
     size = hdr->size * 4;
 
+    /* overflow? */
+    if ( plus_overflow_u32(id_list_off, sizeof(acm_chipset_id_t)) ) {
+        printk("id_list_off plus acm_chipset_id_t size overflows\n");
+        return NULL;
+    }
+
     /* check that chipset id table is w/in ACM */
     if ( id_list_off + sizeof(acm_chipset_id_t) > size ) {
         printk("ACM chipset id list is too big: chipset_id_list=%x\n",
@@ -94,8 +124,26 @@ static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
         return NULL;
     }
 
+    /* overflow? */
+    if ( plus_overflow_ul((unsigned long)hdr, id_list_off) ) {
+        printk("hdr plus id_list_off overflows\n");
+        return NULL;
+    }
+
     chipset_id_list = (acm_chipset_id_list_t *)
                              ((unsigned long)hdr + id_list_off);
+
+    /* overflow? */
+    if ( multiply_overflow_u32(chipset_id_list->count,
+             sizeof(acm_chipset_id_t)) ) {
+        printk("size of acm_chipset_id_list overflows\n");
+        return NULL;
+    }
+    if ( plus_overflow_u32(id_list_off + sizeof(acm_chipset_id_t),
+        chipset_id_list->count * sizeof(acm_chipset_id_t)) ) {
+        printk("size of all entries overflows\n");
+        return NULL;
+    }
 
     /* check that all entries are w/in ACM */
     if ( id_list_off + sizeof(acm_chipset_id_t) + 
@@ -230,6 +278,14 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type)
                (uint32_t)sizeof(acm_hdr) );
         return false;
     }
+
+    /* then check overflow */
+    if ( multiply_overflow_u32(acm_hdr->size, 4) ) {
+        printk("ACM header size in bytes overflows\n");
+        return false;
+    }
+
+    /* then check size equivalency */
     if ( acmod_size != acm_hdr->size * 4 ) {
         printk("ACM size is too small: acmod_size=%x,"
                " acm_hdr->size*4=%x\n", acmod_size, acm_hdr->size*4);
@@ -369,6 +425,12 @@ acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
     if ( sinit == NULL )
         return NULL;
 
+    /* overflow? */
+    if ( multiply_overflow_u32(sinit->size, 4) ) {
+        printk("sinit size in bytes overflows\n");
+        return NULL;
+    }
+
     /* make sure our SINIT fits in the reserved region */
     if ( (sinit->size * 4) > sinit_region_size ) {
         printk("BIOS-reserved SINIT size (%x) is too small for loaded "
@@ -446,6 +508,12 @@ bool verify_acmod(acm_hdr_t *acm_hdr)
     if ( acm_hdr->entry_point >= size ) {
         printk("AC mod entry (%08x) >= AC mod size (%08x)\n",
                acm_hdr->entry_point, size);
+        return false;
+    }
+
+    /* overflow? */
+    if ( plus_overflow_u32(acm_hdr->seg_sel, 8) ) {
+        printk("seg_sel plus 8 overflows\n");
         return false;
     }
 
