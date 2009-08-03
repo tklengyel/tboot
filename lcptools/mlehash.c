@@ -267,7 +267,8 @@ static bool read_file(const char *filename, void **buffer, size_t *length)
     while ( !gzeof(fcompressed) ) {
         i = gzread(fcompressed, tmpbuffer, 1024);
         *length += i;
-        fwrite(tmpbuffer, 1, i, fdecompressed);
+        if ( fwrite(tmpbuffer, 1, i, fdecompressed) != i )
+            goto error;
     }
     log_info(": succeeded!\n");
     gzclose(fcompressed);

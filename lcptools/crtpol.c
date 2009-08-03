@@ -231,7 +231,12 @@ read_data(const char *filename, unsigned int *size, unsigned char *data)
         fclose(pfile);
         return -1;
     }
-    *size = fread(data, 1, len, pfile);
+    if ( len != fread(data, 1, len, pfile) ) {
+        fclose(pfile);
+        log_error("Read data from file error!\n");
+        return -1;
+    }
+    *size = len;
     fclose(pfile);
     return 0;
 }
