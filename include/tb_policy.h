@@ -258,7 +258,8 @@ static inline bool verify_policy(const tb_policy_t *policy, size_t size,
     }
 
     if ( size < sizeof(tb_policy_t) ) {
-        if ( print ) PRINT("size of policy is too small (%lu)\n", size);
+        if ( print ) PRINT("size of policy is too small (%lu)\n",
+                           (unsigned long)size);
         return false;
     }
 
@@ -290,7 +291,7 @@ static inline bool verify_policy(const tb_policy_t *policy, size_t size,
         if ( ((void *)pol_entry - (void *)policy + sizeof(*pol_entry)) >
              size ) {
             if ( print ) PRINT("size of policy entry is too small (%lu)\n",
-                               size);
+                               (unsigned long)size);
             return false;
         }
 
@@ -332,7 +333,7 @@ static inline bool verify_policy(const tb_policy_t *policy, size_t size,
               pol_entry->num_hashes * get_hash_size(policy->hash_alg))
              > size ) {
             if ( print ) PRINT("size of policy entry is too small (%lu)\n",
-                               size);
+                               (unsigned long)size);
             return false;
         }
 
