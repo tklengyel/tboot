@@ -90,7 +90,8 @@ lcp_define_index(in_nv_definespace_t *p_in_defspace,
     CHECK_TSS_RETURN_VALUE("init_tss_context", result, ret);
 
     if ( passwd != NULL ) {
-        set_tpm_secret(hcontext, &htpm, &hpolicy, passwd, passwd_length);
+        result = set_tpm_secret(hcontext, &htpm, &hpolicy,
+                                passwd, passwd_length);
         CHECK_TSS_RETURN_VALUE("set_tpm_secret", result, ret);
     }
 
@@ -105,7 +106,8 @@ lcp_define_index(in_nv_definespace_t *p_in_defspace,
      * if the nv object need authentication
      */
     if ( auth != NULL ) {
-        set_nv_secret(hcontext, hnvstore, &hpolobj, auth, auth_length);
+        result = set_nv_secret(hcontext, hnvstore, &hpolobj,
+                               auth, auth_length);
         CHECK_TSS_RETURN_VALUE("set_nv_secret", result, ret);
     }
 
@@ -153,6 +155,7 @@ lcp_define_index(in_nv_definespace_t *p_in_defspace,
                 result, ret);
 
         result = Tspi_NV_DefineSpace(hnvstore, 0, hwrtpcrcomp);
+        CHECK_TSS_RETURN_VALUE("Tspi_NV_DefineSpace failed", result, ret);
     } else {
         /*
          * Set the locality number.
@@ -253,7 +256,8 @@ lcp_release_index(uint32_t index,
 
 
     if ( passwd != NULL ) {
-        set_tpm_secret(hcontext, &htpm, &hpolicy, passwd, passwd_length);
+        result = set_tpm_secret(hcontext, &htpm, &hpolicy,
+                                passwd, passwd_length);
         CHECK_TSS_RETURN_VALUE("set_tpm_secret", result, ret);
     }
 
@@ -343,7 +347,8 @@ lcp_read_index(uint32_t index,
             result, ret);
 
     if ( password != NULL ) {
-        set_nv_secret(hcontext, hnvstore, &hnvpol, password, pwd_length);
+        result = set_nv_secret(hcontext, hnvstore, &hnvpol,
+                               password, pwd_length);
         CHECK_TSS_RETURN_VALUE("set_nv_secret", result, ret);
     }
 
@@ -446,7 +451,8 @@ lcp_write_index(uint32_t index,
             result, ret);
 
     if ( password != NULL ) {
-        set_nv_secret(hcontext, hnvstore, &hnvpol, password, pwd_length);
+        result = set_nv_secret(hcontext, hnvstore, &hnvpol,
+                               password, pwd_length);
         CHECK_TSS_RETURN_VALUE("set_nv_secret", result, ret);
     }
 
@@ -956,7 +962,8 @@ lcp_get_tpmcap_auth(const char *password,
 
 
     if ( password != NULL ) {
-        set_tpm_secret(hcontext, &htpm, &hpolicy, password, passwd_length);
+        result = set_tpm_secret(hcontext, &htpm, &hpolicy,
+                                password, passwd_length);
         CHECK_TSS_RETURN_VALUE("set_tpm_secret", result, ret);
     }
     else {
