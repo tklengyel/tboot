@@ -393,6 +393,130 @@ bool verify_e820_map(sinit_mdr_t* mdrs_base, uint32_t num_mdrs)
     return e820_reserve_ram(base, length);
 }
 
+static void print_mseg_hdr(mseg_hdr_t *mseg_hdr)
+{
+    printk("MSEG header dump for 0x%x:\n", (uint32_t)mseg_hdr);
+    printk("\t revision_id = 0x%x\n", mseg_hdr->revision_id);
+    printk("\t smm_monitor_features = 0x%x\n", mseg_hdr->smm_mon_feat);
+    printk("\t gdtr_limit = 0x%x\n", mseg_hdr->gdtr_limit);
+    printk("\t gdtr_base_offset = 0x%x\n", mseg_hdr->gdtr_base_offset);
+    printk("\t cs_sel = 0x%x\n", mseg_hdr->cs_sel);
+    printk("\t eip_offset = 0x%x\n", mseg_hdr->eip_offset);
+    printk("\t esp_offset = 0x%x\n", mseg_hdr->esp_offset);
+    printk("\t cr3_offset = 0x%x\n", mseg_hdr->cr3_offset);
+}
+
+static bool are_mseg_hdrs_equal(void *mseg_base1, void *mseg_base2)
+{
+    mseg_hdr_t *mseg_hdr1, *mseg_hdr2;
+
+    mseg_hdr1 = (mseg_hdr_t *)mseg_base1;
+    mseg_hdr2 = (mseg_hdr_t *)mseg_base2;
+
+    print_mseg_hdr(mseg_hdr1);
+    print_mseg_hdr(mseg_hdr2);
+
+    if ( mseg_hdr1->revision_id != mseg_hdr2->revision_id ) {
+        printk("revision id is not consistent.\n");
+        return false;
+    }
+
+    if ( (mseg_hdr1->smm_mon_feat & 0xfffffffe)
+        || (mseg_hdr2->smm_mon_feat & 0xfffffffe) ) {
+        printk("bits 1:31 of SMM-monitor features field should be zero.\n");
+        return false;
+    }
+
+    if ( mseg_hdr1->smm_mon_feat != mseg_hdr2->smm_mon_feat ) {
+        printk("SMM-monitor features are not consistent.\n");
+        return false;
+    }
+
+    if ( (mseg_hdr1->gdtr_limit != mseg_hdr2->gdtr_limit)
+        || (mseg_hdr1->gdtr_base_offset != mseg_hdr2->gdtr_base_offset)
+        || (mseg_hdr1->cs_sel != mseg_hdr2->cs_sel)
+        || (mseg_hdr1->eip_offset != mseg_hdr2->eip_offset)
+        || (mseg_hdr1->esp_offset != mseg_hdr2->esp_offset)
+        || (mseg_hdr1->cr3_offset != mseg_hdr2->cr3_offset) ) {
+        printk("states for SMM activation are not consistent.\n");
+        return false;
+    }
+
+    return true;
+}
+
+static bool verify_mseg(uint64_t smm_mon_ctl)
+{
+    txt_heap_t *txt_heap = get_txt_heap();
+    sinit_mle_data_t *sinit_mle_data = get_sinit_mle_data_start(txt_heap);
+    void *mseg_base, *txt_mseg_base;
+
+    /* opt-out */
+    if ( !(smm_mon_ctl & MSR_IA32_SMM_MONITOR_CTL_VALID) ) {
+        printk("\topt-out\n");
+        return true;
+    }
+
+    if ( !sinit_mle_data->mseg_valid ) {
+        printk("\topt-out\n");
+        return true;
+    }
+
+    /* opt-in */
+    printk("\topt-in ");
+    mseg_base = (void *)(unsigned long)
+        MSR_IA32_SMM_MONITOR_CTL_MSEG_BASE(smm_mon_ctl);
+    txt_mseg_base = (void *)(uint32_t)read_pub_config_reg(TXTCR_MSEG_BASE);
+
+    if ( are_mseg_hdrs_equal(mseg_base, txt_mseg_base) ) {
+        printk("and same MSEG header\n");
+        return true;
+    }
+
+    printk("but different MSEG headers\n");
+    return false;
+}
+
+bool verify_stm(unsigned int cpuid)
+{
+    static uint64_t ilp_smm_mon_ctl;
+    uint64_t smm_mon_ctl, apicbase;
+
+    rdmsrl(MSR_IA32_SMM_MONITOR_CTL, smm_mon_ctl);
+    rdmsrl(MSR_IA32_APICBASE, apicbase);
+    if ( apicbase & MSR_IA32_APICBASE_BSP ) {
+        ilp_smm_mon_ctl = smm_mon_ctl;
+        printk("MSR for SMM monitor control on ILP %u is 0x%Lx.\n",
+                cpuid, ilp_smm_mon_ctl);
+
+        /* verify ILP's MSEG == TXT.MSEG.BASE */
+        printk("verifying ILP is opt-out "
+               "or has the same MSEG header with TXT.MSEG.BASE\n\t");
+        if ( !verify_mseg(ilp_smm_mon_ctl) ) {
+            printk(" : failed.\n");
+            return false;
+        }
+        printk(" : succeeded.\n");
+    }
+    else {
+        printk("MSR for SMM monitor control on RLP(%u) is 0x%Lx\n",
+               cpuid, smm_mon_ctl);
+
+        /* verify ILP's SMM MSR == RLP's SMM MSR */
+        printk("verifying ILP's MSR_IA32_SMM_MONITOR_CTL with RLP(%u)'s\n\t",
+               cpuid);
+        if ( smm_mon_ctl != ilp_smm_mon_ctl ) {
+            printk(" : failed.\n");
+            return false;
+        }
+        printk(" : succeeded.\n");
+
+        /* since the RLP's MSR is the same. No need to verify MSEG header */
+    }
+
+    return true;
+}
+
 /*
  * Local variables:
  * mode: C

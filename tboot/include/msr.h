@@ -97,6 +97,10 @@ static inline void wrmsrl(unsigned int msr, __u64 val)
 #define MSR_IA32_UCODE_WRITE		0x79
 #define MSR_IA32_UCODE_REV		0x8b
 
+#define MSR_IA32_SMM_MONITOR_CTL                 0x9b
+#define MSR_IA32_SMM_MONITOR_CTL_VALID           1
+#define MSR_IA32_SMM_MONITOR_CTL_MSEG_BASE(x)    (x>>12)
+
 #define MSR_P6_PERFCTR0      0xc1
 #define MSR_P6_PERFCTR1      0xc2
 

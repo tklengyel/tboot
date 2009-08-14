@@ -361,6 +361,9 @@ static void txt_wakeup_cpus(void)
     mle_join_t mle_join;
     int ap_wakeup_count;
 
+    if ( !verify_stm(get_apicid()) )
+        apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
+
     /* enable SMIs on BSP before waking APs (which will enable them on APs)
        because some SMM may take immediate SMI and hang if AP gets in first */
     printk("enabling SMIs on BSP\n");
@@ -706,6 +709,9 @@ void txt_cpu_wakeup(void)
 
     /* restore pre-SENTER IA32_MISC_ENABLE_MSR */
     wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
+
+    if (!verify_stm(cpuid))
+        apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* enable SMIs */
     printk("enabling SMIs on cpu %x\n", cpuid);

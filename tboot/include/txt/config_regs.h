@@ -61,6 +61,8 @@
 #define TXTCR_MLE_JOIN              0x0290
 #define TXTCR_HEAP_BASE             0x0300
 #define TXTCR_HEAP_SIZE             0x0308
+#define TXTCR_MSEG_BASE             0x0310
+#define TXTCR_MSEG_SIZE             0x0318
 #define TXTCR_DPR                   0x0330
 #define TXTCR_CMD_OPEN_LOCALITY1    0x0380
 #define TXTCR_CMD_CLOSE_LOCALITY1   0x0388
@@ -164,6 +166,19 @@ typedef struct {
     uint32_t	entry_point;           /* phys addr */
 } mle_join_t;
 
+/*
+ * format of MSEG header
+ */
+typedef struct {
+    uint32_t    revision_id;
+    uint32_t    smm_mon_feat;
+    uint32_t    gdtr_limit;
+    uint32_t    gdtr_base_offset;
+    uint32_t    cs_sel;
+    uint32_t    eip_offset;
+    uint32_t    esp_offset;
+    uint32_t    cr3_offset;
+} mseg_hdr_t;
 
 /*
  * fns to read/write TXT config regs

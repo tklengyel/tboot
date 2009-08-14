@@ -217,6 +217,8 @@ static void stop_vmx(unsigned int cpuid)
     /* diable paging to restore AP's state to boot xen */
     write_cr0(read_cr0() & ~X86_CR0_PG);
     clear_in_cr4(X86_CR4_PSE);
+
+    printk("VMXOFF done for cpu %u\n", cpuid);
 }
 
 /* in tboot/common/boot.S */
