@@ -60,6 +60,21 @@ static bool get_parameters(getsec_parameters_t *params)
     return true;
 }
 
+static bool multiply_overflow_u32(const uint32_t x, const uint32_t y)
+{
+    return (x > 0) ? ((((uint32_t)(~0))/x) < y) : false;
+}
+
+static bool plus_overflow_u32(const uint32_t x, const uint32_t y)
+{
+    return (x + y) < x;
+}
+
+static bool plus_overflow_ul(const unsigned long x, const unsigned long y)
+{
+    return (x + y) < x;
+}
+
 #define IS_INCLUDED    /* prevent acmod.c #include */
 #include "../tboot/txt/acmod.c"
 
