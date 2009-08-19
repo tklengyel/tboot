@@ -102,8 +102,16 @@ ENTRY(_post_launch_entry)
 	 * a different phys addr then the last page would have to be different
 	 * from tboot's last page
 	 */
+	/* get addr of MLE page table from OsSinitData */
+	                          /* start of TXT heap (== BiosDataSize) */
+	mov (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_HEAP_BASE), %eax
+	add (%eax), %eax                   /* skip BiosData */
+	add (%eax), %eax                   /* skip OsMleData */
+	mov (MLE_PGTBL_OFF+8)(%eax), %eax  /* addr of MLE page table */
 	/* get to page table itself (there is only one for tboot) */
-	mov (%ecx), %eax          /* pgdir ptr -> pgdir */
+	mov (%eax), %eax          /* pgdir ptr -> pgdir */
+	/* TODO when SINIT ready */
+	/* mov (%ecx), %eax */
 	and $PAGE_MASK, %eax
 	mov (%eax), %eax          /* pgdir -> pgtbl */
 	and $PAGE_MASK, %eax
