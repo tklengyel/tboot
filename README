@@ -144,9 +144,9 @@ o  A Xen or Linux version that does not support tboot can still be launched by
 
 o  Tboot will copy and alter the e820 table provided by GRUB to "reserve"
    its own memory plus the TXT memory regions.  These are marked as
-   E820_UNUSABLE so that the patched Xen code can prevent them from
-   being assigned to dom0.  The e820 table is not altered if the measured
-   launch fails for any reason.
+   E820_UNUSABLE or E820_RESERVED so that the patched Xen code can prevent
+   them from being assigned to dom0.  The e820 table is not altered if the
+   measured launch fails for any reason.
 
 o  Tboot is always built 32bit and runs in protected mode without PAE or
    paging enabled.  Tboot loads and executes at 0x803000 (8MB).
