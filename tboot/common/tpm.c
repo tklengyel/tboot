@@ -179,10 +179,10 @@ static bool tpm_validate_locality(uint32_t locality)
 }
 
 #define TIMEOUT_UNIT    (0x100000 / 330) /* ~1ms, 1 tpm r/w need > 330ns */
-#define TIMEOUT_A       (TIMEOUT_UNIT * 750)  /* 750ms */
-#define TIMEOUT_B       (TIMEOUT_UNIT * 2000) /* 2s */
-#define TIMEOUT_C       (TIMEOUT_UNIT * 750)  /* 750ms */
-#define TIMEOUT_D       (TIMEOUT_UNIT * 750)  /* 750ms */
+#define TIMEOUT_A       750  /* 750ms */
+#define TIMEOUT_B       2000 /* 2s */
+#define TIMEOUT_C       750  /* 750ms */
+#define TIMEOUT_D       750  /* 750ms */
 
 typedef struct __packed {
     uint32_t timeout_a;
@@ -1853,6 +1853,9 @@ bool release_locality(uint32_t locality)
     printk("TPM: releasing locality %u\n", locality);
 #endif
 
+    if ( !tpm_validate_locality(locality) )
+        return true;
+
     tpm_reg_access_t reg_acc;
     read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
     if ( reg_acc.active_locality == 0 )
@@ -1934,10 +1937,14 @@ bool is_tpm_ready(uint32_t locality)
         printk("TPM timeout values are not achieved, "
                "default values will be used.\n");
     else {
-        g_timeout.timeout_a = timeout[0];
-        g_timeout.timeout_b = timeout[1];
-        g_timeout.timeout_c = timeout[2];
-        g_timeout.timeout_d = timeout[3];
+        /*
+         * timeout_x represents the number of milliseconds for the timeout
+         * and timeout[x] represents the number of microseconds.
+         */
+        g_timeout.timeout_a = timeout[0]/1000;
+        g_timeout.timeout_b = timeout[1]/1000;
+        g_timeout.timeout_c = timeout[2]/1000;
+        g_timeout.timeout_d = timeout[3]/1000;
     }
 
     return true;
