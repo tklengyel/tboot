@@ -258,7 +258,7 @@ void begin_launch(multiboot_info_t *mbi)
 
     /* on pre-SENTER boot, copy command line to buffer in tboot image
        (so that it will be measured); buffer must be 0 -filled */
-    if ( !is_launched() & !s3_flag ) {
+    if ( !is_launched() && !s3_flag ) {
         memset(g_cmdline, '\0', sizeof(g_cmdline));
         if ( g_mbi->flags & MBI_CMDLINE ) {
             /* don't include path in cmd line */
