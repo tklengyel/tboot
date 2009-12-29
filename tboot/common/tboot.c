@@ -283,7 +283,7 @@ void begin_launch(multiboot_info_t *mbi)
         printk("resume from S3\n");
 
     /* clear resume vector on S3 resume so any resets will not use it */
-    if ( !is_launched() & s3_flag )
+    if ( !is_launched() && s3_flag )
         set_s3_resume_vector(&_tboot_shared.acpi_sinfo, 0);
 
     /* we should only be executing on the BSP */
