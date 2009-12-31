@@ -47,6 +47,9 @@
 /* un-comment to enable detailed command tracing */
 //#define TPM_TRACE
 
+/* ~530 are required for Infineon that requires this, so leave some extra */
+#define MAX_SAVESTATE_RETRIES       1000
+
 #define TPM_TAG_RQU_COMMAND         0x00C1
 #define TPM_TAG_RQU_AUTH1_COMMAND   0x00C2
 #define TPM_TAG_RQU_AUTH2_COMMAND   0x00C3
@@ -1945,6 +1948,9 @@ bool is_tpm_ready(uint32_t locality)
         g_timeout.timeout_b = timeout[1]/1000;
         g_timeout.timeout_c = timeout[2]/1000;
         g_timeout.timeout_d = timeout[3]/1000;
+        printk("TPM timeout values: A: %u, B: %u, C: %u, D: %u\n",
+               g_timeout.timeout_a, g_timeout.timeout_b, g_timeout.timeout_c,
+               g_timeout.timeout_d);
     }
 
     return true;
@@ -1953,13 +1959,25 @@ bool is_tpm_ready(uint32_t locality)
 uint32_t tpm_save_state(uint32_t locality)
 {
     uint32_t ret, offset, out_size;
+    uint32_t retries = 0;
 
-    offset = 0;
-    out_size = 0;
+    do {
+        offset = 0;
+        out_size = 0;
 
-    ret = tpm_submit_cmd(locality, TPM_ORD_SAVE_STATE, offset, &out_size);
+        ret = tpm_submit_cmd(locality, TPM_ORD_SAVE_STATE, offset, &out_size);
+        if ( retries == 0 )
+            printk("TPM: save state, return value = %08X\n", ret);
+        else if ( retries == 1 )
+            printk("retrying command: .");
+        else
+            printk(".");
+        retries++;
 
-    printk("TPM: save state, return value = %08X\n", ret);
+        cpu_relax();
+    } while ( ret == TPM_RETRY && retries < MAX_SAVESTATE_RETRIES );
+    if ( retries > 0 )
+        printk("\n");
     
     return ret;
 }

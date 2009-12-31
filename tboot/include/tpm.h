@@ -64,6 +64,7 @@
  * Here only give definitions for a few commonly used return code.
  */
 #define TPM_BASE                0x00000000
+#define TPM_NON_FATAL           0x00000800
 #define TPM_SUCCESS             TPM_BASE
 #define TPM_BADINDEX            (TPM_BASE + 2)
 #define TPM_BAD_PARAMETER       (TPM_BASE + 3)
@@ -77,6 +78,7 @@
 #define TPM_BAD_LOCALITY        (TPM_BASE + 61)
 #define TPM_READ_ONLY           (TPM_BASE + 62)
 #define TPM_NOT_FULLWRITE       (TPM_BASE + 70)
+#define TPM_RETRY               (TPM_BASE + TPM_NON_FATAL)
 
 extern bool release_locality(uint32_t locality);
 
