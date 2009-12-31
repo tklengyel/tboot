@@ -243,7 +243,7 @@ static void post_launch(void)
 
 void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec)
 {
-    printk("cpu %x waking up, SIPI vector=%x\n", cpuid, sipi_vec);
+    printk("cpu %u waking up, SIPI vector=%x\n", cpuid, sipi_vec);
 
     /* change to real mode and then jump to SIPI vector */
     _prot_to_real(sipi_vec);
@@ -292,6 +292,7 @@ void begin_launch(multiboot_info_t *mbi)
         printk("entry processor is not BSP\n");
         apply_policy(TB_ERR_FATAL);
     }
+    printk("BSP is cpu %u\n", get_apicid());
 
     /* we need to make sure this is a (TXT-) capable platform before using */
     /* any of the features, incl. those required to check if the environment */

@@ -151,7 +151,7 @@ static void build_ap_pagetable(void)
 }
 
 extern char host_vmcs[PAGE_SIZE];
-extern char ap_vmcs[NR_CPUS-1][PAGE_SIZE];
+extern char ap_vmcs[NR_CPUS][PAGE_SIZE];
 
 static bool start_vmx(unsigned int cpuid)
 {
@@ -417,7 +417,7 @@ static void construct_vmcs(void)
 
 static bool vmx_create_vmcs(unsigned int cpuid)
 {
-    struct vmcs_struct *vmcs = (struct vmcs_struct *)&ap_vmcs[cpuid-1];
+    struct vmcs_struct *vmcs = (struct vmcs_struct *)&ap_vmcs[cpuid];
 
     memset(vmcs, 0, PAGE_SIZE);
 
@@ -534,7 +534,7 @@ void vmx_vmexit_handler(void)
 /* Launch a mini guest to handle the physical INIT-SIPI-SIPI from BSP */
 void handle_init_sipi_sipi(unsigned int cpuid)
 {
-    if ( cpuid > NR_CPUS-1 ) {
+    if ( cpuid >= NR_CPUS ) {
         printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
         spin_unlock(&ap_lock);

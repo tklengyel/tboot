@@ -691,7 +691,7 @@ void txt_cpu_wakeup(void)
     os_mle_data_t *os_mle_data;
     unsigned int cpuid = get_apicid();
 
-    if ( cpuid > NR_CPUS-1 ) {
+    if ( cpuid >= NR_CPUS ) {
         printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
         return;
@@ -699,7 +699,7 @@ void txt_cpu_wakeup(void)
 
     spin_lock(&ap_lock);
 
-    printk("cpu %x waking up from TXT sleep\n", cpuid);
+    printk("cpu %u waking up from TXT sleep\n", cpuid);
 
     txt_heap = get_txt_heap();
     os_mle_data = get_os_mle_data_start(txt_heap);
@@ -714,7 +714,7 @@ void txt_cpu_wakeup(void)
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* enable SMIs */
-    printk("enabling SMIs on cpu %x\n", cpuid);
+    printk("enabling SMIs on cpu %u\n", cpuid);
     __getsec_smctrl();
 
     handle_init_sipi_sipi(cpuid);

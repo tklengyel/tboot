@@ -486,8 +486,8 @@ bool verify_stm(unsigned int cpuid)
     rdmsrl(MSR_IA32_APICBASE, apicbase);
     if ( apicbase & MSR_IA32_APICBASE_BSP ) {
         ilp_smm_mon_ctl = smm_mon_ctl;
-        printk("MSR for SMM monitor control on ILP %u is 0x%Lx.\n",
-                cpuid, ilp_smm_mon_ctl);
+        printk("MSR for SMM monitor control on BSP is 0x%Lx.\n",
+               ilp_smm_mon_ctl);
 
         /* verify ILP's MSEG == TXT.MSEG.BASE */
         printk("verifying ILP is opt-out "
@@ -499,11 +499,11 @@ bool verify_stm(unsigned int cpuid)
         printk(" : succeeded.\n");
     }
     else {
-        printk("MSR for SMM monitor control on RLP(%u) is 0x%Lx\n",
+        printk("MSR for SMM monitor control on cpu %u is 0x%Lx\n",
                cpuid, smm_mon_ctl);
 
         /* verify ILP's SMM MSR == RLP's SMM MSR */
-        printk("verifying ILP's MSR_IA32_SMM_MONITOR_CTL with RLP(%u)'s\n\t",
+        printk("verifying ILP's MSR_IA32_SMM_MONITOR_CTL with cpu %u\n\t",
                cpuid);
         if ( smm_mon_ctl != ilp_smm_mon_ctl ) {
             printk(" : failed.\n");

@@ -236,7 +236,6 @@ ENTRY(_txt_wakeup)
 	jmp     2b
 3:	mov     $AP_STACK_SIZE, %eax
 	mul	%ebx
-	sub	$AP_STACK_SIZE, %eax
 	mov	$ap_stacks, %ecx
 	sub	%eax, %ecx
 	mov	%ecx, %esp
@@ -386,7 +385,7 @@ bsp_stack_end:
 bsp_stack:
 
 ap_stacks_end:
-        .fill AP_STACK_SIZE * (NR_CPUS-1), 1, 0
+        .fill AP_STACK_SIZE * NR_CPUS, 1, 0
 ap_stacks:
 
 
@@ -406,7 +405,7 @@ ENTRY(host_vmcs)
         .align PAGE_SIZE, 0
 /* the input info when os/vmm kerneltrap into tboot */
 ENTRY(ap_vmcs)
-        .fill (NR_CPUS-1) * PAGE_SIZE, 1, 0
+        .fill NR_CPUS * PAGE_SIZE, 1, 0
 
 
 /*

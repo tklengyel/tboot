@@ -60,13 +60,17 @@ shutdown_entry32:
         ljmp    $(cs_sel),$(1f)
 1:      leal	bsp_stack,%esp	# default to BSP stack
 
+	# BSP has separate stack (above)
+        movl	$MSR_IA32_APICBASE,%ecx
+        rdmsr
+        andl	$MSR_IA32_APICBASE_BSP,%eax
+	jnz	3f
+
 	# get initial APIC ID for this processor
 	mov	$0x01, %eax
 	xor	%ebx, %ebx
 	cpuid
 	shr	$24, %ebx
-	cmp	$0, %ebx	# BSP has separate stack (above)
-	je	3f
 
 	# set stack as id-based offset from AP stack base
 	# "truncate" if too big so that we at least have a stack
@@ -76,7 +80,6 @@ shutdown_entry32:
 	mov	$NR_CPUS-1, %ebx
 2:	mov	$AP_STACK_SIZE, %eax
 	mul	%ebx
-	sub	$AP_STACK_SIZE, %eax
 	mov	$ap_stacks, %ecx
 	sub	%eax, %ecx
 	mov	%ecx, %esp
