@@ -53,7 +53,8 @@ typedef struct {
     uint64_t  lcp_pd_base;
     uint64_t  lcp_pd_size;
     uint32_t  num_logical_procs;
-    uint64_t  flags;                /* v3+ */
+    /* versions >= 3 */
+    uint64_t  flags;
 } bios_data_t;
 
 /*
@@ -75,7 +76,7 @@ typedef struct {
  * OS/loader to SINIT structure
  */
 typedef struct {
-    uint32_t    version;           /* currently 4 */
+    uint32_t    version;           /* currently 4, 5 */
     uint32_t    reserved;
     uint64_t    mle_ptab;
     uint64_t    mle_size;
@@ -87,6 +88,8 @@ typedef struct {
     uint64_t    lcp_po_base;
     uint64_t    lcp_po_size;
     txt_caps_t  capabilities;
+    /* versions >= 5 */
+    uint64_t    efi_rsdt_ptr;
 } os_sinit_data_t;
 
 /*
@@ -109,7 +112,7 @@ typedef struct __attribute__ ((packed)) {
 typedef uint8_t   sha1_hash_t[SHA1_SIZE];
 
 typedef struct {
-    uint32_t     version;             /* currently 6 */
+    uint32_t     version;             /* currently 6-8 */
     sha1_hash_t  bios_acm_id;
     uint32_t     edx_senter_flags;
     uint64_t     mseg_valid;
@@ -124,6 +127,8 @@ typedef struct {
     uint32_t     mdrs_off;
     uint32_t     num_vtd_dmars;
     uint32_t     vtd_dmars_off;
+    /* versions >= 8 */
+    uint32_t     proc_scrtm_status;
 } sinit_mle_data_t;
 
 

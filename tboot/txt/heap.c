@@ -185,6 +185,8 @@ void print_os_sinit_data(os_sinit_data_t *os_sinit_data)
     printk("\t lcp_po_size: 0x%Lx (%Lu)\n", os_sinit_data->lcp_po_size,
            os_sinit_data->lcp_po_size);
     print_txt_caps("\t ", os_sinit_data->capabilities);
+    if ( os_sinit_data->version >= 5 )
+        printk("\t efi_rsdt_ptr: 0x%Lx\n", os_sinit_data->efi_rsdt_ptr);
 }
 
 static bool verify_os_sinit_data(txt_heap_t *txt_heap)
@@ -208,16 +210,18 @@ static bool verify_os_sinit_data(txt_heap_t *txt_heap)
     os_sinit_data = get_os_sinit_data_start(txt_heap);
 
     /* check version (but since we create this, it should always be OK) */
-    if ( os_sinit_data->version > 4 ) {
+    if ( os_sinit_data->version < 4 || os_sinit_data->version > 5 ) {
         printk("unsupported OS to SINIT data version (%u)\n",
                os_sinit_data->version);
         return false;
     }
 
-    /* only check minimal size */
-    if ( size < sizeof(os_sinit_data_t) ) {
-        printk("OS to SINIT data size (%Lx) is smaller than "
-               "os_sinit_data_t (%x)\n", size, sizeof(os_sinit_data_t));
+    if ( (os_sinit_data->version == 4 &&
+          size != offsetof(os_sinit_data_t, efi_rsdt_ptr) + sizeof(uint64_t))
+         || (os_sinit_data->version == 5 &&
+             size != sizeof(os_sinit_data_t) + sizeof(uint64_t)) ) {
+        printk("OS to SINIT data size (%Lx) does not match for version (%x)\n",
+               size, sizeof(os_sinit_data_t));
         return false;
     }
 
@@ -268,6 +272,9 @@ static void print_sinit_mle_data(sinit_mle_data_t *sinit_mle_data)
     print_sinit_mdrs((sinit_mdr_t *)
                      (((void *)sinit_mle_data - sizeof(uint64_t)) +
                       sinit_mle_data->mdrs_off), sinit_mle_data->num_mdrs);
+    if ( sinit_mle_data->version >= 8 )
+        printk("\t proc_scrtm_status: 0x%08x\n",
+               sinit_mle_data->proc_scrtm_status);
 }
 
 static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
@@ -297,7 +304,7 @@ static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
                sinit_mle_data->version);
         return false;
     }
-    else if ( sinit_mle_data->version > 6 ) {
+    else if ( sinit_mle_data->version > 8 ) {
         printk("unsupported SINIT to MLE data version (%u)\n",
                sinit_mle_data->version);
     }

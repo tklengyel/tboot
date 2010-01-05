@@ -94,6 +94,8 @@ typedef struct {
     uint32_t acm_max_size;
     uint32_t acm_mem_types;
     uint32_t senter_controls;
+    bool proc_based_scrtm;
+    bool preserve_mce;
 } getsec_parameters_t;
 
 extern bool get_parameters(getsec_parameters_t *params);

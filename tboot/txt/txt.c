@@ -297,9 +297,15 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     size = (uint64_t *)((uint32_t)os_sinit_data - sizeof(uint64_t));
     *size = sizeof(*os_sinit_data) + sizeof(uint64_t);
     memset(os_sinit_data, 0, sizeof(*os_sinit_data));
-    /* we only support version 4 (verify_acmod() will ensure SINIT supports */
-    /* at least this) even if SINIT supports newer version */
-    os_sinit_data->version = 0x04;
+    /* we only support versions 4, 5 depending on what SINIT supports (and
+       use v5 if SINIT supports more recent version */
+    if ( get_supported_os_sinit_data_ver(sinit) == 4 ) {
+        os_sinit_data->version = 4;
+        /* need to make size exactly size of v4 fields or SINIT will fail */
+        *size = offsetof(os_sinit_data_t, efi_rsdt_ptr) + sizeof(uint64_t);
+    }
+    else
+        os_sinit_data->version = 5;
     /* this is phys addr */
     os_sinit_data->mle_ptab = (uint64_t)(unsigned long)ptab_base;
     os_sinit_data->mle_size = g_mle_hdr.mle_end_off - g_mle_hdr.mle_start_off;
@@ -341,10 +347,11 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
         return NULL;
     }
     /* capabilities : require MLE pagetable in ECX on launch */
-    /* TODO when SINIT ready
+    /* TODO: when SINIT ready
      * os_sinit_data->capabilities.ecx_pgtbl = 1;
      */
     os_sinit_data->capabilities.ecx_pgtbl = 0;
+    /* TODO: when tboot supports EFI then set efi_rsdt_ptr */
 
     print_os_sinit_data(os_sinit_data);
 
@@ -609,7 +616,8 @@ bool txt_prepare_cpu(void)
     }
 
     /*
-     * verify all machine check status registers are clear
+     * verify all machine check status registers are clear (unless
+     * support preserving them)
      */
 
     /* no machine check in progress (IA32_MCG_STATUS.MCIP=1) */
@@ -619,17 +627,30 @@ bool txt_prepare_cpu(void)
         return false;
     }
 
-    /* all machine check regs are clear */
+    getsec_parameters_t params;
+    if ( !get_parameters(&params) ) {
+        printk("get_parameters() failed\n");
+        return false;
+    }
+
+    /* check if all machine check regs are clear */
     rdmsrl(MSR_IA32_MCG_CAP, mcg_cap);
-    for ( int i = 0; i < (mcg_cap & 0xff); i++ ) {
+    for ( unsigned int i = 0; i < (mcg_cap & 0xff); i++ ) {
         rdmsrl(MSR_IA32_MC0_STATUS + 4*i, mcg_stat);
         if ( mcg_stat & (1ULL << 63) ) {
-            printk("MCG[%d] = %Lx ERROR\n", i, mcg_stat);
-            return false;
+            printk("MCG[%u] = %Lx ERROR\n", i, mcg_stat);
+            if ( !params.preserve_mce )
+                return false;
         }
     }
 
-    printk("no machine check errors\n");
+    if ( params.preserve_mce )
+        printk("supports preserving machine check errors\n");
+    else
+        printk("no machine check errors\n");
+
+    if ( params.proc_based_scrtm )
+        printk("CPU support processor-based S-CRTM\n");
 
     /* all is well with the processor state */
     printk("CPU is ready for SENTER\n");
@@ -645,10 +666,9 @@ tb_error_t txt_post_launch(void)
 
     /* verify MTRRs, VT-d settings, TXT heap, etc. */
     err = txt_post_launch_verify_platform();
-    if ( err != TB_ERR_NONE ) {
+    /* don't return the error yet, because we need to restore settings */
+    if ( err != TB_ERR_NONE )
         printk("failed to verify platform\n");
-        return err;
-    }
 
     /* get saved OS state (os_mvmm_data_t) from LT heap */
     txt_heap = get_txt_heap();
@@ -671,6 +691,10 @@ tb_error_t txt_post_launch(void)
 
     /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
     restore_mtrrs(&(os_mle_data->saved_mtrr_state));
+
+    /* now, if there was an error, return it */
+    if ( err != TB_ERR_NONE )
+        return err;
 
     /* always set the LT.CMD.SECRETS flag */
     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);
@@ -866,13 +890,19 @@ bool get_parameters(getsec_parameters_t *params)
     params->acm_max_size = DEF_ACM_MAX_SIZE;
     params->acm_mem_types = DEF_ACM_MEM_TYPES;
     params->senter_controls = DEF_SENTER_CTRLS;
+    params->proc_based_scrtm = false;
+    params->preserve_mce = false;
+
     index = 0;
     do {
         __getsec_parameters(index++, &param_type, &eax, &ebx, &ecx);
         /* the code generated for a 'switch' statement doesn't work in this */
         /* environment, so use if/else blocks instead */
+
+        /* NULL - all reserved */
         if ( param_type == 0 )
             ;
+        /* supported ACM versions */
         else if ( param_type == 1 ) {
             if ( params->n_versions == MAX_SUPPORTED_ACM_VERSIONS )
                 printk("number of supported ACM version exceeds "
@@ -883,12 +913,20 @@ bool get_parameters(getsec_parameters_t *params)
                 params->n_versions++;
             }
         }
+        /* max size AC execution area */
         else if ( param_type == 2 )
             params->acm_max_size = eax & 0xffffffe0;
+        /* supported non-AC mem types */
         else if ( param_type == 3 )
             params->acm_mem_types = eax & 0xffffffe0;
+        /* SENTER controls */
         else if ( param_type == 4 )
             params->senter_controls = (eax & 0x00007fff) >> 8;
+        /* TXT extensions support */
+        else if ( param_type == 5 ) {
+            params->proc_based_scrtm = (eax & 0x00000020) ? true : false;
+            params->preserve_mce = (eax & 0x00000040) ? true : false;
+        }
         else {
             printk("unknown GETSEC[PARAMETERS] type: %d\n", param_type);
             param_type = 0;    /* set so that we break out of the loop */

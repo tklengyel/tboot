@@ -484,7 +484,7 @@ bool verify_acmod(acm_hdr_t *acm_hdr)
         return false;
     }
 
-    if ( get_parameters(&params) == -1 ) {
+    if ( !get_parameters(&params) ) {
         printk("get_parameters() failed\n");
         return false;
     }
@@ -565,7 +565,7 @@ bool verify_acmod(acm_hdr_t *acm_hdr)
         return false;
     }
     /* only warn if SINIT supports more recent version than us */
-    else if ( info_table->os_sinit_data_ver > 4 ) {
+    else if ( info_table->os_sinit_data_ver > 5 ) {
         printk("SINIT's os_sinit_data version unsupported (%u)\n",
                info_table->os_sinit_data_ver);
     }
