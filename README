@@ -1,6 +1,5 @@
 ******************************************************************************
 * This version of tboot will not work with Xen versions <3.4 (c/s < 19115)   *
-* or the below-referenced Linux patches                                      *
 ******************************************************************************
 
 Trusted Boot (tboot) is an open source, pre-kernel/VMM module that uses
@@ -57,8 +56,18 @@ o  Verified Launch.  Tboot will extend verifcation from the MLE to the VMM
    provisioned into TPM NV using the lcptools.
 
 
+Instructions for Building:
+-------------------------
+o  The trousers sub-project has been removed (it was using an out-of-date
+   version and was often problematic to build).  Instead, the trosuers and
+   trousers-devel packages must already be installed in order to build the
+   lcptools sub-project.  Most distrubtions either provide these packages
+   by default or optionally; otherwise they can be found on various package
+   sites and manually installed.
+
+
 Instructions for Use:
----------------------
+--------------------
 o  The new tboot module must be added as the 'kernel' in the grub.conf file.
    The existing 'kernel' entry should follow as a 'module'.  The SINIT AC
    module must be added to the grub.conf boot config as the last module, e.g.:

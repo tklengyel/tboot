@@ -31,7 +31,7 @@ LIBS += -lcrypto -ltspi -lz
 # universal rules
 #
 
-build : $(TPMNV_TARGETS) $(LCP_TARGETS)
+build : -ltspi $(TPMNV_TARGETS) $(LCP_TARGETS)
 
 
 dist : install

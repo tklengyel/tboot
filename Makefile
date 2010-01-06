@@ -9,8 +9,7 @@ export ROOTDIR=$(CURDIR)
 include Config.mk
 
 # (txt-test is not included because it requires pathing to Linux src)
-# (trousers is a dep of lcptools)
-SUBDIRS := tboot trousers lcptools tb_polgen
+SUBDIRS := tboot lcptools tb_polgen
 
 #
 # build rules
