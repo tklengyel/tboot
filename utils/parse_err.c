@@ -1,7 +1,7 @@
 /*
- * errors.c: parse and return status of Intel(r) TXT error codes
+ * parse_err.c: Linux app that will parse a TXT.ERRORCODE value
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,39 +33,79 @@
  *
  */
 
-#include <config.h>
 #include <stdbool.h>
-#include <types.h>
-#include <printk.h>
-#include <tb_error.h>
-#include <txt/txt.h>
-#include <txt/config_regs.h>
-#include <txt/errorcode.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/user.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
+#define printk   printf
+#include "../tboot/include/txt/config_regs.h"
+#include "../tboot/include/txt/errorcode.h"
 
-static void display_errors(void)
+#define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
+
+static inline uint64_t read_txt_config_reg(void *config_regs_base,
+                                           uint32_t reg)
+{
+    /* these are MMIO so make sure compiler doesn't optimize */
+    return *(volatile uint64_t *)(config_regs_base + reg);
+}
+
+int main(int argc, char *argv[])
 {
     txt_errorcode_t err;
-    txt_ests_t ests;
-    txt_e2sts_t e2sts;
-    txt_errorcode_sw_t sw_err;
-    acmod_error_t acmod_err;
- 
-    /*
-     * display LT.ERRORODE error
-     */
-    err = (txt_errorcode_t)read_pub_config_reg(TXTCR_ERRORCODE);
-    printk("TXT.ERRORCODE=%Lx\n", err._raw);
+
+    if ( argc > 2 ) {
+        printf("usage:  %s [<TXT.ERRORCODE value>]\n", argv[0]);
+        return 1;
+    }
+
+    if ( argc == 2 ) {
+        err._raw = strtoul(argv[1], NULL, 0);
+        if ( errno != 0 ) {
+            printf("Error:  TXT.ERRORCODE value is not a valid number\n");
+            return 1;
+        }
+    }
+    else {
+        int fd_mem = open("/dev/mem", O_RDONLY);
+        if ( fd_mem == -1 ) {
+            printf("ERROR: cannot open /dev/mem\n");
+            return 1;
+        }
+        void *txt_pub = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ,
+                             MAP_PRIVATE, fd_mem, TXT_PUB_CONFIG_REGS_BASE);
+        if ( txt_pub == MAP_FAILED ) {
+            printf("ERROR: cannot map config regs\n");
+            close(fd_mem);
+            return 1;
+        }
+
+        err._raw = read_txt_config_reg(txt_pub, TXTCR_ERRORCODE);
+
+        munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
+        close(fd_mem);
+    }
+
+    printf("ERRORCODE: 0x%08jx\n", err._raw);
 
     /* AC module error (don't know how to parse other errors) */
     if ( err.valid ) {
         if ( err.external == 0 )       /* processor error */
             printk("\t processor error %x\n", (uint32_t)err.type);
         else {                         /* external SW error */
+            txt_errorcode_sw_t sw_err;
             sw_err._raw = err.type;
             if ( sw_err.src == 1 )     /* unknown SW error */
                 printk("unknown SW error %x:%x\n", sw_err.err1, sw_err.err2);
             else {                     /* ACM error */
+                acmod_error_t acmod_err;
                 acmod_err._raw = sw_err._raw;
                 printk("AC module error : acm_type=%x, progress=%02x, "
                        "error=%x\n", acmod_err.acm_type, acmod_err.progress,
@@ -76,40 +116,16 @@ static void display_errors(void)
             }
         }
     }
-
-    /*
-     * display LT.ESTS error
-     */
-    ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
-    printk("LT.ESTS=%Lx\n", ests._raw);
-
-    /*
-     * display LT.E2STS error
-     * - only valid if LT.WAKE-ERROR.STS set in LT.STS reg
-     */
-    if ( ests.txt_wake_error_sts ) {
-        e2sts = (txt_e2sts_t)read_pub_config_reg(TXTCR_E2STS);
-        printk("LT.E2STS=%Lx\n", e2sts._raw);
-    }
-}
-
-bool txt_get_error(void)
-{
-    txt_errorcode_t err;
-
-    display_errors();
-
-    err = (txt_errorcode_t)read_pub_config_reg(TXTCR_ERRORCODE);
-    if ( err.valid )
-        return false;
     else
-        return true;
+        printk("no error\n");
+
+    return 0;
 }
+
 
 /*
  * Local variables:
  * mode: C
- * c-set-style: "BSD"
  * c-basic-offset: 4
  * tab-width: 4
  * indent-tabs-mode: nil

@@ -9,7 +9,7 @@ export ROOTDIR=$(CURDIR)
 include Config.mk
 
 # (txt-test is not included because it requires pathing to Linux src)
-SUBDIRS := tboot lcptools tb_polgen
+SUBDIRS := tboot lcptools tb_polgen utils
 
 #
 # build rules

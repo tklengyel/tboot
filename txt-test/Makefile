@@ -14,8 +14,6 @@ LINUX_SRC_DIR = $(LINUX_BASE_DIR)/linux-2.6.18-xen.hg
 # uncomment to build test kernel module
 #MOD_TARGET  := txt-test.ko
 
-APP_TARGETS := txt-stat acminfo
-
 
 #
 # universal targets
@@ -23,14 +21,14 @@ APP_TARGETS := txt-stat acminfo
 dist : install
 
 
-build : $(APP_TARGETS) $(MOD_TARGET)
+build : $(MOD_TARGET)
 
 
 install : build
 
 
 clean :
-	rm -f $(MOD_TARGET) $(APP_TARGETS) *~ *.o *.mod.* *.symvers
+	rm -f $(MOD_TARGET) *~ *.o *.mod.* *.symvers
 
 
 distclean : clean
@@ -44,12 +42,6 @@ BUILD_DEPS := $(ROOTDIR)/Config.mk $(CURDIR)/Makefile
 
 $(MOD_TARGET) : $(BUILD_DEPS) txt-test.c
 	$(MAKE) -C $(LINUX_BUILD_DIR) M=$(CURDIR) modules
-
-txt-stat : txt-stat.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
-
-acminfo : acminfo.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
 
 %.o : %.c $(BUILD_DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@
