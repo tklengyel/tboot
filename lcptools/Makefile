@@ -13,32 +13,38 @@ TPMNV_TARGETS := \
 	tpmnv_lock     \
 	tpmnv_getcap
 
-LCP_TARGETS := \
+LCP1_TARGETS := \
 	lcp_writepol   \
 	lcp_readpol    \
 	lcp_crtpconf   \
-	lcp_crtpol     \
-	lcp_mlehash
+	lcp_crtpol
 
-UTIL_OBJS := lcptools.o lcputils.o
+LCP2_TARGETS := \
+	lcp_mlehash    \
+	lcp_crtpol2    \
+	lcp_crtpollist \
+	lcp_crtpolelt  \
 
+tpmnv : $(TPMNV_TARGETS)
 
-# libraries
-LIBS += -lcrypto -ltspi -lz
+lcp1 : $(LCP1_TARGETS) lcp_mlehash
+
+lcp2 : $(LCP2_TARGETS)
 
 
 #
 # universal rules
 #
 
-build : -ltspi $(TPMNV_TARGETS) $(LCP_TARGETS)
+build : $(TPMNV_TARGETS) $(LCP1_TARGETS) $(LCP2_TARGETS)
 
 
 dist : install
 
 
 install :
-	@set -e; for i in $(TPMNV_TARGETS) $(LCP_TARGETS); do \
+	@set -e; for i in $(TPMNV_TARGETS) $(LCP1_TARGETS) $(LCP2_TARGETS);\
+	do \
 		$(MAKE) DISTDIR=$(DISTDIR) INST_TARGET=$(DISTDIR)/usr/bin/$$i do_install; \
 	done
 
@@ -51,7 +57,7 @@ $(INST_TARGET) : $(notdir $(INST_TARGET))
 
 
 clean :
-	rm -f *~ *.a *.so *.o *.rpm $(DEP_FILES) $(TPMNV_TARGETS) $(LCP_TARGETS)
+	rm -f *~ *.a *.so *.o *.rpm $(DEP_FILES) $(TPMNV_TARGETS) $(LCP1_TARGETS) $(LCP2_TARGETS)
 
 
 mrproper : clean
@@ -64,10 +70,41 @@ distclean : clean
 # dependencies
 #
 
+LDFLAGS += -L.
+
+
+# LCP v2
+
+POLELT_PLUGINS := mle_elt.o pconf_elt.o sbios_elt.o custom_elt.o
+
+LCP2_LIB := liblcp.a
+
+$(LCP2_LIB) : pol.o poldata.o pollist.o polelt.o lcputils2.o hash.o
+	$(AR) rc $@ $^
+
+lcp_crtpolelt : crtpolelt.o $(POLELT_PLUGINS) $(LCP2_LIB)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -llcp -o $@
+
+lcp_crtpollist : crtpollist.o $(POLELT_PLUGINS) $(LCP2_LIB)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -llcp -o $@
+
+lcp_crtpol2 : crtpol2.o $(POLELT_PLUGINS) $(LCP2_LIB)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -llcp -o $@
+
+lcp_mlehash : mlehash.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -o $@
+
+
+# LCP v1 and tpmnv_*
+
+UTIL_OBJS := lcptools.o lcputils.o
+
+LIBS += -lcrypto -ltspi -lz
+
 $(TPMNV_TARGETS) : tpmnv_% : %.o $(UTIL_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
 
-$(LCP_TARGETS) : lcp_% : %.o $(UTIL_OBJS)
+$(LCP1_TARGETS) : lcp_% : %.o $(UTIL_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
 
 

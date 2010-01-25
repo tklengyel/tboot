@@ -1,7 +1,7 @@
 /*
- * loader.h: support functions for manipulating ELF and AOUT binaries
+ * lcputils2.h: LCP utility fns
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,21 +33,43 @@
  *
  */
 
-#ifndef __LOADER_H__
-#define __LOADER_H__
+#ifndef __LCPUTILS2_H__
+#define __LCPUTILS2_H__
 
-extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
-                                size_t *size, const uuid_t *uuid);
-extern bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
-                                size_t *size, const char* file_signature);
-extern bool is_kernel_linux(void);
-extern bool launch_kernel(bool is_measured_launch);
-extern bool verify_mbi(multiboot_info_t *mbi);
-extern bool verify_modules(multiboot_info_t *mbi);
-extern module_t *get_module(multiboot_info_t *mbi, int i);
+#define MAJOR_VER(v)      ((v) >> 8)
+#define MINOR_VER(v)      ((v) & 0xff)
 
-#endif /* __LOADER_H__ */
+#define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
 
+#define MAX_PATH           256
+
+extern bool verbose;
+
+extern void ERROR(const char *fmt, ...);
+extern void LOG(const char *fmt, ...);
+extern void DISPLAY(const char *fmt, ...);
+
+extern size_t strlcpy(char *dst, const char *src, size_t siz);
+
+extern void print_hex(const char *prefix, const void *data, size_t n);
+extern void parse_comma_sep_ints(char *s, uint16_t ints[],
+                                 unsigned int *nr_ints);
+
+extern void *read_file(const char *file, size_t *length, bool fail_ok);
+extern bool write_file(const char *file, const void *data, size_t size);
+
+extern bool parse_line_hashes(const char *line, tb_hash_t *hash);
+extern bool parse_file(const char *filename,
+		       bool (*parse_line)(const char *line));
+
+extern const char *hash_alg_to_str(uint8_t alg);
+extern size_t get_lcp_hash_size(uint8_t hash_alg);
+
+extern bool verify_signature(const uint8_t *data, size_t data_size,
+                             const uint8_t *pubkey, size_t pubkey_size,
+                             const uint8_t *sig, bool is_sig_little_endian);
+
+#endif    /* __LCPUTILS2_H__ */
 
 
 /*

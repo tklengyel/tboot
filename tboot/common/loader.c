@@ -49,6 +49,7 @@
 #include <elf_defns.h>
 #include <linux_defns.h>
 #include <tb_error.h>
+#include <lcp2.h>
 #include <txt/txt.h>
 
 /* copy of kernel/VMM command line so that can append 'tboot=0x1234' */
@@ -288,14 +289,8 @@ module_t *get_module(multiboot_info_t *mbi, int i)
     return (module_t *)(mbi->mods_addr + i * sizeof(module_t));
 }
 
-/*
- * find_module_by_uuid
- *
- * find a module by its uuid
- *
- */
-bool find_module_by_uuid(multiboot_info_t *mbi, void **base, size_t *size,
-                         const uuid_t *uuid)
+static bool find_module(multiboot_info_t *mbi, void **base, size_t *size,
+                        const void *data, size_t len)
 {
     module_t *m;
     size_t mod_size;
@@ -319,11 +314,11 @@ bool find_module_by_uuid(multiboot_info_t *mbi, void **base, size_t *size,
         m = get_module(mbi, i);
         /* check size */
         mod_size = m->mod_end - m->mod_start;
-        if ( sizeof(uuid_t) > mod_size ) {
-            printk("Error: image size is smaller than UUID size.\n");
+        if ( len > mod_size ) {
+            printk("Error: image size is smaller than data size.\n");
             return false;
         }
-        if ( are_uuids_equal((void *)m->mod_start, uuid) ) {
+        if ( memcmp((void *)m->mod_start, data, len) == 0 ) {
             *base = (void *)m->mod_start;
             if ( size != NULL )
                 *size = mod_size;
@@ -332,6 +327,30 @@ bool find_module_by_uuid(multiboot_info_t *mbi, void **base, size_t *size,
     }
 
     return false;
+}
+
+/*
+ * find_module_by_uuid
+ *
+ * find a module by its uuid
+ *
+ */
+bool find_module_by_uuid(multiboot_info_t *mbi, void **base, size_t *size,
+                         const uuid_t *uuid)
+{
+    return find_module(mbi, base, size, uuid, sizeof(*uuid));
+}
+
+/*
+ * find_module_by_file_signature
+ *
+ * find a module by its file signature
+ *
+ */
+bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
+                                   size_t *size, const char* file_signature)
+{
+    return find_module(mbi, base, size, file_signature, strlen(file_signature));
 }
 
 bool verify_modules(multiboot_info_t *mbi)

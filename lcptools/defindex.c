@@ -46,7 +46,7 @@
 
 #define PRINT   printf
 #include "../include/uuid.h"
-#include "../include/lcp.h"
+#include "../include/lcp2.h"
 #include "lcptools.h"
 #include "lcputils.h"
 
@@ -87,7 +87,7 @@ static const char * option_strings[] = {
     "-s data size: UNIT32. \n"\
     "\tOptional for indices INDEX_LCP_DEF, INDEX_LCP_OWN and INDEX_AUX.\n"\
     "\tDefault value for indices:\n"\
-    "\tINDEX_LCP_DEF and INDEX_LCP_OWN:33; INDEX_AUX:64. Unit is byte\n",
+    "\tINDEX_LCP_DEF and INDEX_LCP_OWN:54; INDEX_AUX:64. Unit is byte\n",
     "-av auth value: string. Auth value for defined index.\n",
     "-p password: string. \n",
     "-rl read locality value: uint8. There are 5 localities:0~4.\n"\

@@ -1,7 +1,7 @@
 /*
- * loader.h: support functions for manipulating ELF and AOUT binaries
+ * polelt_plugin.h: policy element plugin support
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,21 +33,40 @@
  *
  */
 
-#ifndef __LOADER_H__
-#define __LOADER_H__
+#ifndef __POLELT_PLUGIN_H__
+#define __POLELT_PLUGIN_H__
 
-extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
-                                size_t *size, const uuid_t *uuid);
-extern bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
-                                size_t *size, const char* file_signature);
-extern bool is_kernel_linux(void);
-extern bool launch_kernel(bool is_measured_launch);
-extern bool verify_mbi(multiboot_info_t *mbi);
-extern bool verify_modules(multiboot_info_t *mbi);
-extern module_t *get_module(multiboot_info_t *mbi, int i);
+#define MAX_ELT_TYPE_STR_LEN     32
 
-#endif /* __LOADER_H__ */
+typedef struct {
+    const char *type_string;
+    struct option *cmdline_opts;
+    const char *help_txt;
+    uint32_t type;
 
+    /* c = option char (or 0 for non-option args) */
+    bool (*cmdline_handler)(int c, const char *opt);
+    /* uses state from cmdline_handler */
+    lcp_policy_element_t *(*create_elt)(void);
+    void (*display)(const char *prefix, const lcp_policy_element_t *elt);
+} polelt_plugin_t;
+
+extern unsigned int     nr_polelt_plugins;
+extern polelt_plugin_t *polelt_plugins[];
+
+#define REG_POLELT_PLUGIN(plugin)                               \
+    static void reg_plugin(void) __attribute__ ((constructor)); \
+    static void reg_plugin(void)                                \
+    {                                                           \
+        polelt_plugins[nr_polelt_plugins++] = plugin;           \
+    }
+
+/* users must define these: */
+extern void ERROR(const char *fmt, ...);
+extern void LOG(const char *fmt, ...);
+extern void DISPLAY(const char *fmt, ...);
+
+#endif    /* __POLELT_PLUGIN_H__ */
 
 
 /*

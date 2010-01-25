@@ -1,7 +1,7 @@
 /*
- * loader.h: support functions for manipulating ELF and AOUT binaries
+ * poldata.h:
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,21 +33,22 @@
  *
  */
 
-#ifndef __LOADER_H__
-#define __LOADER_H__
+#ifndef __POLDATA_H__
+#define __POLDATA_H__
 
-extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
-                                size_t *size, const uuid_t *uuid);
-extern bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
-                                size_t *size, const char* file_signature);
-extern bool is_kernel_linux(void);
-extern bool launch_kernel(bool is_measured_launch);
-extern bool verify_mbi(multiboot_info_t *mbi);
-extern bool verify_modules(multiboot_info_t *mbi);
-extern module_t *get_module(multiboot_info_t *mbi, int i);
+extern size_t get_policy_data_size(const lcp_policy_data_t *poldata);
+extern bool verify_policy_data(const lcp_policy_data_t *poldata, size_t size);
+extern void display_policy_data(const char *prefix,
+                                const lcp_policy_data_t *poldata, bool brief);
 
-#endif /* __LOADER_H__ */
+extern lcp_policy_data_t *add_policy_list(lcp_policy_data_t *poldata,
+                                          const lcp_policy_list_t *pollist);
 
+extern void calc_policy_data_hash(const lcp_policy_data_t *poldata,
+                                  lcp_hash_t *hash, uint8_t hash_alg);
+
+
+#endif    /* __POLDATA_H__ */
 
 
 /*

@@ -1,7 +1,7 @@
 /*
- * loader.h: support functions for manipulating ELF and AOUT binaries
+ * pol.h:
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2009, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,21 +33,17 @@
  *
  */
 
-#ifndef __LOADER_H__
-#define __LOADER_H__
+#ifndef __POL_H__
+#define __POL_H__
 
-extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
-                                size_t *size, const uuid_t *uuid);
-extern bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
-                                size_t *size, const char* file_signature);
-extern bool is_kernel_linux(void);
-extern bool launch_kernel(bool is_measured_launch);
-extern bool verify_mbi(multiboot_info_t *mbi);
-extern bool verify_modules(multiboot_info_t *mbi);
-extern module_t *get_module(multiboot_info_t *mbi, int i);
+extern size_t get_policy_size(const lcp_policy_t *pol);
+extern bool verify_policy(const lcp_policy_t *pol, size_t size, bool silent);
+extern void display_policy(const char *prefix, const lcp_policy_t *pol,
+                           bool brief);
 
-#endif /* __LOADER_H__ */
+extern const char *policy_type_to_str(uint8_t type);
 
+#endif    /* __POL_H__ */
 
 
 /*

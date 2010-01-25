@@ -55,7 +55,7 @@
 #include <tboot.h>
 #include <mle.h>
 #define LCP_UUID_ONLY
-#include <lcp.h>
+#include <lcp2.h>
 #include <cmdline.h>
 #include <txt/txt.h>
 #include <txt/config_regs.h>
@@ -245,15 +245,25 @@ bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
     if ( size != NULL )
         *size = 0;
 
+    /* try policy data file for old version (0x00 or 0x01) */
     find_module_by_uuid(mbi, &base2, &size2, &((uuid_t)LCP_POLICY_DATA_UUID));
 
     /* not found */
     if ( base2 == NULL ) {
-        printk("no LCP module found\n");
-        return false;
-    }
+        /* try policy data file for new version (0x0202) */
+        find_module_by_file_signature(mbi, &base2, &size2,
+                                      LCP_POLICY_DATA_FILE_SIGNATURE);
 
-    printk("LCP module found\n");
+        if ( base2 == NULL ) {
+            printk("no LCP module found\n");
+            return false;
+        }
+        else
+            printk("v2 LCP policy data found\n");
+    }
+    else
+        printk("v1 LCP policy data found\n");
+
 
     if ( base != NULL )
         *base = base2;
