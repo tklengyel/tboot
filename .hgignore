@@ -31,7 +31,6 @@
 ^tboot/tboot$
 ^tboot/tboot-syms$
 ^tboot/tboot.gz$
-^trousers/trousers
 ^lcptools/tpmnv_defindex$
 ^lcptools/tpmnv_getcap$
 ^lcptools/tpmnv_lock$
@@ -41,6 +40,11 @@
 ^lcptools/lcp_mlehash$
 ^lcptools/lcp_readpol$
 ^lcptools/lcp_writepol$
+^lcptools/lcp_crtpol2$
+^lcptools/lcp_crtpolelt$
+^lcptools/lcp_crtpollist$
+^lcptools/trousers_dep$
 ^tb_polgen/tb_polgen$
-^txt-test/acminfo$
-^txt-test/txt-stat$
+^utils/acminfo$
+^utils/txt-stat$
+^utils/parse_err$

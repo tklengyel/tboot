@@ -57,7 +57,7 @@ $(INST_TARGET) : $(notdir $(INST_TARGET))
 
 
 clean :
-	rm -f *~ *.a *.so *.o *.rpm $(DEP_FILES) $(TPMNV_TARGETS) $(LCP1_TARGETS) $(LCP2_TARGETS)
+	rm -f *~ *.a *.so *.o *.rpm $(DEP_FILES) $(TPMNV_TARGETS) $(LCP1_TARGETS) $(LCP2_TARGETS) trousers_dep
 
 
 mrproper : clean
@@ -65,6 +65,12 @@ mrproper : clean
 
 distclean : clean
 
+#
+# trousers
+#
+
+trousers_dep:
+	@echo -e "#include <trousers/tss.h>" | $(CC) -x c $(CFLAGS) $(LDFLAGS) $(LIBS) - -Wl,--defsym=main=0 -o $@ >/dev/null 2>&1 || (echo trousers-devel package is not installed && false)
 
 #
 # dependencies
@@ -116,5 +122,5 @@ HDRS := $(wildcard $(ROOTDIR)/include/*.h) $(wildcard $(CURDIR)/*.h)
 
 BUILD_DEPS := $(ROOTDIR)/Config.mk $(CURDIR)/Makefile
 
-%.o : %.c $(HDRS) $(BUILD_DEPS)
+%.o : %.c $(HDRS) $(BUILD_DEPS) trousers_dep
 	$(CC) $(CFLAGS) -c $< -o $@
