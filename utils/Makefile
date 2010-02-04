@@ -8,6 +8,7 @@ include $(ROOTDIR)/Config.mk
 
 TARGETS := txt-stat acminfo parse_err
 
+CFLAGS += -D_LARGEFILE64_SOURCE
 
 #
 # universal targets
