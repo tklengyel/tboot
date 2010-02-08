@@ -34,13 +34,16 @@
  *
  */
 
+#include <features.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <malloc.h>
 #include <sys/user.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <fcntl.h>
 #define printk   printf
 #include "../include/config.h"
@@ -212,6 +215,9 @@ int main(int argc, char *argv[])
 {
     txt_heap_t *heap = NULL;
     uint64_t heap_size = 0;
+    void *buf = NULL;
+    off_t seek_ret = -1;
+    int read_ret = 0;
 
     if ( !is_txt_supported() ) {
         printf("Intel(r) TXT is not supported\n");
@@ -227,45 +233,80 @@ int main(int argc, char *argv[])
     /*
      * display config regs
      */
-    void *txt_pub = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ, MAP_PRIVATE,
-                         fd_mem, TXT_PUB_CONFIG_REGS_BASE);
-    if ( txt_pub == MAP_FAILED )
-        printf("ERROR: cannot map config regs\n");
-    else {
-        display_config_regs(txt_pub);
-        /* get this and save it before we unmap config regs */
-        heap = (txt_heap_t *)(uintptr_t)read_txt_config_reg(txt_pub,
-                                                            TXTCR_HEAP_BASE);
-        heap_size = read_txt_config_reg(txt_pub, TXTCR_HEAP_SIZE);
-        munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
+    seek_ret = lseek(fd_mem, TXT_PUB_CONFIG_REGS_BASE, SEEK_SET);
+    if ( seek_ret == -1 ) {
+        printf("ERROR: seeking public config registers failed\n");
+        goto try_display_log;
     }
+    buf = malloc(TXT_CONFIG_REGS_SIZE);
+    if ( buf == NULL ) {
+        printf("ERROR: out of memory\n");
+        goto try_display_log;
+    }
+    read_ret = read(fd_mem, buf, TXT_CONFIG_REGS_SIZE);
+    if ( read_ret != TXT_CONFIG_REGS_SIZE ) {
+        printf("ERROR: reading public config registers failed\n");
+        free(buf);
+        goto try_display_log;
+    }
+    display_config_regs(buf);
+
+    /* get this and save it before we unmap config regs */
+    heap = (txt_heap_t *)(uintptr_t)read_txt_config_reg(buf,
+                                                        TXTCR_HEAP_BASE);
+    heap_size = read_txt_config_reg(buf, TXTCR_HEAP_SIZE);
+
+    free(buf);
 
     /*
      * display heap
      */
     if ( heap != NULL && heap_size != 0 ) {
-        void *txt_heap = mmap(NULL, heap_size, PROT_READ, MAP_PRIVATE,
-                              fd_mem, (unsigned long)heap);
-        if ( txt_heap == MAP_FAILED )
-            printf("ERROR: cannot map heap\n");
-        else {
-            display_heap(txt_heap);
-            munmap(txt_heap, heap_size);
+        seek_ret = lseek(fd_mem, (off_t)heap, SEEK_SET);
+        if ( seek_ret == -1 ) {
+            printf("ERROR: seeking TXT heap failed\n");
+            goto try_display_log;
         }
+        buf = malloc(heap_size);
+        if ( buf == NULL ) {
+            printf("ERROR: out of memory\n");
+            goto try_display_log;
+        }
+        read_ret = read(fd_mem, buf, heap_size);
+        if ( read_ret != heap_size ) {
+            printf("ERROR: reading TXT heap failed\n");
+            free(buf);
+            goto try_display_log;
+        }
+        display_heap((txt_heap_t *)buf);
+        free(buf);
     }
 
+try_display_log:
     /*
      * display serial log from tboot memory (if exists)
      */
-    void *tboot_base = mmap(NULL, TBOOT_SERIAL_LOG_SIZE, PROT_READ,
-                            MAP_PRIVATE, fd_mem, TBOOT_SERIAL_LOG_ADDR);
-    if ( tboot_base == MAP_FAILED )
-        printf("ERROR: cannot map tboot\n");
-    else {
-        display_tboot_log(tboot_base);
-        munmap(tboot_base, TBOOT_SERIAL_LOG_SIZE);
+    seek_ret = lseek(fd_mem, TBOOT_SERIAL_LOG_ADDR, SEEK_SET);
+    if ( seek_ret == -1 ) {
+        printf("ERROR: seeking TBOOT log failed\n");
+        close(fd_mem);
+        return 1;
     }
-
+    buf = malloc(TBOOT_SERIAL_LOG_SIZE);
+    if ( buf == NULL ) {
+        printf("ERROR: out of memory\n");
+        close(fd_mem);
+        return 1;
+    }
+    read_ret = read(fd_mem, buf, TBOOT_SERIAL_LOG_SIZE);
+    if ( read_ret != TBOOT_SERIAL_LOG_SIZE ) {
+        printf("ERROR: reading TBOOT log failed\n");
+        free(buf);
+        close(fd_mem);
+        return 1;
+    }
+    display_tboot_log(buf);
+    free(buf);
     close(fd_mem);
 
     return 0;
