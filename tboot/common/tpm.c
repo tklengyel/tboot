@@ -1951,6 +1951,14 @@ bool is_tpm_ready(uint32_t locality)
         printk("TPM timeout values: A: %u, B: %u, C: %u, D: %u\n",
                g_timeout.timeout_a, g_timeout.timeout_b, g_timeout.timeout_c,
                g_timeout.timeout_d);
+        /*
+         * if any timeout values are less than default values, set to default
+         * value (due to bug with some TPMs)
+         */
+        if ( g_timeout.timeout_a < TIMEOUT_A ) g_timeout.timeout_a = TIMEOUT_A;
+        if ( g_timeout.timeout_b < TIMEOUT_B ) g_timeout.timeout_b = TIMEOUT_B;
+        if ( g_timeout.timeout_c < TIMEOUT_C ) g_timeout.timeout_c = TIMEOUT_C;
+        if ( g_timeout.timeout_d < TIMEOUT_D ) g_timeout.timeout_d = TIMEOUT_D;
     }
 
     return true;
