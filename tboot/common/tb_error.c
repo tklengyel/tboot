@@ -1,7 +1,7 @@
 /*
  * tb_error.c: support functions for tb_error_t type
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,8 @@
 #include <txt/config_regs.h>
 
 #define TB_LAUNCH_ERR_IDX     0x20000002      /* launch error index */
+
+static bool no_err_idx;
 
 /*
  * print_tb_error_msg
@@ -136,9 +138,11 @@ bool read_tb_error_code(tb_error_t *error)
     ret = tpm_nv_read_value(0, TB_LAUNCH_ERR_IDX, 0, (uint8_t *)error, &size);
     if ( ret != TPM_SUCCESS ) {
         printk("Error: read TPM error: 0x%x.\n", ret);
+	no_err_idx = true;
         return false;
     }
 
+    no_err_idx = false;
     return true;
 }
 
@@ -150,13 +154,14 @@ bool read_tb_error_code(tb_error_t *error)
  */
 bool write_tb_error_code(tb_error_t error)
 {
-    uint32_t ret;
+    if ( no_err_idx )
+        return false;
 
-    /* write! */
-    ret = tpm_nv_write_value(0, TB_LAUNCH_ERR_IDX, 0, (uint8_t *)&error,
-                             sizeof(tb_error_t));
+    uint32_t ret = tpm_nv_write_value(0, TB_LAUNCH_ERR_IDX, 0,
+				      (uint8_t *)&error, sizeof(tb_error_t));
     if ( ret != TPM_SUCCESS ) {
         printk("Error: write TPM error: 0x%x.\n", ret);
+	no_err_idx = true;
         return false;
     }
 
