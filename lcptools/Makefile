@@ -98,7 +98,7 @@ lcp_crtpol2 : crtpol2.o $(POLELT_PLUGINS) $(LCP2_LIB)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -llcp -o $@
 
 lcp_mlehash : mlehash.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lcrypto -lz -o $@
 
 
 # LCP v1 and tpmnv_*
