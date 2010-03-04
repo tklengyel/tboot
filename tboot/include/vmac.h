@@ -14,7 +14,7 @@
  * ----------------------------------------------------------------------- */
 #define VMAC_TAG_LEN   64 /* Must be 64 or 128 - 64 sufficient for most    */
 #define VMAC_KEY_LEN  128 /* Must be 128, 192 or 256                       */
-#define VMAC_NHBYTES  128 /* Must 2^i for any 3 < i < 13. Standard = 128   */
+#define VMAC_NHBYTES  4096/* Must 2^i for any 3 < i < 13. Standard = 128   */
 #define VMAC_PREFER_BIG_ENDIAN  0  /* Prefer non-x86 */
 
 #define VMAC_USE_OPENSSL  0 /* Set to non-zero to use OpenSSL's AES        */

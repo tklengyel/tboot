@@ -61,8 +61,8 @@ typedef struct __packed {
 
 #define MAX_TB_MAC_REGIONS      32
 typedef struct __packed {
-    uint64_t  start;         /* must be 64 byte -aligned */
-    uint32_t  size;          /* must be 64 byte -granular */
+    uint64_t  start;         /* must be 4k byte -aligned */
+    uint32_t  size;          /* must be 4k byte -granular */
 } tboot_mac_region_t;
 
 /* GAS - Generic Address Structure (ACPI 2.0+) */

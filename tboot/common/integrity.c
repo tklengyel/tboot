@@ -267,10 +267,11 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
     uint8_t nonce[16] = {};
     unsigned long virt = MAC_VIRT_START;
 
-/* even though we require callers to 64 byte align, VMAC only needs 16 */
-#define MAC_ALIGN   16
+/* we require memory is 4K page aligned in tboot */
+#define MAC_ALIGN PAGE_SIZE
     COMPILE_TIME_ASSERT(MAC_VIRT_SIZE >= MAC_PAGE_SIZE);
     COMPILE_TIME_ASSERT((unsigned long)(-1) - MAC_VIRT_START > MAC_VIRT_SIZE );
+    COMPILE_TIME_ASSERT(PAGE_SIZE % VMAC_NHBYTES == 0);
 
     /* enable paging */
     if (!enable_paging())
@@ -278,18 +279,28 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 
     vmac_set_key(key, &ctx);
     for ( unsigned int i = 0; i < _tboot_shared.num_mac_regions; i++ ) {
-        uint64_t start = _tboot_shared.mac_regions[i].start & ~(MAC_ALIGN-1);
-        uint32_t size = (_tboot_shared.mac_regions[i].size + MAC_ALIGN - 1) &
-                        ~(MAC_ALIGN-1);
+        uint64_t start = _tboot_shared.mac_regions[i].start;
 
         /* overflow? */
-        if ( plus_overflow_u64(start, size) ) {
+        if ( plus_overflow_u64(start, _tboot_shared.mac_regions[i].size) ) {
             printk("start plus size overflows during MACing\n");
             return false;
         }
 
         /* if not overflow, we get end */
-        uint64_t end = start + size;
+        uint64_t end = start + _tboot_shared.mac_regions[i].size;
+
+        start = start & ~(MAC_ALIGN - 1);
+        end = (end - 1) | (MAC_ALIGN - 1);
+
+        /* overflow? */
+        if ( plus_overflow_u64(end, 1) ) {
+            printk("end up to the alignment overflows during MACing\n");
+            return false;
+        }
+
+        /* if not overflow, we get end aligned */
+        end++;
 
         printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, end);
 
