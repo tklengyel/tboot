@@ -50,6 +50,7 @@
 #include <integrity.h>
 
 #include <page.h>
+#include <paging.h>
 extern char _end[];
 
 /* put in .data section to that they aren't cleared on S3 resume */
@@ -264,9 +265,16 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 {
     vmac_ctx_t ctx;
     uint8_t nonce[16] = {};
+    unsigned long virt = MAC_VIRT_START;
 
 /* even though we require callers to 64 byte align, VMAC only needs 16 */
 #define MAC_ALIGN   16
+    COMPILE_TIME_ASSERT(MAC_VIRT_SIZE >= MAC_PAGE_SIZE);
+    COMPILE_TIME_ASSERT((unsigned long)(-1) - MAC_VIRT_START > MAC_VIRT_SIZE );
+
+    /* enable paging */
+    if (!enable_paging())
+        return false;
 
     vmac_set_key(key, &ctx);
     for ( unsigned int i = 0; i < _tboot_shared.num_mac_regions; i++ ) {
@@ -280,18 +288,79 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
             return false;
         }
 
-        printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, start + size);
-        /* TBD: don't handle addrs > 4GB yet, so error */
-        if ( (start + size) & 0xffffffff00000000UL ) {
-            printk("range is in memory > 4GB\n");
+        /* if not overflow, we get end */
+        uint64_t end = start + size;
+
+        printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, end);
+
+        /*
+         * spfn: start pfn in 2-Mbyte page
+         * epfn: end pfn in 2-Mbyte page
+         * align_base: start physical address, which is 2-Mbyte page aligned
+         */
+        /* check overflow? */
+        if ( plus_overflow_u64(end, MAC_PAGE_SIZE) ) {
+            printk("end plus MAC_PAGE_SIZE overflows during MACing\n");
             return false;
         }
-        vmac_update((uint8_t *)(uintptr_t)start, size, &ctx);
+
+        unsigned long spfn;
+        unsigned long epfn = (unsigned long)((end + MAC_PAGE_SIZE - 1)
+                                            >> TB_L1_PAGETABLE_SHIFT);
+        unsigned long nr_pfns, nr_virt_pfns;
+
+        uint64_t align_base;
+        unsigned long valign_base, vstart, vend;
+
+        do {
+            spfn = (unsigned long)(start >> TB_L1_PAGETABLE_SHIFT);
+            align_base = (uint64_t)spfn << TB_L1_PAGETABLE_SHIFT; 
+
+            valign_base = virt;
+            vstart = valign_base + (unsigned long)(start - align_base);
+
+            nr_pfns = epfn - spfn;
+            nr_virt_pfns = (MAC_VIRT_END - virt) >> TB_L1_PAGETABLE_SHIFT;
+
+            if ( nr_virt_pfns >= nr_pfns ) {
+                /* region can fit into the rest virtual space */
+                map_pages_to_tboot(valign_base, spfn, nr_pfns);
+
+                vend = valign_base + (unsigned long)(end - align_base);
+                virt += nr_pfns << TB_L1_PAGETABLE_SHIFT;
+                start = end;
+            }
+            else {
+                /* region cannot fit into the rest virtual space, will trunc */
+                map_pages_to_tboot(valign_base, spfn, nr_virt_pfns);
+
+                vend = MAC_VIRT_END;
+                virt = MAC_VIRT_START;
+                start = align_base + (nr_virt_pfns << TB_L1_PAGETABLE_SHIFT);
+            }
+
+            /* MAC the 2-Mbyte pages */
+            while ( (vend > vstart) && ((vend - vstart) >= MAC_PAGE_SIZE) ) {
+                vmac_update((uint8_t *)(uintptr_t)vstart, MAC_PAGE_SIZE, &ctx);
+                vstart += MAC_PAGE_SIZE;
+            }
+            /* MAC the rest */
+            if ( vend > vstart )
+                vmac_update((uint8_t *)(uintptr_t)vstart, vend - vstart, &ctx);
+
+            /* destroy the mapping */
+            if ( virt == MAC_VIRT_START )
+                destroy_tboot_mapping(MAC_VIRT_START, MAC_VIRT_END);
+        } while ( start < end );
     }
     *mac = vmac(NULL, 0, nonce, NULL, &ctx);
 
     /* wipe ctx to ensure key not left in memory */
     memset(&ctx, 0, sizeof(ctx));
+
+    /* return to protected mode without paging */
+    if (!disable_paging())
+        return false;
 
     return true;
 }

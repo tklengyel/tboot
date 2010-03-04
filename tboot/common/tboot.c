@@ -392,7 +392,6 @@ static void shutdown_system(uint32_t shutdown_type)
             set_s3_resume_vector(&_tboot_shared.acpi_sinfo,
                                  TBOOT_S3_WAKEUP_ADDR);
             /* fall through for rest of Sx handling */
-        
         case TB_SHUTDOWN_S4:
         case TB_SHUTDOWN_S5:
             machine_sleep(&_tboot_shared.acpi_sinfo);
