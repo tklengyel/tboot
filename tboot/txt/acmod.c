@@ -146,7 +146,7 @@ static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
     }
 
     /* check that all entries are w/in ACM */
-    if ( id_list_off + sizeof(acm_chipset_id_t) + 
+    if ( id_list_off + sizeof(acm_chipset_id_t) +
          chipset_id_list->count * sizeof(acm_chipset_id_t) > size ) {
         printk("ACM chipset id entries are too big:"
                " chipset_id_list->count=%x\n", chipset_id_list->count);
@@ -369,7 +369,7 @@ bool does_acmod_match_chipset(acm_hdr_t* hdr)
 
         if ( (didvid.vendor_id == chipset_id->vendor_id ) &&
              (didvid.device_id == chipset_id->device_id ) &&
-             ( ( ( (chipset_id->flags & 0x1) == 0) && 
+             ( ( ( (chipset_id->flags & 0x1) == 0) &&
                  (didvid.revision_id == chipset_id->revision_id) ) ||
                ( ( (chipset_id->flags & 0x1) == 1) &&
                  ((didvid.revision_id & chipset_id->revision_id) != 0 ) ) ) )
@@ -479,7 +479,7 @@ bool verify_acmod(acm_hdr_t *acm_hdr)
      * - less than max supported size for this processor
      */
 
-    if ( (size == 0) || ((size % 64) != 0) ) { 
+    if ( (size == 0) || ((size % 64) != 0) ) {
         printk("AC mod size %x bogus\n", size);
         return false;
     }

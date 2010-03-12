@@ -75,7 +75,7 @@ static unsigned long g_feat_ctrl_msr;
 static void read_processor_info(void)
 {
     unsigned long f1, f2;
-    
+
     /* is CPUID supported? */
     /* (it's supported if ID flag in EFLAGS can be set and cleared) */
     asm("pushf\n\t"
@@ -180,7 +180,7 @@ tb_error_t supports_txt(void)
     printk("SMX is enabled\n");
 
     /*
-     * verify that an TXT-capable chipset is present and 
+     * verify that an TXT-capable chipset is present and
      * check that all needed SMX capabilities are supported
      */
 
@@ -336,7 +336,7 @@ tb_error_t txt_post_launch_verify_platform(void)
     /* verify the saved MTRRs */
     if ( !verify_saved_mtrrs(txt_heap) )
         return TB_ERR_POST_LAUNCH_VERIFICATION;
-            
+
     /* verify that VT-d PMRs were really set as required */
     if ( !verify_vtd_pmrs(txt_heap) )
         return TB_ERR_POST_LAUNCH_VERIFICATION;

@@ -249,7 +249,7 @@ bool hash_policy(tb_hash_t *hash, uint8_t hash_alg)
 }
 
 /* generate hash by hashing cmdline and module image */
-static bool hash_module(tb_hash_t *hash, uint8_t hash_alg, 
+static bool hash_module(tb_hash_t *hash, uint8_t hash_alg,
                         const char* cmdline, void *base,
                         size_t size)
 {
@@ -326,7 +326,7 @@ static tb_policy_action_t evaluate_error(tb_error_t error)
                 if ( g_policy_map[i].exception_action_table[j].error ==
                      error )
                     action = g_policy_map[i].exception_action_table[j].action;
-                if ( g_policy_map[i].exception_action_table[j].error == 
+                if ( g_policy_map[i].exception_action_table[j].error ==
                      TB_ERR_NONE )
                     break;
             }
@@ -405,7 +405,7 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
         g_pre_k_s3_state.vl_entries[g_pre_k_s3_state.num_vl_entries].pcr = pcr;
         g_pre_k_s3_state.vl_entries[g_pre_k_s3_state.num_vl_entries++].hash = hash;
     }
-    
+
     if ( pol_entry != NULL &&
          !is_hash_in_policy_entry(pol_entry, &hash, hash_alg) ) {
         printk("\t verification failed\n");

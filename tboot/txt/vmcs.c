@@ -345,12 +345,12 @@ static void construct_vmcs(void)
     arbytes.fields.default_ops_size = 0;    /* 16-bit */
     arbytes.fields.g = 1;
     __vmwrite(GUEST_TR_AR_BYTES, arbytes.bytes);
-    
+
     /* GDT */
     __asm__ __volatile__ ("sgdt (%0) \n" :: "a"(&xdt) : "memory");
     __vmwrite(GUEST_GDTR_BASE, xdt.base);
     __vmwrite(GUEST_GDTR_LIMIT, xdt.limit);
- 
+
     __vmwrite(HOST_GDTR_BASE, xdt.base);
 
     /* IDT */
@@ -546,7 +546,7 @@ void handle_init_sipi_sipi(unsigned int cpuid)
 
     /* clear the tss busy flag to avoid blocking other APs */
     RESET_TSS_DESC(3);
-    
+
     /* prepare a guest for INIT-SIPI-SIPI handling */
     /* 1: setup VMX environment and VMXON */
     if ( !start_vmx(cpuid) ) {

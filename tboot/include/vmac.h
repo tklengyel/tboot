@@ -42,7 +42,7 @@
  * Microsoft C environment.
  * ----------------------------------------------------------------------- */
 #define VMAC_USE_STDINT 1  /* Set to zero if system has no stdint.h        */
- 
+
 #if VMAC_USE_STDINT && !_MSC_VER /* Try stdint.h if non-Microsoft          */
 #ifdef  __cplusplus
 #define __STDC_CONSTANT_MACROS
@@ -134,7 +134,7 @@ extern "C" {
  * - m MUST be your message followed by zeroes to the nearest 16-byte
  *   boundary. If m is a length multiple of 16 bytes, then it is already
  *   at a 16-byte boundary and needs no padding. mbytes should be your
- *   message length without any padding. 
+ *   message length without any padding.
  * - The first bit of the nonce buffer n must be 0. An i byte nonce, is made
  *   as the first 16-i bytes of n being zero, and the final i the nonce.
  * - vhash_update MUST have mbytes be a positive multiple of VMAC_NHBYTES

@@ -52,7 +52,7 @@ const uint64_t mpoly = UINT64_C(0x1fffffff1fffffff);  /* Poly key mask     */
  * MUL64: 64x64->128-bit multiplication
  * PMUL64: assumes top bits cleared on inputs
  * ADD128: 128x128->128-bit addition
- * GET_REVERSED_64: load and byte-reverse 64-bit word  
+ * GET_REVERSED_64: load and byte-reverse 64-bit word
  * ----------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------- */
@@ -172,7 +172,7 @@ const uint64_t mpoly = UINT64_C(0x1fffffff1fffffff);  /* Poly key mask     */
 /* ----------------------------------------------------------------------- */
 
 #if __GNUC__
-#define ALIGN(n)      __attribute__ ((aligned(n))) 
+#define ALIGN(n)      __attribute__ ((aligned(n)))
 #define NOINLINE      __attribute__ ((noinline))
 #define FASTCALL
 #elif _MSC_VER
@@ -239,7 +239,7 @@ const uint64_t mpoly = UINT64_C(0x1fffffff1fffffff);  /* Poly key mask     */
          r.l[1] = bswap32 (w.l[0]);                                       \
          r.ll; })
 #endif
-#define GET_REVERSED_64(p) bswap64(*(uint64_t *)(p)) 
+#define GET_REVERSED_64(p) bswap64(*(uint64_t *)(p))
 #endif
 
 /* ----------------------------------------------------------------------- */
@@ -484,7 +484,7 @@ static void NOINLINE nh_16_func(const uint64_t *mp, const uint64_t *kp, size_t n
 #define nh_16(mp, kp, nw, rh, rl)   nh_16_func(mp, kp, nw, &(rh), &(rl));
 
 static void poly_step_func(uint64_t *ahi, uint64_t *alo, const uint64_t *kh,
-               const uint64_t *kl, const uint64_t *mh, const uint64_t *ml)                  
+               const uint64_t *kl, const uint64_t *mh, const uint64_t *ml)
 {
 	// This code tries to schedule the multiplies as early as possible to overcome
 	// the long latencies on the Pentium 4. It also minimizes "movq" instructions
@@ -631,7 +631,7 @@ static void poly_step_func(uint64_t *ahi, uint64_t *alo, const uint64_t *kh,
 #endif
 
 static void poly_step_func(uint64_t *ahi, uint64_t *alo, const uint64_t *kh,
-               const uint64_t *kl, const uint64_t *mh, const uint64_t *ml)                  
+               const uint64_t *kl, const uint64_t *mh, const uint64_t *ml)
 {
 
 #if VMAC_ARCH_BIG_ENDIAN
@@ -802,7 +802,7 @@ void vhash_update(unsigned char *m,
     ch2 = ctx->polytmp[2];
     cl2 = ctx->polytmp[3];
     #endif
-    
+
     if ( ! ctx->first_block_processed) {
         ctx->first_block_processed = 1;
         #if (VMAC_TAG_LEN == 64)
@@ -1015,7 +1015,7 @@ uint64_t vmac(unsigned char m[],
     uint64_t *in_n, *out_p;
     uint64_t p, h;
     int i;
-    
+
     #if VMAC_CACHE_NONCES
     in_n = ctx->cached_nonce;
     out_p = ctx->cached_aes;
@@ -1029,7 +1029,7 @@ uint64_t vmac(unsigned char m[],
     if ((*(uint64_t *)(n+8) != in_n[1]) ||
         (*(uint64_t *)(n  ) != in_n[0])) {
     #endif
-    
+
         in_n[0] = *(uint64_t *)(n  );
         in_n[1] = *(uint64_t *)(n+8);
         ((unsigned char *)in_n)[15] &= 0xFE;
@@ -1060,9 +1060,9 @@ void vmac_set_key(unsigned char user_key[], vmac_ctx_t *ctx)
     uint64_t in[2] = {0}, out[2];
     unsigned i;
     aes_key_setup(user_key, &ctx->cipher_key);
-    
+
     /* Fill nh key */
-    ((unsigned char *)in)[0] = 0x80; 
+    ((unsigned char *)in)[0] = 0x80;
     for (i = 0; i < sizeof(ctx->nhkey)/8; i+=2) {
         aes_encryption((unsigned char *)in, (unsigned char *)out,
                                                          &ctx->cipher_key);
@@ -1072,7 +1072,7 @@ void vmac_set_key(unsigned char user_key[], vmac_ctx_t *ctx)
     }
 
     /* Fill poly key */
-    ((unsigned char *)in)[0] = 0xC0; 
+    ((unsigned char *)in)[0] = 0xC0;
     in[1] = 0;
     for (i = 0; i < sizeof(ctx->polykey)/8; i+=2) {
         aes_encryption((unsigned char *)in, (unsigned char *)out,
@@ -1094,7 +1094,7 @@ void vmac_set_key(unsigned char user_key[], vmac_ctx_t *ctx)
             ((unsigned char *)in)[15] += 1;
         } while (ctx->l3key[i] >= p64 || ctx->l3key[i+1] >= p64);
     }
-    
+
     /* Invalidate nonce/aes cache and reset other elements */
     #if (VMAC_TAG_LEN == 64) && (VMAC_CACHE_NONCES)
     ctx->cached_nonce[0] = (uint64_t)-1; /* Ensure illegal nonce */
@@ -1154,25 +1154,25 @@ int main(void)
     clock_t ticks;
     double cpb;
     const unsigned int buf_len = 3 * (1 << 20);
-    
+
     j = prime();
     i = sizeof(speed_lengths)/sizeof(speed_lengths[0]);
     speed_iters = (unsigned *)malloc(i*sizeof(speed_iters[0]));
     speed_iters[i-1] = j * (1 << 12);
     while (--i) speed_iters[i-1] = (unsigned)(1.3 * speed_iters[i]);
-    
+
     /* Initialize context and message buffer, all 16-byte aligned */
     p = malloc(buf_len + 32);
     m = (unsigned char *)(((size_t)p + 16) & ~((size_t)15));
     memset(m, 0, buf_len + 16);
     vmac_set_key(key, &ctx);
-    
+
     /* Test incremental and all-in-one interfaces for correctness */
     vmac_set_key(key, &ctx_aio);
     vmac_set_key(key, &ctx_inc1);
     vmac_set_key(key, &ctx_inc2);
-    
-    
+
+
     /*
     for (i = 0; i <= 512; i++) {
         vhash_update(m,(i/VMAC_NHBYTES)*VMAC_NHBYTES,&ctx_inc1);
@@ -1181,10 +1181,10 @@ int main(void)
         vhash_update(m,(i/VMAC_NHBYTES)*VMAC_NHBYTES,&ctx_inc1);
         for (j = 0; j < vector_lengths[i]; j++)
             m[j] = (unsigned char)('a'+j%3);
-        
+
     }
     */
-    
+
     /* Generate vectors */
     for (i = 0; i < sizeof(vector_lengths)/sizeof(unsigned int); i++) {
         for (j = 0; j < vector_lengths[i]; j++)

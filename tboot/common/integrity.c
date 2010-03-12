@@ -1,5 +1,5 @@
 /*
- * integrity.c: routines for memory integrity measurement & 
+ * integrity.c: routines for memory integrity measurement &
  *          verification. Memory integrity is protected with tpm seal
  *
  * Copyright (c) 2007-2009, Intel Corporation
@@ -325,7 +325,7 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 
         do {
             spfn = (unsigned long)(start >> TB_L1_PAGETABLE_SHIFT);
-            align_base = (uint64_t)spfn << TB_L1_PAGETABLE_SHIFT; 
+            align_base = (uint64_t)spfn << TB_L1_PAGETABLE_SHIFT;
 
             valign_base = virt;
             vstart = valign_base + (unsigned long)(start - align_base);
@@ -415,7 +415,7 @@ bool verify_integrity(void)
                         &g_pre_k_s3_state.vl_entries[i].hash, TB_HALG_SHA1);
     }
     if ( !tpm_cmp_creation_pcrs(ARRAY_SIZE(pcr_indcs_create),
-                                pcr_indcs_create, pcr_values_create, 
+                                pcr_indcs_create, pcr_values_create,
                                 sealed_post_k_state_size,
                                 sealed_post_k_state) ) {
         printk("extended PCR values don't match creation values in sealed blob.\n");

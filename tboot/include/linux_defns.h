@@ -134,7 +134,7 @@ typedef struct __attribute__ ((packed)) {
         u8  orig_y;                                                 /* 0x01 */
         u16 ext_mem_k;          /* extended memory size in kb */    /* 0x02 */
         u16 orig_video_page;                                        /* 0x04 */
-        u8  orig_video_mode;    /* representing the specific mode 
+        u8  orig_video_mode;    /* representing the specific mode
                                 that was in effect when booting */  /* 0x06 */
         u8  orig_video_cols;                                        /* 0x07 */
         u16 unused2;                                                /* 0x08 */

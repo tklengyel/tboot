@@ -79,7 +79,7 @@ static unsigned long acpi_find_rsdp(void)
     return rsdp_phys;
 }
 
-static int acpi_table_compute_checksum(const u8 *table_pointer, 
+static int acpi_table_compute_checksum(const u8 *table_pointer,
                                        unsigned long length)
 {
     unsigned long sum = 0;
@@ -93,7 +93,7 @@ static int acpi_table_compute_checksum(const u8 *table_pointer,
     return (sum & 0xFF);
 }
 
-static unsigned long acpi_get_table(const acpi_table_rsdp_t *rsdp, 
+static unsigned long acpi_get_table(const acpi_table_rsdp_t *rsdp,
                                     const char* sig)
 {
     acpi_table_header_t *header = NULL;
@@ -125,8 +125,8 @@ static unsigned long acpi_get_table(const acpi_table_rsdp_t *rsdp,
 
         for ( i = 0; i < sdt_count; i++ ) {
             header = (acpi_table_header_t *)(uint32_t)xsdt->entry[i];
-            printk("entry[%d] sig = %c%c%c%c @ 0x%p\n", i, 
-                   header->signature[0], header->signature[1], 
+            printk("entry[%d] sig = %c%c%c%c @ 0x%p\n", i,
+                   header->signature[0], header->signature[1],
                    header->signature[2], header->signature[3],
 		   header);
             if ( !memcmp(sig, &header->signature,
@@ -155,8 +155,8 @@ static unsigned long acpi_get_table(const acpi_table_rsdp_t *rsdp,
 
         for ( i = 0; i < sdt_count; i++ ) {
             header = (acpi_table_header_t *)rsdt->entry[i];
-            printk("entry[%d] sig = %c%c%c%c @ 0x%p\n", i, 
-                   header->signature[0], header->signature[1], 
+            printk("entry[%d] sig = %c%c%c%c @ 0x%p\n", i,
+                   header->signature[0], header->signature[1],
                    header->signature[2], header->signature[3],
 		   header);
             if ( !memcmp(sig, (char *)&header->signature,
@@ -210,15 +210,15 @@ static uint32_t get_acpi_table_entry(uint32_t start, uint32_t size, int type)
 
     if ( start == 0 || size == 0 )
         return 0;
-    
+
     while ( size > sizeof(acpi_table_entry_header_t) ) {
         header = (acpi_table_entry_header_t *)start;
         if ( header->length > size )
             break;
-        
+
         if ( header->type == type )
             return start;
-        
+
         size -= header->length;
         start += header->length;
     }
@@ -316,7 +316,7 @@ uint32_t get_acpi_ioapic_table(void)
 {
     acpi_table_madt_t *madt;
     madt = (acpi_table_madt_t *)get_acpi_table(ACPI_MADT_TABLE_SIG);
-    
+
     if ( madt == 0 ) {
         printk("Unable to locate madt table\n");
         return 0;
@@ -407,7 +407,7 @@ acpi_write_memory(acpi_physical_address addr, u32 value, u32 width)
     return AE_OK;
 }
 
-static acpi_status 
+static acpi_status
 acpi_hw_low_level_read(u32 width, u32* value,
 		       const tboot_acpi_generic_address_t* reg)
 {
@@ -512,7 +512,7 @@ acpi_hw_register_read(u32 register_id, u32* value)
         status = acpi_hw_low_level_read(16, &value2,
 					&g_acpi_sinfo->pm1b_cnt_blk);
         value1 |= value2;
-        break; 
+        break;
     default:
         status = AE_BAD_PARAMETER;
         break;
@@ -615,7 +615,7 @@ acpi_status machine_sleep(const tboot_acpi_sleep_info_t* acpi_sinfo)
         if ( ACPI_FAILURE(status) )
             return AE_ERROR;
     }
-   
+
     /* Wait until we enter sleep state; we should never return to here */
     while ( !acpi_get_wake_status() )
         continue;

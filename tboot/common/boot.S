@@ -129,7 +129,7 @@ ENTRY(_post_launch_entry)
 	/* are they equal? */
 	cmp %ebx, %eax
 	je __start                /* yes, so continue with normal launch */
-	
+
 layout_err:       /* layout check failed so TXT RESET */
 	                 /* set a special error code */
 	movl $LAYOUT_ERR, (TXT_PRIV_CONFIG_REGS_BASE + TXTCR_ERRORCODE)

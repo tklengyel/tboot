@@ -45,11 +45,11 @@
 
 /* GETSEC leaf function codes */
 #define IA32_GETSEC_CAPABILITIES	0
-#define IA32_GETSEC_SENTER		    4
-#define IA32_GETSEC_SEXIT		    5
+#define IA32_GETSEC_SENTER		4
+#define IA32_GETSEC_SEXIT		5
 #define IA32_GETSEC_PARAMETERS		6
-#define IA32_GETSEC_SMCTRL          7
-#define IA32_GETSEC_WAKEUP		    8
+#define IA32_GETSEC_SMCTRL		7
+#define IA32_GETSEC_WAKEUP		8
 
 /*
  * GETSEC[] leaf functions
@@ -59,15 +59,15 @@ typedef union {
     uint32_t _raw;
     struct {
         uint32_t chipset_present  : 1;
-        uint32_t undefined1	      : 1;
-        uint32_t enteraccs	      : 1;
+        uint32_t undefined1	  : 1;
+        uint32_t enteraccs	  : 1;
         uint32_t exitac	          : 1;
         uint32_t senter	          : 1;
         uint32_t sexit	          : 1;
-        uint32_t parameters	      : 1;
+        uint32_t parameters	  : 1;
         uint32_t smctrl	          : 1;
         uint32_t wakeup	          : 1;
-        uint32_t undefined9	      : 22;
+        uint32_t undefined9	  : 22;
         uint32_t extended_leafs   : 1;
     };
 } capabilities_t;
@@ -101,7 +101,7 @@ typedef struct {
 extern bool get_parameters(getsec_parameters_t *params);
 
 
-static inline void __getsec_senter(uint32_t sinit_base, uint32_t sinit_size) 
+static inline void __getsec_senter(uint32_t sinit_base, uint32_t sinit_size)
 {
     __asm__ __volatile__ (IA32_GETSEC_OPCODE "\n"
 			  :
@@ -111,13 +111,13 @@ static inline void __getsec_senter(uint32_t sinit_base, uint32_t sinit_size)
 			    "d"(0x0));
 }
 
-static inline void __getsec_sexit(void) 
+static inline void __getsec_sexit(void)
 {
     __asm__ __volatile__ (IA32_GETSEC_OPCODE "\n"
                           : : "a"(IA32_GETSEC_SEXIT));
 }
 
-static inline void __getsec_wakeup(void) 
+static inline void __getsec_wakeup(void)
 {
     __asm__ __volatile__ (IA32_GETSEC_OPCODE "\n"
                           : : "a"(IA32_GETSEC_WAKEUP));
@@ -131,7 +131,7 @@ static inline void __getsec_smctrl(void)
 
 static inline void __getsec_parameters(uint32_t index, int* param_type,
                                        uint32_t* peax, uint32_t* pebx,
-                                       uint32_t* pecx) 
+                                       uint32_t* pecx)
 {
     uint32_t eax=0, ebx=0, ecx=0;
     __asm__ __volatile__ (IA32_GETSEC_OPCODE "\n"

@@ -288,7 +288,7 @@ static inline void __vmwrite(unsigned long field, unsigned long value)
                            MODRM_EAX_ECX
                            /* CF==1 or ZF==1 --> crash (ud2) */
                            "ja 1f ; ud2 ; 1:\n"
-                           : 
+                           :
                            : "a" (field) , "c" (value)
                            : "memory");
 }

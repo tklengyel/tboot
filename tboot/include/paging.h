@@ -1,6 +1,6 @@
 /*
  * paging.h: Definitions for paging in tboot (PAE+PSE)
- * 
+ *
  * Copyright (c) 2006-2009, Intel Corporation
  * All rights reserved.
  *

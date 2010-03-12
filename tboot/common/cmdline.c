@@ -288,8 +288,8 @@ const char *skip_filename(const char *cmdline)
     if ( cmdline == NULL || *cmdline == '\0' )
         return cmdline;
 
-    /* strip leading spaces, file name, then any spaces until the next 
-     non-space char (e.g. "  /foo/bar   baz" -> "baz"; "/foo/bar" -> "")*/ 
+    /* strip leading spaces, file name, then any spaces until the next
+     non-space char (e.g. "  /foo/bar   baz" -> "baz"; "/foo/bar" -> "")*/
     while ( *cmdline != '\0' && isspace(*cmdline) )
         cmdline++;
     while ( *cmdline != '\0' && !isspace(*cmdline) )

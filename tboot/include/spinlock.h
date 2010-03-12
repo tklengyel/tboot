@@ -58,7 +58,7 @@ static inline void _raw_spin_unlock(spinlock_t *lock)
 {
 /*    ASSERT(spin_is_locked(lock));*/
     __asm__ __volatile__ (
-	"movw $1,%0" 
+	"movw $1,%0"
         : "=m" (lock->lock) : : "memory" );
 }
 #define spin_lock(_lock)             _raw_spin_lock(_lock)

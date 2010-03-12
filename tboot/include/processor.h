@@ -207,11 +207,11 @@ static inline unsigned long read_cr0(void)
     unsigned long __cr0;
     __asm__ __volatile__ ("mov %%cr0,%0\n\t" :"=r" (__cr0));
     return __cr0;
-} 
+}
 
 static inline void write_cr0(unsigned long val)
 {
-	__asm__ __volatile__ ("mov %0,%%cr0": :"r" ((unsigned long)val));
+    __asm__ __volatile__ ("mov %0,%%cr0": :"r" ((unsigned long)val));
 }
 
 static inline unsigned long read_cr2(void)
@@ -226,8 +226,8 @@ static inline unsigned long read_cr4(void)
     unsigned long __cr4;
     __asm__ __volatile__ ("mov %%cr4,%0\n\t" :"=r" (__cr4));
     return __cr4;
-} 
-    
+}
+
 static inline void write_cr4(unsigned long val)
 {
 	__asm__ __volatile__ ("mov %0,%%cr4": :"r" ((unsigned long)val));
@@ -267,12 +267,12 @@ static always_inline void clear_in_cr4 (unsigned long mask)
 }
 
 /* Clear and set 'TS' bit respectively */
-static inline void clts(void) 
+static inline void clts(void)
 {
     __asm__ __volatile__ ("clts");
 }
 
-static inline void stts(void) 
+static inline void stts(void)
 {
     write_cr0(X86_CR0_TS|read_cr0());
 }

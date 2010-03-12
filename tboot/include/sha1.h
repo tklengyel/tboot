@@ -61,8 +61,8 @@
 #define SHA_LONG unsigned long
 #define SHA_LBLOCK  16
 #define SHA_CBLOCK  (SHA_LBLOCK*4)  /* SHA treats input data as a
-           * contiguous array of 32 bit
-           * wide big-endian values. */
+                                     * contiguous array of 32 bit
+                                     * wide big-endian values.*/
 #define SHA_LAST_BLOCK  (SHA_CBLOCK-8)
 #define SHA_DIGEST_LENGTH 20
 

@@ -51,11 +51,11 @@
 
 #define TPM_NR_LOCALITIES             5
 
-/* 
+/*
  * return code:
- * The TPM has five types of return code. One indicates successful operation 
- * and four indicate failure. 
- * TPM_SUCCESS (00000000) indicates successful execution. 
+ * The TPM has five types of return code. One indicates successful operation
+ * and four indicate failure.
+ * TPM_SUCCESS (00000000) indicates successful execution.
  * The failure reports are:
  *      TPM defined fatal errors (00000001 to 000003FF)
  *      vendor defined fatal errors (00000400 to 000007FF)
@@ -94,11 +94,11 @@ typedef struct __packed {
 } tpm_digest_t;
 typedef tpm_digest_t tpm_pcr_value_t;
 
-/* 
- * specified as minimum cmd buffer size should be supported by all 1.2 TPM 
+/*
+ * specified as minimum cmd buffer size should be supported by all 1.2 TPM
  * device in the TCG_PCClientTPMSpecification_1-20_1-00_FINAL.pdf
  */
-#define TPM_CMD_SIZE_MAX        768 
+#define TPM_CMD_SIZE_MAX        768
 #define TPM_RSP_SIZE_MAX        768
 
 #define TPM_NR_PCRS             24
@@ -110,7 +110,7 @@ typedef tpm_digest_t tpm_pcr_value_t;
  * out          : PCR value buffer, out parameter, should not be NULL
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  */
-extern uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, 
+extern uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr,
                              tpm_pcr_value_t *pcr_value);
 
 /*
@@ -122,7 +122,7 @@ extern uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr,
  * out          : Out buffer for PCR value after extending, may be NULL
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  */
-extern uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr, 
+extern uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
                                const tpm_digest_t* in, tpm_pcr_value_t* out);
 
 /* PCRs lower than 16 are not resetable */
@@ -148,12 +148,12 @@ typedef uint32_t tpm_nv_index_t;
  * data         : Out buffer for read data, should not be NULL
  * data_size    : As IN, give the size required to read, should not be NULL;
  *              : as OUT, return the size really read from TPM.
- *              : The largest nv data size can be read in a single call is 
+ *              : The largest nv data size can be read in a single call is
  *              : defined by TPM_NV_READ_VALUE_DATA_SIZE_MAX.
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  */
-extern uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index, 
-                                  uint32_t offset, uint8_t *data, 
+extern uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
+                                  uint32_t offset, uint8_t *data,
                                   uint32_t *data_size);
 
 #define TPM_NV_WRITE_VALUE_DATA_SIZE_MAX (TPM_CMD_SIZE_MAX - 22)
@@ -165,12 +165,12 @@ extern uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
  * offset       : Start writing from offset given by this parameter.
  * data         : Data to be written to TPM NV, should not be NULL
  * data_size    : The size of data to be written.
- *              : The largest nv data size can be written in a single call 
+ *              : The largest nv data size can be written in a single call
  *              : is defined by TPM_NV_WRITE_VALUE_DATA_SIZE_MAX.
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  */
-extern uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index, 
-                                   uint32_t offset, const uint8_t *data, 
+extern uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
+                                   uint32_t offset, const uint8_t *data,
                                    uint32_t data_size);
 
 typedef uint8_t tpm_locality_selection_t;
@@ -185,7 +185,7 @@ typedef uint8_t tpm_locality_selection_t;
  * tpm_seal seal given data (in_data[in_data_size]) to given pcrs
  * (pcr_indcs_create[pcr_nr_create]). The sealed data can only be unsealed
  * while the given pcrs (pcr_indcs_release[pcr_nr_release]) met given values
- * (pcr_values_release[pcr_nr_release]), and under one of the given release 
+ * (pcr_values_release[pcr_nr_release]), and under one of the given release
  * locality (release_locsa).
  *
  * locality     : TPM locality (0 - 4)
@@ -206,7 +206,7 @@ typedef uint8_t tpm_locality_selection_t;
  *                [out] the size of sealed data blob
  * sealed_data  : [out] the buffer to receive sealed data blob. The buffer
  *                size should be large enough. For example, the sealed blob
- *                for 20-byte data will need buffer larger than 322 bytes. 
+ *                for 20-byte data will need buffer larger than 322 bytes.
  * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
  *                TPM_NOSPACE for insufficient output buffer
  */

@@ -125,7 +125,7 @@ ENTRY(shutdown_entry)
         mov     %ecx,%fs
         mov     %ecx,%gs
         mov     %ecx,%ss
-	
+
 1:      /* Jump to low identity mapping in compatibility mode. */
         ljmp *compatibility_mode_far(%rip)
         ud2

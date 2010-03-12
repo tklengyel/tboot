@@ -165,7 +165,7 @@ static bool tpm_validate_locality(uint32_t locality)
     for ( i = TPM_VALIDATE_LOCALITY_TIME_OUT; i > 0; i-- ) {
         /*
          * TCG spec defines reg_acc.tpm_reg_valid_sts bit to indicate whether
-         * other bits of access reg are valid.( but this bit will also be 1 
+         * other bits of access reg are valid.( but this bit will also be 1
          * while this locality is not available, so check seize bit too)
          * It also defines that reading reg_acc.seize should always return 0
          */
@@ -240,7 +240,7 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
             cpu_relax();
         i++;
     } while ( i <= TPM_ACTIVE_LOCALITY_TIME_OUT);
-    
+
     if ( i > TPM_ACTIVE_LOCALITY_TIME_OUT ) {
         printk("TPM: access reg request use timeout\n");
         return TPM_FAIL;
@@ -274,9 +274,9 @@ static uint32_t tpm_wait_cmd_ready(uint32_t locality)
 #endif
 
     if ( i > TPM_CMD_READY_TIME_OUT ) {
-        printk("TPM: status reg content: %02x %02x %02x\n", 
-               (uint32_t)reg_sts._raw[0], 
-               (uint32_t)reg_sts._raw[1], 
+        printk("TPM: status reg content: %02x %02x %02x\n",
+               (uint32_t)reg_sts._raw[0],
+               (uint32_t)reg_sts._raw[1],
                (uint32_t)reg_sts._raw[2]);
         printk("TPM: tpm timeout for command_ready\n");
         goto RelinquishControl;
@@ -288,29 +288,29 @@ RelinquishControl:
     reg_acc._raw[0] = 0;
     reg_acc.active_locality = 1;
     write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
-    
-    return TPM_FAIL;            
+
+    return TPM_FAIL;
 }
 
 /*
  *   locality : TPM locality (0 - 3)
- *   in       : All bytes for a single TPM command, including TAG, SIZE, 
+ *   in       : All bytes for a single TPM command, including TAG, SIZE,
  *              ORDINAL, and other arguments. All data should be in big-endian
  *              style. The in MUST NOT be NULL, containing at least 10 bytes.
  *              0   1   2   3   4   5   6   7   8   9   10  ...
  *              -------------------------------------------------------------
  *              | TAG  |     SIZE      |    ORDINAL    |    arguments ...
  *              -------------------------------------------------------------
- *   in_size  : The size of the whole command contained within the in buffer. 
+ *   in_size  : The size of the whole command contained within the in buffer.
  *              It should equal to the SIZE contained in the in buffer.
  *   out      : All bytes of the TPM response to a single command. All data
- *              within it will be in big-endian style. The out MUST not be 
+ *              within it will be in big-endian style. The out MUST not be
  *              NULL, and will return at least 10 bytes.
  *              0   1   2   3   4   5   6   7   8   9   10  ...
  *              -------------------------------------------------------------
  *              | TAG  |     SIZE      |  RETURN CODE  |    other data ...
  *              -------------------------------------------------------------
- *   out_size : In/out paramter. As in, it is the size of the out buffer; 
+ *   out_size : In/out paramter. As in, it is the size of the out buffer;
  *              as out, it is the size of the response within the out buffer.
  *              The out_size MUST NOT be NULL.
  *   return   : 0 = success; if not 0, it equal to the RETURN CODE in out buf.
@@ -322,7 +322,7 @@ RelinquishControl:
 #define RSP_SIZE_OFFSET         2
 #define RSP_RST_OFFSET          6
 
-static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in, 
+static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
                                    uint32_t in_size, uint8_t *out,
                                    uint32_t *out_size)
 {
@@ -359,7 +359,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
         print_hex("TPM: \t", in, in_size);
     }
 #endif
-    
+
     /* write the command to the TPM FIFO */
     offset = 0;
     do {
@@ -381,7 +381,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
         }
 
         for ( ; row_size > 0 && offset < in_size; row_size--, offset++ )
-            write_tpm_reg(locality, TPM_REG_DATA_FIFO, 
+            write_tpm_reg(locality, TPM_REG_DATA_FIFO,
                           (tpm_reg_data_fifo_t *)&in[offset]);
     } while ( offset < in_size );
 
@@ -425,15 +425,15 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
             ret = TPM_FAIL;
             goto RelinquishControl;
         }
-        
+
         for ( ; row_size > 0 && offset < *out_size; row_size--, offset++ ) {
             if ( offset < *out_size )
-                read_tpm_reg(locality, TPM_REG_DATA_FIFO, 
+                read_tpm_reg(locality, TPM_REG_DATA_FIFO,
                              (tpm_reg_data_fifo_t *)&out[offset]);
             else {
                 /* discard the responded bytes exceeding out buf size */
                 tpm_reg_data_fifo_t discard;
-                read_tpm_reg(locality, TPM_REG_DATA_FIFO, 
+                read_tpm_reg(locality, TPM_REG_DATA_FIFO,
                              (tpm_reg_data_fifo_t *)&discard);
             }
 
@@ -468,14 +468,14 @@ RelinquishControl:
     reg_acc._raw[0] = 0;
     reg_acc.active_locality = 1;
     write_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
-    
-    return ret;            
+
+    return ret;
 }
 
 /*
  * The _tpm_submit_cmd function comes with 2 global buffers: cmd_buf & rsp_buf.
- * Before calling, caller should fill cmd arguements into cmd_buf via 
- * WRAPPER_IN_BUF macro. After calling, caller should fetch result from 
+ * Before calling, caller should fill cmd arguements into cmd_buf via
+ * WRAPPER_IN_BUF macro. After calling, caller should fetch result from
  * rsp_buffer via WRAPPER_OUT_BUF macro.
  * cmd_buf content:
  *  0   1   2   3   4   5   6   7   8   9   10  ...
@@ -487,13 +487,13 @@ RelinquishControl:
  * -------------------------------------------------------------
  * |  TAG  |     SIZE      |  RETURN CODE  |    other data ...
  * -------------------------------------------------------------
- * 
+ *
  *   locality : TPM locality (0 - 4)
  *   tag      : The TPM command tag
  *   cmd      : The TPM command ordinal
  *   arg_size : Size of argument data.
- *   out_size : IN/OUT paramter. The IN is the expected size of out data; 
- *              the OUT is the size of output data within out buffer. 
+ *   out_size : IN/OUT paramter. The IN is the expected size of out data;
+ *              the OUT is the size of output data within out buffer.
  *              The out_size MUST NOT be NULL.
  *   return   : TPM_SUCCESS for success, for other error code, refer to the .h
  */
@@ -514,8 +514,8 @@ static uint32_t _tpm_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
         printk("TPM: invalid param for _tpm_submit_cmd()\n");
         return TPM_BAD_PARAMETER;
     }
-   
-    /* 
+
+    /*
      * real cmd size should add 10 more bytes:
      *      2 bytes for tag
      *      4 bytes for size
@@ -527,7 +527,7 @@ static uint32_t _tpm_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
         printk("TPM: cmd exceeds the max supported size.\n");
         return TPM_BAD_PARAMETER;
     }
-    
+
     /* copy tag, size & ordinal into buf in a reversed byte order */
     reverse_copy(cmd_buf, &tag, sizeof(tag));
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
@@ -537,7 +537,7 @@ static uint32_t _tpm_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
     rsp_size = (rsp_size > TPM_RSP_SIZE_MAX) ? TPM_RSP_SIZE_MAX: rsp_size;
     ret = tpm_write_cmd_fifo(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size);
 
-    /* 
+    /*
      * should subtract 10 bytes from real response size:
      *      2 bytes for tag
      *      4 bytes for size
@@ -545,9 +545,9 @@ static uint32_t _tpm_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
      */
     rsp_size -= (rsp_size > RSP_HEAD_SIZE) ? RSP_HEAD_SIZE : rsp_size;
 
-    if ( ret != TPM_SUCCESS ) 
+    if ( ret != TPM_SUCCESS )
         return ret;
-    
+
     if ( *out_size == 0 || rsp_size == 0 )
         *out_size = 0;
     else
@@ -598,11 +598,11 @@ uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, tpm_pcr_value_t *out)
         printk("TPM: Pcr %d Read return value = %08X\n", pcr, ret);
         return ret;
     }
-    
+
     if ( out_size > sizeof(*out) )
         out_size = sizeof(*out);
     memcpy((void *)out, WRAPPER_OUT_BUF, out_size);
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -613,7 +613,7 @@ uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, tpm_pcr_value_t *out)
     return ret;
 }
 
-uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr, 
+uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
                         const tpm_digest_t* in, tpm_pcr_value_t* out)
 {
     uint32_t ret, in_size = 0, out_size;
@@ -632,9 +632,9 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
     in_size += sizeof(pcr);
     memcpy(WRAPPER_IN_BUF + in_size, (void *)in, sizeof(*in));
     in_size += sizeof(*in);
-    
+
     ret = tpm_submit_cmd(locality, TPM_ORD_PCR_EXTEND, in_size, &out_size);
-    
+
 #ifdef TPM_TRACE
     printk("TPM: Pcr %d extend, return value = %08X\n", pcr, ret);
 #endif
@@ -642,12 +642,12 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
         printk("TPM: Pcr %d extend, return value = %08X\n", pcr, ret);
         return ret;
     }
-   
+
     if ( out != NULL && out_size > 0 ) {
        out_size = (out_size > sizeof(*out)) ? sizeof(*out) : out_size;
        memcpy((void *)out, WRAPPER_OUT_BUF, out_size);
     }
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -671,25 +671,25 @@ uint32_t tpm_pcr_reset(uint32_t locality, uint32_t pcr)
 
     if ( pcr >= TPM_NR_PCRS || pcr < TPM_PCR_RESETABLE_MIN )
         return TPM_BAD_PARAMETER;
-    
+
     /* the pcr_sel.pcr_select[size_of_select - 1] should not be 0 */
     size_of_select = pcr / 8 + 1;
-    reverse_copy(&pcr_sel.size_of_select, &size_of_select, 
+    reverse_copy(&pcr_sel.size_of_select, &size_of_select,
                  sizeof(size_of_select));
     pcr_sel.pcr_select[pcr / 8] = 1 << (pcr % 8);
 
     in_size = sizeof(pcr_sel);
     memcpy(WRAPPER_IN_BUF, (void *)&pcr_sel, in_size);
-    
+
     ret = tpm_submit_cmd(locality, TPM_ORD_PCR_RESET, in_size, &out_size);
 
     printk("TPM: Pcr %d reset, return value = %08X\n", pcr, ret);
 
-    return ret; 
+    return ret;
 }
 
-uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index, 
-                           uint32_t offset, uint8_t *data, 
+uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
+                           uint32_t offset, uint8_t *data,
                            uint32_t *data_size)
 {
     uint32_t ret, in_size = 0, out_size;
@@ -700,7 +700,7 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
         return TPM_BAD_PARAMETER;
     if ( *data_size > TPM_NV_READ_VALUE_DATA_SIZE_MAX )
         *data_size = TPM_NV_READ_VALUE_DATA_SIZE_MAX;
-        
+
     /* copy the index, offset and *data_size into buf in reversed byte order */
     reverse_copy(WRAPPER_IN_BUF, &index, sizeof(index));
     in_size += sizeof(index);
@@ -708,16 +708,16 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
     in_size += sizeof(offset);
     reverse_copy(WRAPPER_IN_BUF + in_size, data_size, sizeof(*data_size));
     in_size += sizeof(*data_size);
-    
+
     out_size = *data_size + sizeof(*data_size);
     ret = tpm_submit_cmd(locality, TPM_ORD_NV_READ_VALUE, in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: read nv index %08x from offset %08x, return value = %08X\n", 
+    printk("TPM: read nv index %08x from offset %08x, return value = %08X\n",
            index, offset, ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: read nv index %08x offset %08x, return value = %08X\n", 
+        printk("TPM: read nv index %08x offset %08x, return value = %08X\n",
                index, offset, ret);
         return ret;
     }
@@ -733,7 +733,7 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
         *data_size = 0;
         return ret;
     }
-    
+
     out_size -= sizeof(*data_size);
     reverse_copy(data_size, WRAPPER_OUT_BUF, sizeof(*data_size));
     *data_size = (*data_size > out_size) ? out_size : *data_size;
@@ -743,8 +743,8 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
     return ret;
 }
 
-uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index, 
-                            uint32_t offset, const uint8_t *data, 
+uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
+                            uint32_t offset, const uint8_t *data,
                             uint32_t data_size)
 {
     uint32_t ret, in_size = 0, out_size = 0;
@@ -753,7 +753,7 @@ uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
         return TPM_BAD_PARAMETER;
     if ( data_size == 0 || data_size > TPM_NV_WRITE_VALUE_DATA_SIZE_MAX )
         return TPM_BAD_PARAMETER;
-        
+
     /* copy index, offset and *data_size into buf in reversed byte order */
     reverse_copy(WRAPPER_IN_BUF, &index, sizeof(index));
     in_size += sizeof(index);
@@ -763,16 +763,16 @@ uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
     in_size += sizeof(data_size);
     memcpy(WRAPPER_IN_BUF + in_size, data, data_size);
     in_size += data_size;
-    
-    ret = tpm_submit_cmd(locality, TPM_ORD_NV_WRITE_VALUE, 
+
+    ret = tpm_submit_cmd(locality, TPM_ORD_NV_WRITE_VALUE,
                          in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n", 
+    printk("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n",
            index, offset, data_size, ret);
 #endif
     if ( ret != TPM_SUCCESS )
-        printk("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n", 
+        printk("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n",
                index, offset, data_size, ret);
 
     return ret;
@@ -810,12 +810,12 @@ uint32_t tpm_get_version(uint8_t *major, uint8_t *minor)
 
     if ( major == NULL || minor == NULL )
         return TPM_BAD_PARAMETER;
-        
+
     reverse_copy(WRAPPER_IN_BUF, &cap_area, sizeof(cap_area));
     in_size += sizeof(cap_area);
     reverse_copy(WRAPPER_IN_BUF+in_size, &sub_cap_size, sizeof(sub_cap_size));
     in_size += sizeof(sub_cap_size);
-    
+
     out_size = sizeof(resp_size) + sizeof(tpm_cap_version_info_t);
     ret = tpm_submit_cmd(0, TPM_ORD_GET_CAPABILITY, in_size, &out_size);
 
@@ -826,7 +826,7 @@ uint32_t tpm_get_version(uint8_t *major, uint8_t *minor)
         printk("TPM: get version, return value = %08X\n", ret);
         return ret;
     }
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -1031,7 +1031,7 @@ static uint32_t tpm_oiap(uint32_t locality, tpm_authhandle_t *hauth,
 
     if ( hauth == NULL || nonce_even == NULL )
         return TPM_BAD_PARAMETER;
-        
+
     offset = 0;
 
     out_size = sizeof(*hauth) + sizeof(*nonce_even);
@@ -1045,7 +1045,7 @@ static uint32_t tpm_oiap(uint32_t locality, tpm_authhandle_t *hauth,
         printk("TPM: start OIAP, return value = %08X\n", ret);
         return ret;
     }
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -1062,20 +1062,20 @@ static uint32_t tpm_oiap(uint32_t locality, tpm_authhandle_t *hauth,
 
 static uint32_t tpm_osap(uint32_t locality, tpm_entity_type_t ent_type,
                          uint32_t ent_value, const tpm_nonce_t *odd_osap,
-                         tpm_authhandle_t *hauth, tpm_nonce_t *nonce_even, 
+                         tpm_authhandle_t *hauth, tpm_nonce_t *nonce_even,
                          tpm_nonce_t *even_osap)
 {
     uint32_t ret, offset, out_size;
 
-    if ( odd_osap == NULL || hauth == NULL || 
+    if ( odd_osap == NULL || hauth == NULL ||
          nonce_even == NULL || even_osap == NULL )
         return TPM_BAD_PARAMETER;
-        
+
     offset = 0;
     UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, ent_type);
     UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, ent_value);
     UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, odd_osap);
-    
+
     out_size = sizeof(*hauth) + sizeof(*nonce_even) + sizeof(*even_osap);
     ret = tpm_submit_cmd(locality, TPM_ORD_OSAP, offset, &out_size);
 
@@ -1086,7 +1086,7 @@ static uint32_t tpm_osap(uint32_t locality, tpm_entity_type_t ent_type,
         printk("TPM: start OSAP, return value = %08X\n", ret);
         return ret;
     }
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -1105,10 +1105,10 @@ static uint32_t tpm_osap(uint32_t locality, tpm_entity_type_t ent_type,
 static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
                   const tpm_encauth_t *enc_auth, uint32_t pcr_info_size,
                   const tpm_pcr_info_long_t *pcr_info, uint32_t in_data_size,
-                  const uint8_t *in_data, 
+                  const uint8_t *in_data,
                   tpm_authhandle_t hauth, const tpm_nonce_t *nonce_odd,
                   uint8_t *cont_session, const tpm_authdata_t *pub_auth,
-                  uint32_t *sealed_data_size, uint8_t *sealed_data, 
+                  uint32_t *sealed_data_size, uint8_t *sealed_data,
                   tpm_nonce_t *nonce_even, tpm_authdata_t *res_auth)
 {
     uint32_t ret, offset, out_size;
@@ -1128,14 +1128,14 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
     UNLOAD_PCR_INFO_LONG(WRAPPER_IN_BUF, offset, pcr_info);
     UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, in_data_size);
     UNLOAD_BLOB(WRAPPER_IN_BUF, offset, in_data, in_data_size);
-    
+
     UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, hauth);
     UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, nonce_odd);
     UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, *cont_session);
     UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, pub_auth);
 
     out_size = WRAPPER_OUT_MAX_SIZE;
-    
+
     ret = tpm_submit_cmd_auth1(locality, TPM_ORD_SEAL, offset, &out_size);
 
 #ifdef TPM_TRACE
@@ -1145,7 +1145,7 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
         printk("TPM: seal data, return value = %08X\n", ret);
         return ret;
     }
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -1153,7 +1153,7 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
     }
 #endif
 
-    if ( *sealed_data_size < 
+    if ( *sealed_data_size <
          ( out_size - sizeof(*nonce_even) - sizeof(*cont_session)
            - sizeof(*res_auth) ) ) {
         printk("TPM: sealed blob is too small\n");
@@ -1171,7 +1171,7 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
 }
 
 static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
-                    const uint8_t *in_data, 
+                    const uint8_t *in_data,
                     tpm_authhandle_t hauth, const tpm_nonce_t *nonce_odd,
                     uint8_t *cont_session, const tpm_authdata_t *auth,
                     tpm_authhandle_t hauth_d, const tpm_nonce_t *nonce_odd_d,
@@ -1206,7 +1206,7 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
     UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, auth_d);
 
     out_size = WRAPPER_OUT_MAX_SIZE;
-    
+
     ret = tpm_submit_cmd_auth2(locality, TPM_ORD_UNSEAL, offset, &out_size);
 
 #ifdef TPM_TRACE
@@ -1216,7 +1216,7 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
         printk("TPM: unseal data, return value = %08X\n", ret);
         return ret;
     }
-    
+
 #ifdef TPM_TRACE
     {
         printk("TPM: ");
@@ -1252,9 +1252,9 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
         ((uint8_t *)data)[i] ^= ((uint8_t *)pad)[i % sizeof(*(pad))];\
 }
 
-static const tpm_authdata_t srk_authdata = 
+static const tpm_authdata_t srk_authdata =
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-static const tpm_authdata_t blob_authdata = 
+static const tpm_authdata_t blob_authdata =
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static uint32_t _tpm_wrap_seal(uint32_t locality,
@@ -1277,12 +1277,12 @@ static uint32_t _tpm_wrap_seal(uint32_t locality,
     /* skip generate nonce for odd_osap, just use the random value in stack */
 
     /* establish a osap session */
-    ret = tpm_osap(locality, TPM_ET_SRK, TPM_KH_SRK, &odd_osap, &hauth, 
+    ret = tpm_osap(locality, TPM_ET_SRK, TPM_KH_SRK, &odd_osap, &hauth,
                    &nonce_even, &even_osap);
     if ( ret != TPM_SUCCESS )
             return ret;
 
-    /* calculate the shared secret 
+    /* calculate the shared secret
        shared-secret = HMAC(srk_auth, even_osap || odd_osap) */
     offset = 0;
     UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, &even_osap);
@@ -1323,8 +1323,8 @@ static uint32_t _tpm_wrap_seal(uint32_t locality,
 
     /* call the simple seal function */
     ret = _tpm_seal(locality, hkey, (const tpm_encauth_t *)&enc_auth,
-                    pcr_info_size, pcr_info, in_data_size, in_data, 
-                    hauth, &nonce_odd, &cont_session, 
+                    pcr_info_size, pcr_info, in_data_size, in_data,
+                    hauth, &nonce_odd, &cont_session,
                     (const tpm_authdata_t *)&pub_auth,
                     sealed_data_size, sealed_data,
                     &nonce_even, &res_auth);
@@ -1352,12 +1352,12 @@ static uint32_t _tpm_wrap_unseal(uint32_t locality, const uint8_t *in_data,
     /* skip generate nonce for odd_osap, just use the random value in stack */
 
     /* establish a osap session */
-    ret = tpm_osap(locality, TPM_ET_SRK, TPM_KH_SRK, &odd_osap, &hauth, 
+    ret = tpm_osap(locality, TPM_ET_SRK, TPM_KH_SRK, &odd_osap, &hauth,
                    &nonce_even, &even_osap);
     if ( ret != TPM_SUCCESS )
             return ret;
 
-    /* calculate the shared secret 
+    /* calculate the shared secret
        shared-secret = HMAC(auth, even_osap || odd_osap) */
     offset = 0;
     UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, &even_osap);
@@ -1442,18 +1442,18 @@ static bool init_pcr_info(uint32_t locality,
         if ( indcs_release[i] >= TPM_NR_PCRS || values_release[i] == NULL )
             return TPM_BAD_PARAMETER;
     }
-    
+
     memset(pcr_info, 0, sizeof(*pcr_info));
     pcr_info->tag = TPM_TAG_PCR_INFO_LONG;
     pcr_info->locality_at_creation = localities[locality];
     pcr_info->locality_at_release = release_locs;
     pcr_info->creation_pcr_selection.size_of_select = 3;
     for ( i = 0; i < nr_create; i++ )
-        pcr_info->creation_pcr_selection.pcr_select[indcs_create[i]/8] |= 
+        pcr_info->creation_pcr_selection.pcr_select[indcs_create[i]/8] |=
             1 << (indcs_create[i] % 8);
     pcr_info->release_pcr_selection.size_of_select = 3;
     for ( i = 0; i < nr_release; i++ )
-        pcr_info->release_pcr_selection.pcr_select[indcs_release[i]/8] |= 
+        pcr_info->release_pcr_selection.pcr_select[indcs_release[i]/8] |=
             1 << (indcs_release[i] % 8);
 
     if ( nr_release > 0 ) {
@@ -1464,7 +1464,7 @@ static bool init_pcr_info(uint32_t locality,
         UNLOAD_INTEGER(WRAPPER_IN_BUF, offset, blob_size);
         for ( i = 0; i < nr_release; i++ )
             UNLOAD_BLOB_TYPE(WRAPPER_IN_BUF, offset, values_release[i]);
-        sha1_buffer(WRAPPER_IN_BUF, offset, 
+        sha1_buffer(WRAPPER_IN_BUF, offset,
                     (uint8_t *)&pcr_info->digest_at_release);
     }
 
@@ -1878,7 +1878,7 @@ bool release_locality(uint32_t locality)
             cpu_relax();
         i++;
     } while ( i <= TPM_ACTIVE_LOCALITY_TIME_OUT );
-    
+
     printk("TPM: access reg release locality timeout\n");
     return false;
 }
@@ -1918,7 +1918,7 @@ bool is_tpm_ready(uint32_t locality)
         printk("TPM is disabled.\n");
         return false;
     }
-    
+
     memset(&vflags, 0, sizeof(vflags));
     ret = tpm_get_flags(locality, TPM_CAP_FLAG_VOLATILE,
                         (uint8_t *)&vflags, sizeof(vflags));
@@ -1986,7 +1986,7 @@ uint32_t tpm_save_state(uint32_t locality)
     } while ( ret == TPM_RETRY && retries < MAX_SAVESTATE_RETRIES );
     if ( retries > 0 )
         printk("\n");
-    
+
     return ret;
 }
 
@@ -2031,7 +2031,7 @@ uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
         *data_size = 0;
         return ret;
     }
-    
+
     out_size -= sizeof(*data_size);
     reverse_copy(data_size, WRAPPER_OUT_BUF, sizeof(*data_size));
     if ( *data_size > 0 )

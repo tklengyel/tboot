@@ -50,7 +50,7 @@ typedef enum {
     TB_ERR_MODULE_VERIFICATION_FAILED,      /* module failed to verify against
                                                policy */
     TB_ERR_MODULES_NOT_IN_POLICY,           /* modules in mbi but not in
-                                               policy */ 
+                                               policy */
     TB_ERR_POLICY_INVALID,                  /* policy is invalid */
     TB_ERR_POLICY_NOT_PRESENT,              /* no policy in TPM NV */
 

@@ -124,7 +124,7 @@ static inline void wrmsrl(unsigned int msr, __u64 val)
 #define IA32_FEATURE_CONTROL_MSR_SENTER_PARAM_CTL      0x7f00
 #define IA32_FEATURE_CONTROL_MSR_ENABLE_SENTER         0x8000
 
-/* AMD/K8 specific MSRs */ 
+/* AMD/K8 specific MSRs */
 #define MSR_EFER 0xc0000080		/* extended feature register */
 #define MSR_STAR 0xc0000081		/* legacy mode SYSCALL target */
 #define MSR_LSTAR 0xc0000082 		/* long mode SYSCALL target */
@@ -132,8 +132,8 @@ static inline void wrmsrl(unsigned int msr, __u64 val)
 #define MSR_SYSCALL_MASK 0xc0000084	/* EFLAGS mask for syscall */
 #define MSR_FS_BASE 0xc0000100		/* 64bit GS base */
 #define MSR_GS_BASE 0xc0000101		/* 64bit FS base */
-#define MSR_SHADOW_GS_BASE  0xc0000102	/* SwapGS GS shadow */ 
-/* EFER bits: */ 
+#define MSR_SHADOW_GS_BASE  0xc0000102	/* SwapGS GS shadow */
+/* EFER bits: */
 #define _EFER_SCE 0  /* SYSCALL/SYSRET */
 #define _EFER_LME 8  /* Long mode enable */
 #define _EFER_LMA 10 /* Long mode active (read-only) */

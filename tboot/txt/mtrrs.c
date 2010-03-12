@@ -161,7 +161,7 @@ static void print_mtrrs(const mtrr_state_t *saved_state)
     printk("mtrrs:\n");
     printk("\t\tbase\tmask\ttype\tv\n");
     for ( int i = 0; i < saved_state->num_var_mtrrs; i++ ) {
-        printk("\t\t%6.6x\t%6.6x\t%2.2x\t%d\n", 
+        printk("\t\t%6.6x\t%6.6x\t%2.2x\t%d\n",
                saved_state->mtrr_physbases[i].base,
                saved_state->mtrr_physmasks[i].mask,
                saved_state->mtrr_physbases[i].type,
@@ -174,9 +174,9 @@ static int get_page_type(const mtrr_state_t *saved_state, uint32_t base)
 {
     int type = -1;
     bool wt = false;
-    
+
     /* omit whether the fix mtrrs are enabled, just check var mtrrs */
-    
+
     base >>= PAGE_SHIFT;
     for ( int i = 0; i < saved_state->num_var_mtrrs; i++ ) {
         const mtrr_physbase_t *base_i = &saved_state->mtrr_physbases[i];
@@ -184,7 +184,7 @@ static int get_page_type(const mtrr_state_t *saved_state, uint32_t base)
 
         if ( mask_i->v == 0 )
             continue;
-        if ( (base & mask_i->mask) 
+        if ( (base & mask_i->mask)
                 != (base_i->base & mask_i->mask) )
             continue;
 
@@ -198,11 +198,11 @@ static int get_page_type(const mtrr_state_t *saved_state, uint32_t base)
         return MTRR_TYPE_WRTHROUGH;
     if ( type != -1 )
         return type;
-    
+
     return saved_state->mtrr_def_type.type;
 }
 
-static int get_region_type(const mtrr_state_t *saved_state, 
+static int get_region_type(const mtrr_state_t *saved_state,
                            uint32_t base, uint32_t pages)
 {
     int type;
@@ -214,10 +214,10 @@ static int get_region_type(const mtrr_state_t *saved_state,
     /* wrap the 4G address space */
     if ( ((uint32_t)(~0) - base) < (pages << PAGE_SHIFT) )
         return MTRR_TYPE_MIXED;
-    
+
     if ( saved_state->mtrr_def_type.e == 0 )
         return MTRR_TYPE_UNCACHABLE;
-    
+
     /* align to 4k page boundary */
     base &= PAGE_MASK;
     end = base + (pages << PAGE_SHIFT);
@@ -227,7 +227,7 @@ static int get_region_type(const mtrr_state_t *saved_state,
     for ( ; base < end; base += PAGE_SIZE )
         if ( type != get_page_type(saved_state, base) )
             return MTRR_TYPE_MIXED;
-    
+
     return type;
 }
 
@@ -235,9 +235,9 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
 {
     acpi_table_mcfg_t *acpi_table_mcfg;
     acpi_table_ioapic_t *acpi_table_ioapic;
-    
+
     /* mmio space for TXT private config space should be UC */
-    if ( get_region_type(saved_state, TXT_PRIV_CONFIG_REGS_BASE, 
+    if ( get_region_type(saved_state, TXT_PRIV_CONFIG_REGS_BASE,
                          NR_TXT_CONFIG_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
         printk("MMIO space for TXT private config space should be UC\n");
@@ -245,7 +245,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     }
 
     /* mmio space for TXT public config space should be UC */
-    if ( get_region_type(saved_state, TXT_PUB_CONFIG_REGS_BASE, 
+    if ( get_region_type(saved_state, TXT_PUB_CONFIG_REGS_BASE,
                          NR_TXT_CONFIG_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
         printk("MMIO space for TXT public config space should be UC\n");
@@ -253,13 +253,13 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     }
 
     /* mmio space for TPM should be UC */
-    if ( get_region_type(saved_state, TPM_LOCALITY_BASE, 
+    if ( get_region_type(saved_state, TPM_LOCALITY_BASE,
                          NR_TPM_LOCALITY_PAGES * TPM_NR_LOCALITIES)
            != MTRR_TYPE_UNCACHABLE ) {
         printk("MMIO space for TPM should be UC\n");
         return false;
     }
-        
+
     /* mmio space for APIC should be UC */
     if ( get_region_type(saved_state, MMIO_APIC_BASE, NR_MMIO_APIC_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
@@ -300,7 +300,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
                acpi_table_mcfg->base_address);
         return false;
     }
-        
+
     return true;
 }
 
@@ -312,7 +312,7 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
     /* check is meaningless if MTRRs were disabled */
     if ( saved_state->mtrr_def_type.e == 0 )
         return true;
-    
+
     /* number variable MTRRs */
     rdmsrl(MSR_IA32_MTRRCAP, mtrr_cap.raw);
     if ( mtrr_cap.vcnt < saved_state->num_var_mtrrs ) {
@@ -320,15 +320,15 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
                mtrr_cap.vcnt, saved_state->num_var_mtrrs);
         return false;
     }
-        
+
     /* variable MTRRs describing non-contiguous memory regions */
     /* TBD: assert(MAXPHYADDR == 36); */
     for ( ndx = 0; ndx < saved_state->num_var_mtrrs; ndx++ ) {
         uint64_t tb;
-    
+
         if ( saved_state->mtrr_physmasks[ndx].v == 0 )
             continue;
-        
+
         for ( tb = 0x1; tb != 0x1000000; tb = tb << 1 )
             if ( (tb & saved_state->mtrr_physmasks[ndx].mask) != 0 )
                 break;
@@ -344,21 +344,21 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
             return false;
         }
     }
-    
+
     /* overlaping regions with invalid memory type combinations */
     for ( ndx = 0; ndx < saved_state->num_var_mtrrs; ndx++ ) {
         int i;
         const mtrr_physbase_t *base_ndx = &saved_state->mtrr_physbases[ndx];
         const mtrr_physmask_t *mask_ndx = &saved_state->mtrr_physmasks[ndx];
-    
+
         if ( mask_ndx->v == 0 )
             continue;
-        
+
         for ( i = ndx + 1; i < saved_state->num_var_mtrrs; i++ ) {
             int j;
             const mtrr_physbase_t *base_i = &saved_state->mtrr_physbases[i];
             const mtrr_physmask_t *mask_i = &saved_state->mtrr_physmasks[i];
-            
+
             if ( mask_i->v == 0 )
                 continue;
 
@@ -368,15 +368,15 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
                     != (base_ndx->base & mask_ndx->mask) )
                 continue;
 
-            if ( base_ndx->type == base_i->type ) 
+            if ( base_ndx->type == base_i->type )
                 continue;
             if ( base_ndx->type == MTRR_TYPE_UNCACHABLE
                  || base_i->type == MTRR_TYPE_UNCACHABLE )
                 continue;
-            if ( base_ndx->type == MTRR_TYPE_WRTHROUGH 
+            if ( base_ndx->type == MTRR_TYPE_WRTHROUGH
                  && base_i->type == MTRR_TYPE_WRBACK )
                 continue;
-            if ( base_ndx->type == MTRR_TYPE_WRBACK 
+            if ( base_ndx->type == MTRR_TYPE_WRBACK
                  && base_i->type == MTRR_TYPE_WRTHROUGH )
                 continue;
 
@@ -389,7 +389,7 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
                         = &saved_state->mtrr_physbases[j];
                 const mtrr_physmask_t *mask_j
                         = &saved_state->mtrr_physmasks[j];
-            
+
                 if ( mask_j->v == 0 )
                     continue;
 
@@ -408,10 +408,10 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
             }
             if ( j < saved_state->num_var_mtrrs )
                 continue;
-            
+
             printk("var MTRRs overlaping regions, invalid type combinations\n");
             print_mtrrs(saved_state);
-            return false; 
+            return false;
         }
     }
 
@@ -444,7 +444,7 @@ void restore_mtrrs(mtrr_state_t *saved_state)
         wrmsrl(MTRR_PHYS_BASE0_MSR + ndx*2,
                saved_state->mtrr_physbases[ndx].raw);
     }
-    
+
     /* IA32_MTRR_DEF_TYPE MSR */
     wrmsrl(MSR_IA32_MTRR_DEF_TYPE, saved_state->mtrr_def_type.raw);
 }
@@ -517,9 +517,9 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
         wrmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
 
         /* prepare for the next loop depending on number of pages
-         * We figure out from the above how many pages could be used in this 
-         * mtrr. Then we decrement the count, increment the base, 
-         * increment the mtrr we are dealing with, and if num_pages is 
+         * We figure out from the above how many pages could be used in this
+         * mtrr. Then we decrement the count, increment the base,
+         * increment the mtrr we are dealing with, and if num_pages is
          * still not zero, we do it again.
          */
         base += (pages_in_range * PAGE_SIZE);

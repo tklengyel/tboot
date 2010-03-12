@@ -9,7 +9,7 @@
  * Wirzenius wrote this portably, Torvalds fucked it up :-)
  */
 
-/* 
+/*
  * Fri Jul 13 2001 Crutcher Dunnavant <crutcher+kernel@datastacks.com>
  * - changed to provide snprintf and vsnprintf functions
  * So Feb  1 16:51:32 CET 2004 Juergen Quade <quade@hsnr.de>
@@ -83,7 +83,7 @@ static char * number(char * buf, char * end, unsigned long long num, int base, i
     else while (num != 0)
         tmp[i++] = digits[do_div(num,base)];
 #if 0
-    else 
+    else
     {
         /* XXX KAF: force unsigned mod and div. */
         unsigned long long num2=(unsigned long long)num;

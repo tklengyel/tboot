@@ -50,7 +50,7 @@ static void display_errors(void)
     txt_e2sts_t e2sts;
     txt_errorcode_sw_t sw_err;
     acmod_error_t acmod_err;
- 
+
     /*
      * display LT.ERRORODE error
      */

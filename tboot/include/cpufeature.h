@@ -148,7 +148,7 @@
 
 #endif /* __ASM_I386_CPUFEATURE_H */
 
-/* 
+/*
  * Local Variables:
  * mode:c
  * comment-column:42

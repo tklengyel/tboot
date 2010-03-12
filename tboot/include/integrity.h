@@ -1,5 +1,5 @@
 /*
- * integrity.h: routines for memory integrity measurement & 
+ * integrity.h: routines for memory integrity measurement &
  *          verification. Memory integrity is protected with tpm seal
  *
  * Copyright (c) 2007-2009, Intel Corporation

@@ -93,7 +93,7 @@ void early_memlog_write(const char *str, unsigned int count)
 
 #define XMTRDY          0x20
 
-#define DLAB		    0x80
+#define DLAB		0x80
 
 #define TXR             0       /*  Transmit register (WRITE) */
 #define RXR             0       /*  Receive register  (READ)  */
@@ -159,10 +159,10 @@ static tboot_serial_t g_serial_vals = {
     TARGET_LCR_VALUE(8, 1, PARITY_NONE) /* default 8n1 LCR */
 };
 
-static int early_serial_putc(unsigned char ch) 
-{ 
-    unsigned timeout = 0xffff; 
-    while ((inb(g_serial_vals.io_base + LSR) & XMTRDY) == 0 && --timeout) 
+static int early_serial_putc(unsigned char ch)
+{
+    unsigned timeout = 0xffff;
+    while ((inb(g_serial_vals.io_base + LSR) & XMTRDY) == 0 && --timeout)
         cpu_relax();
     outb(ch, g_serial_vals.io_base + TXR);
     return timeout ? 0 : -1;
@@ -172,10 +172,10 @@ void early_serial_write(const char *str, unsigned int count)
 {
     while ((*str != '\0')&&(count-- > 0)) {
         /* write carriage return before newlines */
-        if (*str == '\n') 
-            early_serial_putc('\r'); 
+        if (*str == '\n')
+            early_serial_putc('\r');
         early_serial_putc(*str);
-        str++; 
+        str++;
     }
 }
 
@@ -193,7 +193,7 @@ void early_serial_init(void)
 
     /* Line control and baud-rate generator. */
     outb(lcr | DLAB, g_serial_vals.io_base + LCR);
-    
+
     if ( g_serial_vals.baud != TBOOT_BAUD_AUTO && g_serial_vals.baud != 0 ) {
         /* Baud rate specified: program it into the divisor latch. */
         divisor = g_serial_vals.clock_hz / (g_serial_vals.baud * 16);
@@ -210,7 +210,7 @@ void early_serial_init(void)
         else
             g_serial_vals.baud = g_serial_vals.clock_hz / (divisor << 4);
     }
-    
+
     outb(lcr, g_serial_vals.io_base + LCR);
 
     /* No flow ctrl: DTR and RTS are both wedged high to keep remote happy. */
@@ -221,7 +221,7 @@ void early_serial_init(void)
          FCR);
 }
 
-/* 
+/*
  * serial config parsing support ported from xen drivers/char/ns16550.c
  * Copyright (c) 2003-2005, K A Fraser
  */
@@ -232,13 +232,13 @@ static unsigned char parse_parity_char(int c)
     {
     case 'n':
         return PARITY_NONE;
-    case 'o': 
+    case 'o':
         return PARITY_ODD;
-    case 'e': 
+    case 'e':
         return PARITY_EVEN;
-    case 'm': 
+    case 'm':
         return PARITY_MARK;
-    case 's': 
+    case 's':
         return PARITY_SPACE;
     }
     return 0;
@@ -246,7 +246,7 @@ static unsigned char parse_parity_char(int c)
 
 static int check_existence(void)
 {
-    unsigned char status; 
+    unsigned char status;
 
     /* Note really concerned with IER test */
 
