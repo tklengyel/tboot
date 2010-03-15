@@ -2,7 +2,7 @@
  * acmod.c: support functions for use of Intel(r) TXT Authenticated
  *          Code (AC) Modules
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -118,7 +118,7 @@ typedef struct {
 } acm_chipset_id_list_t;
 
 extern void print_txt_caps(const char *prefix, txt_caps_t caps);
-extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size);
+extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet);
 extern bool does_acmod_match_chipset(acm_hdr_t* hdr);
 extern acm_hdr_t *copy_sinit(acm_hdr_t *sinit);
 extern bool verify_acmod(acm_hdr_t *acm_hdr);

@@ -1,7 +1,7 @@
 /*
  * config_regs.h: Intel(r) TXT configuration register -related definitions
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,9 @@
 #define TXTCR_ERRORCODE             0x0030
 #define TXTCR_CMD_RESET             0x0038
 #define TXTCR_CMD_CLOSE_PRIVATE     0x0048
+#define TXTCR_VER_FSBIF             0x0100
 #define TXTCR_DIDVID                0x0110
+#define TXTCR_VER_EMIF              0x0200
 #define TXTCR_CMD_UNLOCK_MEM_CONFIG 0x0218
 #define TXTCR_SINIT_BASE            0x0270
 #define TXTCR_SINIT_SIZE            0x0278
@@ -140,6 +142,17 @@ typedef union {
         uint16_t  reserved;
     };
 } txt_didvid_t;
+
+/*
+ * format of VER.FSBIF and VER.EMIF registers
+ */
+typedef union {
+    uint64_t _raw;
+    struct {
+        uint64_t  reserved       : 31;
+        uint64_t  prod_fused     : 1;
+    };
+} txt_ver_fsbif_emif_t;
 
 /*
  * format of DPR register

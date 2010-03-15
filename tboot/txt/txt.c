@@ -2,7 +2,7 @@
  * txt.c: Intel(r) TXT support functions, including initiating measured
  *        launch, post-launch, AP wakeup, etc.
  *
- * Copyright (c) 2003-2009, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -192,14 +192,13 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     return ptab_base;
 }
 
-/* size can be NULL */
-bool find_sinit_module(multiboot_info_t *mbi, void **base, uint32_t *size)
+/*
+ * will go through all modules to find an SINIT that matches the platform
+ * (size can be NULL)
+ */
+static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
+                                       uint32_t *size)
 {
-    module_t *mods;
-    uint32_t size2 = 0;
-    void *base2 = NULL;
-    int i;
-
     if ( base != NULL )
         *base = NULL;
     if ( size != NULL )
@@ -210,29 +209,37 @@ bool find_sinit_module(multiboot_info_t *mbi, void **base, uint32_t *size)
         return false;
     }
 
-    mods = (module_t *)(mbi->mods_addr);
-    for ( i = mbi->mods_count - 1; i > 0; i-- ) {
-        base2 = (void *)mods[i].mod_start;
-        size2 = mods[i].mod_end - (unsigned long)(base2);
-        printk("checking whether module %i is an SINIT AC module...\n", i);
-        /* check if this is really an SINIT AC module */
-        if ( is_sinit_acmod(base2, size2) )
-            break;
-        printk(" : failed.\n");
-    }
-    /* not found */
-    if ( i == 0 ) {
-        printk("no SINIT AC module found\n");
-        return false;
-    }
-    printk(" : succeeded.\n");
-    printk("user-provided SINIT found: %s\n", (const char *)mods[i].string);
+    /* display chipset fuse and device and vendor id info */
+    txt_didvid_t didvid;
+    didvid._raw = read_pub_config_reg(TXTCR_DIDVID);
+    printk("chipset ids: vendor: 0x%x, device: 0x%x, revision: 0x%x\n",
+           didvid.vendor_id, didvid.device_id, didvid.revision_id);
+    txt_ver_fsbif_emif_t ver;
+    ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
+    if ( ver._raw == 0xffffffff )       /* need to use VER.EMIF */
+        ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
+    printk("chipset production fused: %x\n", ver.prod_fused );
 
-    if ( base != NULL )
-        *base = base2;
-    if ( size != NULL )
-        *size = size2;
-    return true;
+    for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
+        module_t *m = get_module(mbi, i);
+
+        printk("checking if module %s is an SINIT for this platform...\n",
+               (const char *)m->string);
+        void *base2 = (void *)m->mod_start;
+        uint32_t size2 = m->mod_end - (unsigned long)(base2);
+        if ( is_sinit_acmod(base2, size2, false) &&
+             does_acmod_match_chipset((acm_hdr_t *)base2) ) {
+            if ( base != NULL )
+                *base = base2;
+            if ( size != NULL )
+                *size = size2;
+            printk("SINIT matches platform\n");
+            return true;
+        }
+    }
+    /* no SINIT found for this platform */
+    printk("no SINIT AC module found\n");
+    return false;
 }
 
 bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
@@ -502,16 +509,9 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
     txt_heap_t *txt_heap;
 
     /*
-     * find SINIT AC module in modules list (it should be one of last three)
+     * find correct SINIT AC module in modules list
      */
-    if ( find_sinit_module(mbi, (void **)&sinit, NULL) ) {
-        /* check if it matches chipset */
-        if ( !does_acmod_match_chipset(sinit) ) {
-            printk("SINIT does not match chipset\n");
-            sinit = NULL;
-        }
-    }
-
+    find_platform_sinit_module(mbi, (void **)&sinit, NULL);
     /* if it is newer than BIOS-provided version, then copy it to */
     /* BIOS reserved region */
     sinit = copy_sinit(sinit);

@@ -2,7 +2,7 @@
  * loader.c: support functions for manipulating ELF/Linux kernel
  *           binaries
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,7 @@ extern bool expand_linux_image(const void *linux_image, size_t linux_size,
                                void **entry_point, bool is_measured_launch);
 extern bool jump_elf_image(void *entry_point);
 extern bool jump_linux_image(void *entry_point);
+extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet);
 
 #if 0
 static void print_mbi(multiboot_info_t *mbi)
@@ -208,6 +209,35 @@ bool is_kernel_linux(void)
     return !is_elf_image(kernel_image, kernel_size);
 }
 
+/*
+ * remove (all) SINIT and LCP policy data modules (if present)
+ */
+static bool remove_txt_modules(multiboot_info_t *mbi)
+{
+    /* start at end of list so that we can remove w/in the loop */
+    for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
+        module_t *m = get_module(mbi, i);
+        void *base = (void *)m->mod_start;
+
+        if ( is_sinit_acmod(base, m->mod_end - (unsigned long)base, true) ) {
+            if ( remove_module(g_mbi, base) == NULL ) {
+                printk("failed to remove SINIT module from module list\n");
+                return false;
+            }
+        }
+    }
+
+    void *base = NULL;
+    if ( find_lcp_module(g_mbi, &base, NULL) ) {
+        if ( remove_module(g_mbi, base) == NULL ) {
+            printk("failed to remove LCP module from module list\n");
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool launch_kernel(bool is_measured_launch)
 {
     enum { ELF, LINUX } kernel_type;
@@ -216,22 +246,10 @@ bool launch_kernel(bool is_measured_launch)
     if ( !verify_mbi(g_mbi) )
         return false;
 
-    module_t *m = (module_t *)g_mbi->mods_addr;
+    /* remove all SINIT and LCP modules since kernel may not handle */
+    remove_txt_modules(g_mbi);
 
-    /* remove SINIT and LCP policy data modules (if present) */
-    void *base = NULL;
-    if ( find_sinit_module(g_mbi, &base, NULL) ) {
-        if ( remove_module(g_mbi, base) == NULL ) {
-            printk("failed to remove SINIT module from module list\n");
-            return false;
-        }
-    }
-    if ( find_lcp_module(g_mbi, &base, NULL) ) {
-        if ( remove_module(g_mbi, base) == NULL ) {
-            printk("failed to remove LCP module from module list\n");
-            return false;
-        }
-    }
+    module_t *m = (module_t *)g_mbi->mods_addr;
 
     void *kernel_image = (void *)m->mod_start;
     size_t kernel_size = m->mod_end - m->mod_start;
@@ -292,10 +310,6 @@ module_t *get_module(multiboot_info_t *mbi, int i)
 static bool find_module(multiboot_info_t *mbi, void **base, size_t *size,
                         const void *data, size_t len)
 {
-    module_t *m;
-    size_t mod_size;
-    int i;
-
     if ( mbi == NULL ) {
         printk("Error: mbi pointer is zero.\n");
         return false;
@@ -310,10 +324,10 @@ static bool find_module(multiboot_info_t *mbi, void **base, size_t *size,
     if ( size != NULL )
         *size = 0;
 
-    for ( i = mbi->mods_count - 1; i > 0; i-- ) {
-        m = get_module(mbi, i);
+    for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
+        module_t *m = get_module(mbi, i);
         /* check size */
-        mod_size = m->mod_end - m->mod_start;
+        size_t mod_size = m->mod_end - m->mod_start;
         if ( len > mod_size ) {
             printk("Error: image size is smaller than data size.\n");
             return false;

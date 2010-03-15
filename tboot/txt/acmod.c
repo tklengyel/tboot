@@ -2,7 +2,7 @@
  * acmod.c: support functions for use of Intel(r) TXT Authenticated
  *          Code (AC) Modules
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -264,7 +264,8 @@ txt_caps_t get_sinit_capabilities(acm_hdr_t* hdr)
     return info_table->capabilities;
 }
 
-static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type)
+static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
+                     bool quiet)
 {
     acm_hdr_t *acm_hdr;
     acm_info_table_t *info_table;
@@ -273,31 +274,35 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type)
 
     /* first check size */
     if ( acmod_size < sizeof(acm_hdr_t) ) {
-        printk("ACM size is too small: acmod_size=%x,"
-               " sizeof(acm_hdr)=%x\n", acmod_size,
-               (uint32_t)sizeof(acm_hdr) );
+        if ( !quiet )
+            printk("\t ACM size is too small: acmod_size=%x,"
+                   " sizeof(acm_hdr)=%x\n", acmod_size,
+                   (uint32_t)sizeof(acm_hdr) );
         return false;
     }
 
     /* then check overflow */
     if ( multiply_overflow_u32(acm_hdr->size, 4) ) {
-        printk("ACM header size in bytes overflows\n");
+        if ( !quiet )
+            printk("\t ACM header size in bytes overflows\n");
         return false;
     }
 
     /* then check size equivalency */
     if ( acmod_size != acm_hdr->size * 4 ) {
-        printk("ACM size is too small: acmod_size=%x,"
-               " acm_hdr->size*4=%x\n", acmod_size, acm_hdr->size*4);
+        if ( !quiet )
+            printk("\t ACM size is too small: acmod_size=%x,"
+                   " acm_hdr->size*4=%x\n", acmod_size, acm_hdr->size*4);
         return false;
     }
 
     /* then check type and vendor */
     if ( (acm_hdr->module_type != ACM_TYPE_CHIPSET) ||
          (acm_hdr->module_vendor != ACM_VENDOR_INTEL) ) {
-        printk("ACM type/vendor mismatch: module_type=%x,"
-               " module_vendor=%x\n", acm_hdr->module_type,
-               acm_hdr->module_vendor);
+        if ( !quiet )
+            printk("\t ACM type/vendor mismatch: module_type=%x,"
+                   " module_vendor=%x\n", acm_hdr->module_type,
+                   acm_hdr->module_vendor);
         return false;
     }
 
@@ -307,7 +312,10 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type)
 
     /* check if ACM UUID is present */
     if ( !are_uuids_equal(&(info_table->uuid), &((uuid_t)ACM_UUID_V3)) ) {
-        printk("unknown UUID: "); print_uuid(&info_table->uuid); printk("\n");
+        if ( !quiet ) {
+            printk("\t unknown UUID: "); print_uuid(&info_table->uuid);
+            printk("\n");
+        }
         return false;
     }
 
@@ -315,23 +323,26 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type)
         *type = info_table->chipset_acm_type;
 
     if ( info_table->version < 3 ) {
-        printk("ACM info_table version unsupported (%u)\n",
-               (uint32_t)info_table->version);
+        if ( !quiet )
+            printk("\t ACM info_table version unsupported (%u)\n",
+                   (uint32_t)info_table->version);
         return false;
     }
     /* there is forward compatibility, so this is just a warning */
-    else if ( info_table->version > 3 )
-        printk("ACM info_table version mismatch (%u)\n",
-               (uint32_t)info_table->version);
+    else if ( info_table->version > 3 ) {
+        if ( !quiet )
+            printk("\t ACM info_table version mismatch (%u)\n",
+                   (uint32_t)info_table->version);
+    }
 
     return true;
 }
 
-bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size)
+bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet)
 {
     uint8_t type;
 
-    if ( !is_acmod(acmod_base, acmod_size, &type) )
+    if ( !is_acmod(acmod_base, acmod_size, &type, quiet) )
         return false;
 
     if ( type != ACM_CHIPSET_TYPE_SINIT ) {
@@ -344,26 +355,37 @@ bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size)
 
 bool does_acmod_match_chipset(acm_hdr_t* hdr)
 {
-    acm_chipset_id_list_t *chipset_id_list;
-    acm_chipset_id_t *chipset_id;
-    txt_didvid_t didvid;
-
     /* this fn assumes that the ACM has already passed the is_acmod() checks */
 
-    chipset_id_list = get_acmod_chipset_list(hdr);
+    /*
+     * check if fusing is same
+     */
+    txt_ver_fsbif_emif_t ver;
+    ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
+    if ( ver._raw == 0xffffffff )       /* need to use VER.EMIF */
+        ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
+    if ( ver.prod_fused != !hdr->flags.debug_signed ) {
+        printk("\t production/debug mismatch between chipset and ACM\n");
+        return false;
+    }
+
+    /*
+     * check if vendor/device/revision IDs match
+     */
+    acm_chipset_id_list_t *chipset_id_list = get_acmod_chipset_list(hdr);
     if ( chipset_id_list == NULL )
         return false;
 
     /* get chipset device and vendor id info */
+    txt_didvid_t didvid;
     didvid._raw = read_pub_config_reg(TXTCR_DIDVID);
-    printk("chipset ids: vendor=%x, device=%x, revision=%x\n",
-           didvid.vendor_id, didvid.device_id, didvid.revision_id);
 
-    printk("%x ACM chipset id entries:\n", chipset_id_list->count);
-    for ( int i = 0; i < chipset_id_list->count; i++ ) {
-        chipset_id = &(chipset_id_list->chipset_ids[i]);
-        printk("\tvendor=%x, device=%x, flags=%x, revision=%x, "
-               "extended=%x\n", (uint32_t)chipset_id->vendor_id,
+    printk("\t %x ACM chipset id entries:\n", chipset_id_list->count);
+    for ( unsigned int i = 0; i < chipset_id_list->count; i++ ) {
+        acm_chipset_id_t *chipset_id = &(chipset_id_list->chipset_ids[i]);
+        printk("\t     vendor: 0x%x, device: 0x%x, flags: 0x%x, "
+               "revision: 0x%x, extended: 0x%x\n",
+               (uint32_t)chipset_id->vendor_id,
                (uint32_t)chipset_id->device_id, chipset_id->flags,
                (uint32_t)chipset_id->revision_id, chipset_id->extended_id);
 
@@ -376,7 +398,7 @@ bool does_acmod_match_chipset(acm_hdr_t* hdr)
             return true;
     }
 
-    printk("ACM does not match chipset\n");
+    printk("\t ACM does not match chipset\n");
 
     return false;
 }
@@ -403,8 +425,8 @@ acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
     if ( bios_data->bios_sinit_size != 0 ) {
         printk("BIOS has already loaded an SINIT module\n");
         /* is it a valid SINIT module? */
-        if ( is_sinit_acmod(sinit_region_base,
-                            bios_data->bios_sinit_size) ) {
+        if ( is_sinit_acmod(sinit_region_base, bios_data->bios_sinit_size, false) &&
+             does_acmod_match_chipset((acm_hdr_t *)sinit_region_base) ) {
             /* no other SINIT was provided so must use one BIOS provided */
             if ( sinit == NULL )
                 return (acm_hdr_t *)sinit_region_base;
