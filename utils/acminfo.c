@@ -2,7 +2,7 @@
  * acminfo.c: Linux app that will display header information for a TXT
  *            Authenticated Code Module (ACM)
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -126,7 +126,7 @@ static void print_hex(const char* prefix, uint8_t *start, size_t len)
 
 static bool display_acm(void *acm_addr, size_t size, const char *file_name)
 {
-    if ( !is_acmod(acm_addr, size, NULL) )
+    if ( !is_acmod(acm_addr, size, NULL, false) )
         return false;
 
     acm_hdr_t *hdr = (acm_hdr_t *)acm_addr;
