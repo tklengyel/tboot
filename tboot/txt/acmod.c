@@ -362,7 +362,8 @@ bool does_acmod_match_chipset(acm_hdr_t* hdr)
      */
     txt_ver_fsbif_emif_t ver;
     ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
-    if ( ver._raw == 0xffffffff || ver._raw == 0x0 ) /* need to use VER.EMIF */
+    if ( (ver._raw & 0xffffffff) == 0xffffffff ||
+         (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.EMIF */
         ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
     if ( ver.prod_fused != !hdr->flags.debug_signed ) {
         printk("\t production/debug mismatch between chipset and ACM\n");

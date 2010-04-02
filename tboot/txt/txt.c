@@ -216,7 +216,8 @@ static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
            didvid.vendor_id, didvid.device_id, didvid.revision_id);
     txt_ver_fsbif_emif_t ver;
     ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
-    if ( ver._raw == 0xffffffff )       /* need to use VER.EMIF */
+    if ( (ver._raw & 0xffffffff) == 0xffffffff ||
+         (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.EMIF */
         ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
     printk("chipset production fused: %x\n", ver.prod_fused );
 
