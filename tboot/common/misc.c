@@ -3,6 +3,11 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <printk.h>
+#include <compiler.h>
+#include <processor.h>
+#include <msr.h>
+#include <misc.h>
+
 
 /* for include/ctype.h */
 const unsigned char _ctype[] = {
@@ -67,6 +72,64 @@ bool plus_overflow_ul(const unsigned long x, const unsigned long y)
     return (x + y) < x;
 }
 
+static bool g_calibrated = false;
+static uint64_t g_ticks_per_sec;
+
+static void wait_tsc_uip(void)
+{
+    outb(0x0a, 0x70);     /* status A */
+    /* wait for UIP to be set */
+    do {
+        cpu_relax();
+    } while ( !(inb(0x71) & 0x80) );
+    /* now wait for it to clear */
+    do {
+        cpu_relax();
+    } while ( inb(0x71) & 0x80 );
+}
+
+static bool calibrate_tsc(void)
+{
+    if ( g_calibrated )
+        return false;
+
+    /* wait for UIP to be de-asserted */
+    wait_tsc_uip();
+
+    /* get starting TSC val */
+    uint64_t rtc_start;
+    rdtscll(rtc_start);
+
+    /* wait for seconds to be updated */
+    wait_tsc_uip();
+
+    uint64_t rtc_end;
+    rdtscll(rtc_end);
+
+    /* # ticks in 1 sec */
+    g_ticks_per_sec = rtc_end - rtc_start;
+
+    return true;
+}
+
+void delay(int secs)
+{
+    /* calibration will take 1sec */
+    if ( calibrate_tsc() )
+        secs -= 1;
+
+    if ( secs <= 0 )
+        return;
+
+    uint64_t rtc;
+    rdtscll(rtc);
+
+    uint64_t end_ticks = rtc + secs * g_ticks_per_sec;
+    while ( rtc < end_ticks ) {
+        cpu_relax();
+        rdtscll(rtc);
+    }
+}
 
 /*
  * Local variables:

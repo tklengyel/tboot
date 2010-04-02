@@ -1,7 +1,7 @@
 /*
  * cmdline.c: command line parsing fns
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "logging", "serial" }, /* vga,serial,memory|none */
     { "serial", "" },        /* <baud>[/<clock_hz>][,<DPS>[,<io-base>]] or
                                 auto[/<clock_hz>][,<DPS>[,<io-base>]]*/
+    { "vga_delay", "0" },    /* # secs */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -229,6 +230,16 @@ void get_tboot_log_targets(void)
         /* call configuration parser in early serial code to do the rest */
         early_serial_parse_port_config(serial);
     }
+}
+
+void get_tboot_vga_delay(void)
+{
+    const char *vga_delay = get_option_val(g_tboot_cmdline_options,
+                                           g_tboot_param_values, "vga_delay");
+    if ( vga_delay == NULL )
+        return;
+
+    g_vga_delay = simple_strtoul(vga_delay, NULL, 0);
 }
 
 bool get_linux_vga(int *vid_mode)

@@ -122,6 +122,7 @@ extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
 
 /* from misc.c */
 extern void print_hex(const char *prefix, const void *data, size_t n);
+extern void delay(int secs);
 
 extern bool multiply_overflow_u32(const uint32_t x, const uint32_t y);
 extern bool plus_overflow_u32(const uint32_t x, const uint32_t y);

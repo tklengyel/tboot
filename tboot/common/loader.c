@@ -36,6 +36,7 @@
 
 #include <config.h>
 #include <stdbool.h>
+#include <types.h>
 #include <printk.h>
 #include <compiler.h>
 #include <string2.h>

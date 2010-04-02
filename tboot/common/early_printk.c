@@ -1,7 +1,7 @@
 /*
  * early_printk.c: printk to serial for very early boot stages
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -35,10 +35,13 @@
 
 DEFINE_SPINLOCK(print_lock);
 
-uint8_t g_log_level = TBOOT_LOG_LEVEL_ALL; /* default is to print all */
-uint8_t g_log_targets = TBOOT_LOG_TARGET_SERIAL; /* default vga logging targets */
+uint8_t g_log_level = TBOOT_LOG_LEVEL_ALL;       /* default is to print all */
+uint8_t g_log_targets = TBOOT_LOG_TARGET_SERIAL; /* default serial only */
+uint8_t g_vga_delay = 0;                         /* default no delay */
 
-/* memory logging */
+/*
+ * memory logging
+ */
 
 /* memory-based serial log (ensure in .data section so that not cleared) */
 __data tboot_log_t *g_log = NULL;
@@ -84,7 +87,9 @@ void early_memlog_write(const char *str, unsigned int count)
     }
 }
 
-/* serial logging */
+/*
+ * serial logging
+ */
 
 /*
  * serial support from linux.../arch/x86_64/kernel/early_printk.c and
@@ -313,55 +318,64 @@ config_parsed:
         g_log_targets &= ~TBOOT_LOG_TARGET_SERIAL;
 }
 
-/* VGA logging */
-
 /*
- * VGA support from linux.../arch/x86_64/kernel/early_printk-xen.c
- *
- * Simple VGA output
+ * VGA logging
  */
 
-#define VGABASE     0xb8000
+/* VGA support from linux.../arch/x86_64/kernel/early_printk-xen.c */
 
-static const int max_ypos = 25;
-static const int max_xpos = 80;
+#define MAX_LINES    25
+#define MAX_COLS     80
+
+/* addr in VGA buf of (x, y) */
+#define VGABASE          0xb8000
+#define VGA_ADDR(x, y)   (VGABASE + 2*(MAX_COLS*(y) + (x)))
+
+static void scroll(void)
+{
+    /* copy every char up one line */
+    for ( int y = 1; y < MAX_LINES; y++ ) {
+        for ( int x = 0; x < MAX_COLS; x++ )
+            writew(readw(VGA_ADDR(x, y)), VGA_ADDR(x, y-1));
+    }
+    /* clear last line */
+    for ( int x = 0; x < MAX_COLS; x++ )
+        writew(0x720, VGA_ADDR(x, MAX_LINES-1));
+}
 
 void early_vga_write(const char *str, unsigned int count)
 {
-    static int current_ypos = 25;
-    static __data int current_xpos = 0;
+    static __data unsigned int num_lines = 0;
+    static __data unsigned int curr_col = 0;
     char c;
-    int  i, k, j;
 
     while ( ((c = *str++) != '\0') && (count-- > 0) ) {
-        if ( current_ypos >= max_ypos ) {
-            /* scroll 1 line up */
-            for ( k = 1, j = 0; k < max_ypos; k++, j++ ) {
-                for ( i = 0; i < max_xpos; i++ ) {
-                    writew(readw(VGABASE+2*(max_xpos*k+i)),
-                           VGABASE + 2*(max_xpos*j + i));
-                }
-            }
-            for ( i = 0; i < max_xpos; i++ )
-                writew(0x720, VGABASE + 2*(max_xpos*j + i));
-            current_ypos = max_ypos-1;
+        /* handle NL so ignore CR */
+        if ( curr_col >= MAX_COLS || c == '\n' || num_lines == 0 ) {
+            curr_col = 0;
+            num_lines++;
+
+            scroll();
+
+            /* (optionally) pause after every screenful */
+            if ( (num_lines % (MAX_LINES - 1)) == 0 && g_vga_delay > 0 )
+                delay(g_vga_delay);
         }
-        if ( c == '\n' ) {
-            current_xpos = 0;
-            current_ypos++;
-        } else if ( c != '\r' )  {
+
+        /* not CR or NL, so print it */
+        if ( c != '\r' && c != '\n' )  {
+            if ( c == '\t' )       /* replace TAB with space */
+                c = ' ';
             writew(((0x7 << 8) | (unsigned short) c),
-                   VGABASE + 2*(max_xpos*current_ypos +
-                        current_xpos++));
-            if ( current_xpos >= max_xpos ) {
-                current_xpos = 0;
-                current_ypos++;
-            }
+                   VGA_ADDR(curr_col, MAX_LINES - 1));
+            curr_col++;
         }
     }
 }
 
-/* base logging */
+/*
+ * base logging
+ */
 
 #define WRITE_LOGS(s, n) \
 if (g_log_targets & TBOOT_LOG_TARGET_VGA) early_vga_write(s, n); \
@@ -400,6 +414,9 @@ void early_printk_init()
 
     /* parse logging targets and serial settings */
     get_tboot_log_targets();
+
+    /* parse vga delay time */
+    get_tboot_vga_delay();
 
     if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY )
         early_memlog_init();

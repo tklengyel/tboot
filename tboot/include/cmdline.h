@@ -1,7 +1,7 @@
 /*
  * cmdline.h: support functions for command line parsing
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@ extern char g_cmdline[CMDLINE_SIZE];
 extern void tboot_parse_cmdline(void);
 extern void get_tboot_loglvl(void);
 extern void get_tboot_log_targets(void);
+extern void get_tboot_vga_delay(void);
 
 /* for parse cmdline of linux kernel, say vga and mem */
 extern void linux_parse_cmdline(char *cmdline);
