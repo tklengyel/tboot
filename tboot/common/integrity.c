@@ -2,7 +2,7 @@
  * integrity.c: routines for memory integrity measurement &
  *          verification. Memory integrity is protected with tpm seal
  *
- * Copyright (c) 2007-2009, Intel Corporation
+ * Copyright (c) 2007-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@ static __data tpm_pcr_value_t post_launch_pcr17, post_launch_pcr18;
 extern tboot_shared_t _tboot_shared;
 
 extern bool hash_policy(tb_hash_t *hash, uint8_t hash_alg);
-
+extern void apply_policy(tb_error_t error);
 
 typedef struct {
     uint8_t mac_key[VMAC_KEY_LEN/8];
@@ -235,16 +235,15 @@ bool seal_pre_k_state(void)
     memset(&g_pre_k_s3_state.pol_hash, 0, sizeof(g_pre_k_s3_state.pol_hash));
     if ( !hash_policy(&g_pre_k_s3_state.pol_hash, TB_HALG_SHA1) ) {
         printk("failed to hash policy\n");
-        return false;
+        goto error;
     }
 
     print_pre_k_s3_state();
 
     /* read PCR 17/18 */
-    if ( tpm_pcr_read(2, 17, &post_launch_pcr17) != TPM_SUCCESS )
-        return false;
-    if ( tpm_pcr_read(2, 18, &post_launch_pcr18) != TPM_SUCCESS )
-        return false;
+    if ( tpm_pcr_read(2, 17, &post_launch_pcr17) != TPM_SUCCESS ||
+         tpm_pcr_read(2, 18, &post_launch_pcr18) != TPM_SUCCESS )
+        goto error;
 
     sealed_pre_k_state_size = sizeof(sealed_pre_k_state);
     if ( !seal_data(&g_pre_k_s3_state, sizeof(g_pre_k_s3_state),
@@ -253,12 +252,23 @@ bool seal_pre_k_state(void)
                     pcr_indcs_create, ARRAY_SIZE(pcr_indcs_create),
                     pcr_indcs_release, ARRAY_SIZE(pcr_indcs_release),
                     pcr_values_release) )
-        return false;
+        goto error;
 
-    if ( !extend_pcrs() )
+    /* we can't leave the system in a state without valid measurements of
+       about-to-execute code in the PCRs, so this is a fatal error */
+    if ( !extend_pcrs() ) {
+        apply_policy(TB_ERR_FATAL);
         return false;
+    }
 
     return true;
+
+    /* even if sealing fails, we must extend PCRs to represent valid
+       measurements of about-to-execute code */
+ error:
+    if ( !extend_pcrs() )
+        apply_policy(TB_ERR_FATAL);
+    return false;
 }
 
 static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
@@ -274,7 +284,7 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
     COMPILE_TIME_ASSERT(PAGE_SIZE % VMAC_NHBYTES == 0);
 
     /* enable paging */
-    if (!enable_paging())
+    if ( !enable_paging() )
         return false;
 
     vmac_set_key(key, &ctx);
@@ -388,6 +398,7 @@ bool verify_integrity(void)
     uint8_t pcr_indcs_create[] = {17, 18};
     tpm_pcr_value_t  pcr17, pcr18;
     const tpm_pcr_value_t *pcr_values_create[] = {&pcr17, &pcr18};
+    tpm_pcr_value_t cap_val;   /* use whatever val is on stack */
 
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
@@ -400,7 +411,7 @@ bool verify_integrity(void)
     if ( !verify_sealed_data(sealed_pre_k_state, sealed_pre_k_state_size,
                              &g_pre_k_s3_state, sizeof(g_pre_k_s3_state),
                              NULL, 0) )
-        return false;
+        goto error;
 
     /* to prevent rollback attack using old sealed measurements,
        verify that (creation) PCRs at mem integrity seal time are same as
@@ -419,7 +430,7 @@ bool verify_integrity(void)
                                 sealed_post_k_state_size,
                                 sealed_post_k_state) ) {
         printk("extended PCR values don't match creation values in sealed blob.\n");
-        return false;
+        goto error;
     }
 
     /* verify integrity of post-kernel state data */
@@ -428,12 +439,12 @@ bool verify_integrity(void)
     if ( !verify_sealed_data(sealed_post_k_state, sealed_post_k_state_size,
                              &g_post_k_s3_state, sizeof(g_post_k_s3_state),
                              &secrets, sizeof(secrets)) )
-        return false;
+        goto error;
 
     /* Verify memory integrity against sealed value */
     vmac_t mac;
     if ( !measure_memory_integrity(&mac, secrets.mac_key) )
-        return false;
+        goto error;
     if ( memcmp(&mac, &g_post_k_s3_state.kernel_integ, sizeof(mac)) ) {
         printk("memory integrity lost on S3 resume\n");
         printk("MAC of current image is: ");
@@ -441,13 +452,17 @@ bool verify_integrity(void)
         printk("MAC of pre-S3 image is: ");
         print_hex(NULL, &g_post_k_s3_state.kernel_integ,
                   sizeof(g_post_k_s3_state.kernel_integ));
-        return false;
+        goto error;
     }
     printk("memory integrity OK\n");
 
-    /* re-extend PCRs with VL measurements */
-    if ( !extend_pcrs() )
+    /* re-extend PCRs with VL measurements
+       we can't leave the system in a state without valid measurements of
+       about-to-execute code in the PCRs, so this is a fatal error */
+    if ( !extend_pcrs() ) {
+        apply_policy(TB_ERR_FATAL);
         return false;
+    }
 
     /* copy sealed shared key back to _tboot_shared.s3_key */
     memcpy(_tboot_shared.s3_key, secrets.shared_key,
@@ -457,6 +472,14 @@ bool verify_integrity(void)
     memset(&secrets, 0, sizeof(secrets));
 
     return true;
+
+ error:
+    /* since we can't leave the system without any measurments representing the
+       code-about-to-execute, and yet there is no integrity of that code,
+       just cap PCR 18 */
+    if ( tpm_pcr_extend(2, 18, &cap_val, NULL) != TPM_SUCCESS )
+        apply_policy(TB_ERR_FATAL);
+    return false;
 }
 
 /*
@@ -474,10 +497,10 @@ bool seal_post_k_state(void)
     /* since tboot relies on the module it launches for resource protection,
        that module should have at least one region for itself, otherwise
        it will not be protected against S3 resume attacks */
-    //    if ( _tboot_shared.num_mac_regions == 0 ) {
-    //        printk("no memory regions to MAC\n");
-    //        return false;
-    //    }
+    if ( _tboot_shared.num_mac_regions == 0 ) {
+        printk("no memory regions to MAC\n");
+        return false;
+    }
 
     /* calculate the memory integrity hash */
     uint32_t key_size = sizeof(secrets.mac_key);
