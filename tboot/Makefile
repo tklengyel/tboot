@@ -22,10 +22,14 @@ TARGET_LDS := $(CURDIR)/common/tboot.lds
 $(TARGET).gz : $(TARGET)
 	gzip -f -9 < $< > $@
 
+ifeq ($(debug),n)
+LDFLAGS_STRIP = -s
+endif
+
 $(TARGET) : $(OBJS) $(TARGET_LDS)
 	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) -o $(@D)/.$(@F).0
 	$(NM) -n $(@D)/.$(@F).0 >$(TARGET)-syms
-	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -s $(@D)/.$(@F).0 -o $(TARGET)
+	$(LD) $(LDFLAGS) -T $(TARGET_LDS) $(LDFLAGS_STRIP) $(@D)/.$(@F).0 -o $(TARGET)
 	rm -f $(@D)/.$(@F).0
 
 $(TARGET_LDS) : $(TARGET_LDS).x $(HDRS)
@@ -106,6 +110,11 @@ HDRS := $(wildcard $(CURDIR)/include/*.h)
 HDRS += $(wildcard $(CURDIR)/include/txt/*.h)
 
 BUILD_DEPS := $(ROOTDIR)/Config.mk $(CURDIR)/Config.mk $(CURDIR)/Makefile
+
+# fix case where gcc doesn't use builtin memcmp() when built w/o optimizations
+ifeq ($(debug),y)
+CFLAGS += -O2
+endif
 
 %.o : %.c $(HDRS) $(BUILD_DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -49,10 +49,14 @@ STRIP      = strip
 OBJCOPY    = objcopy
 OBJDUMP    = objdump
 
+ifeq ($(debug),n)
+INSTALL_STRIP = -s
+endif
+
 INSTALL      = install
 INSTALL_DIR  = $(INSTALL) -d -m0755 -p
 INSTALL_DATA = $(INSTALL) -m0644 -p
-INSTALL_PROG = $(INSTALL) -m0755 -p
+INSTALL_PROG = $(INSTALL) $(INSTALL_STRIP) -m0755 -p
 
 
 #

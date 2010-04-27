@@ -13,13 +13,24 @@ CFLAGS += -D_LARGEFILE64_SOURCE
 #
 # universal targets
 #
-dist : install
-
-
 build : $(TARGETS)
 
 
-install : build
+dist : install
+
+
+install :
+	@set -e; for i in $(TARGETS);\
+	do \
+		$(MAKE) DISTDIR=$(DISTDIR) INST_TARGET=$(DISTDIR)/usr/bin/$$i do_install; \
+	done
+
+.PHONY: do_install
+do_install : $(INST_TARGET)
+
+$(INST_TARGET) : $(notdir $(INST_TARGET))
+	[ -d $(DISTDIR)/usr/bin ] || $(INSTALL_DIR) $(DISTDIR)/usr/bin
+	$(INSTALL_PROG) -t $(DISTDIR)/usr/bin $^
 
 
 clean :
