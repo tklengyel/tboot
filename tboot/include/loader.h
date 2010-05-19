@@ -45,6 +45,7 @@ extern bool launch_kernel(bool is_measured_launch);
 extern bool verify_mbi(multiboot_info_t *mbi);
 extern bool verify_modules(multiboot_info_t *mbi);
 extern module_t *get_module(multiboot_info_t *mbi, int i);
+extern bool remove_txt_modules(multiboot_info_t *mbi);
 
 #endif /* __LOADER_H__ */
 

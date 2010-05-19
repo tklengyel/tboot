@@ -213,7 +213,7 @@ bool is_kernel_linux(void)
 /*
  * remove (all) SINIT and LCP policy data modules (if present)
  */
-static bool remove_txt_modules(multiboot_info_t *mbi)
+bool remove_txt_modules(multiboot_info_t *mbi)
 {
     /* start at end of list so that we can remove w/in the loop */
     for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {

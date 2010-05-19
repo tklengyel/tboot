@@ -156,6 +156,9 @@ static void post_launch(void)
     if ( s3_flag  )
         s3_launch();
 
+    /* remove all TXT modules before verifying modules */
+    remove_txt_modules(g_mbi);
+
     /*
      * verify e820 table and adjust it to protect our memory regions
      */
