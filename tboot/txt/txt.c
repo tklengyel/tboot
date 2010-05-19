@@ -332,8 +332,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
         (uint64_t)(unsigned long)&_mle_start;
     /* VT-d PMRs */
     uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
-    if ( !get_ram_ranges(mbi, &min_lo_ram, &max_lo_ram, &min_hi_ram,
-                         &max_hi_ram) )
+    if ( !get_ram_ranges(&min_lo_ram, &max_lo_ram, &min_hi_ram, &max_hi_ram) )
         return NULL;
     set_vtd_pmrs(os_sinit_data, min_lo_ram, max_lo_ram, min_hi_ram,
                  max_hi_ram);
@@ -465,8 +464,7 @@ static bool reserve_vtd_delta_mem(txt_heap_t *txt_heap)
     uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
     uint64_t base, length;
 
-    if ( !get_ram_ranges(NULL, &min_lo_ram, &max_lo_ram,
-                         &min_hi_ram, &max_hi_ram) )
+    if ( !get_ram_ranges(&min_lo_ram, &max_lo_ram, &min_hi_ram, &max_hi_ram) )
         return false;
 
     os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);

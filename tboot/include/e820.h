@@ -62,7 +62,7 @@
 
 #define E820MAX             128
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     uint64_t addr;    /* start of memory segment */
     uint64_t size;    /* size of memory segment */
     uint32_t type;    /* type of memory segment */
@@ -74,11 +74,9 @@ extern bool e820_reserve_ram(uint64_t base, uint64_t length);
 extern void print_e820_map(void);
 extern void replace_e820_map(multiboot_info_t *mbi);
 extern uint32_t e820_check_region(uint64_t base, uint64_t length);
-extern bool get_ram_ranges(multiboot_info_t *mbi,
-                           uint64_t *min_lo_ram, uint64_t *max_lo_ram,
+extern bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
                            uint64_t *min_hi_ram, uint64_t *max_hi_ram);
-extern void get_highest_sized_ram(multiboot_info_t *mbi,
-                                  uint64_t size, uint64_t limit,
+extern void get_highest_sized_ram(uint64_t size, uint64_t limit,
                                   uint64_t *ram_base, uint64_t *ram_size);
 
 #endif    /* __E820_H__ */

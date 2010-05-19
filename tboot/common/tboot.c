@@ -160,10 +160,6 @@ static void post_launch(void)
      * verify e820 table and adjust it to protect our memory regions
      */
 
-    /* make copy of e820 map that we will adjust */
-    if ( !copy_e820_map(g_mbi) )
-        apply_policy(TB_ERR_FATAL);
-
     /* ensure all modules are in RAM */
     if ( !verify_modules(g_mbi) )
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
@@ -293,6 +289,10 @@ void begin_launch(multiboot_info_t *mbi)
         apply_policy(TB_ERR_FATAL);
     }
     printk("BSP is cpu %u\n", get_apicid());
+
+    /* make copy of e820 map that we will use and adjust */
+    if ( !copy_e820_map(g_mbi) )
+        apply_policy(TB_ERR_FATAL);
 
     /* we need to make sure this is a (TXT-) capable platform before using */
     /* any of the features, incl. those required to check if the environment */

@@ -268,15 +268,14 @@ static bool is_overlapped(uint64_t base, uint64_t end, uint64_t e820_base,
  */
 bool copy_e820_map(multiboot_info_t *mbi)
 {
-    uint32_t entry_offset;
+    g_nr_map = 0;
 
     if ( mbi->flags & MBI_MEMMAP ) {
         printk("original e820 map:\n");
         print_map((memory_map_t *)mbi->mmap_addr,
                   mbi->mmap_length/sizeof(memory_map_t));
 
-        g_nr_map = 0;
-        entry_offset = 0;
+        uint32_t entry_offset = 0;
 
         while ( entry_offset < mbi->mmap_length &&
                 g_nr_map < MAX_E820_ENTRIES ) {
@@ -362,7 +361,7 @@ uint32_t e820_check_region(uint64_t base, uint64_t length)
     e820_base = 0;
     e820_length = 0;
 
-    for ( int i = 0; i < g_nr_map; i = gap?i:i+1, gap = !gap ) {
+    for ( int i = 0; i < g_nr_map; i = gap ? i : i+1, gap = !gap ) {
         e820_entry = &g_copy_e820_map[i];
         if ( gap ) {
             /* deal with the gap in e820 map */
@@ -549,83 +548,76 @@ void print_e820_map(void)
     print_map(g_copy_e820_map, g_nr_map);
 }
 
-bool get_ram_ranges(multiboot_info_t *mbi,
-                    uint64_t *min_lo_ram, uint64_t *max_lo_ram,
+bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
                     uint64_t *min_hi_ram, uint64_t *max_hi_ram)
 {
-    uint32_t entry_offset;
-    memory_map_t *entry;
-    uint64_t base, limit;
-    uint32_t map_addr;
-    uint32_t map_len;
-
     if ( min_lo_ram == NULL || max_lo_ram == NULL ||
          min_hi_ram == NULL || max_hi_ram == NULL )
         return false;
 
-    if ( mbi == NULL || mbi->flags & MBI_MEMMAP ) {
-        entry_offset = 0;
-        *min_lo_ram = *min_hi_ram = ~0ULL;
-        *max_lo_ram = *max_hi_ram = 0;
+    *min_lo_ram = *min_hi_ram = ~0ULL;
+    *max_lo_ram = *max_hi_ram = 0;
+    bool found_reserved_region = false;
 
-        if ( mbi == NULL ) {
-            map_addr = (uint32_t)g_copy_e820_map;
-            map_len = g_nr_map * sizeof(memory_map_t);
-        }
-        else {
-            map_addr = mbi->mmap_addr;
-            map_len = mbi->mmap_length;
-        }
+    for ( int i = 0; i < g_nr_map; i++ ) {
+        memory_map_t *entry = &g_copy_e820_map[i];
+        uint64_t base = e820_base_64(entry);
+        uint64_t limit = base + e820_length_64(entry);
 
-        while ( entry_offset < map_len ) {
-            entry = (memory_map_t *)(map_addr + entry_offset);
-            if ( entry->type == E820_RAM ) {
-                base = e820_base_64(entry);
-                limit = base + e820_length_64(entry);
+        if ( entry->type == E820_RAM ) {
+            /* if range straddles 4GB boundary, that is an error */
+            if ( base < 0x100000000ULL && limit > 0x100000000ULL ) {
+                printk("e820 memory range straddles 4GB boundary\n");
+                return false;
+            }
 
-                /* if range straddles 4GB boundary, that is an error */
-                if ( base < 0x100000000ULL && limit >= 0x100000000ULL ) {
-                    printk("e820 memory range straddles 4GB boundary\n");
-                    return false;
-                }
-
+            /*
+             * some BIOSes put legacy USB buffers in reserved regions <4GB,
+             * which if DMA protected cause SMM to hang, so make sure that
+             * we don't overlap any of these even if that wastes RAM
+             */
+            if ( !found_reserved_region ) {
                 if ( base < 0x100000000ULL && base < *min_lo_ram )
                     *min_lo_ram = base;
-                else if ( base >= 0x100000000ULL && base < *min_hi_ram )
-                    *min_hi_ram = base;
-                if ( limit < 0x100000000ULL && limit > *max_lo_ram )
+                if ( limit <= 0x100000000ULL && limit > *max_lo_ram )
                     *max_lo_ram = limit;
-                else if ( limit >= 0x100000000ULL && limit > *max_hi_ram )
-                    *max_hi_ram = limit;
             }
-            entry_offset += entry->size + sizeof(entry->size);
-        }
+            else {     /* need to reserve low RAM above reserved regions */
+                if ( base < 0x100000000ULL ) {
+                    printk("discarding RAM above reserved regions: 0x%Lx - 0x%Lx\n", base, limit);
+                    if ( !e820_reserve_ram(base, limit - base) )
+                        return false;
+                }
+            }
 
-        /* no low RAM found */
-        if ( *min_lo_ram >= *max_lo_ram ) {
-            printk("no low ram in e820 map\n");
-            return false;
+            if ( base >= 0x100000000ULL && base < *min_hi_ram )
+                *min_hi_ram = base;
+            if ( limit > 0x100000000ULL && limit > *max_hi_ram )
+                *max_hi_ram = limit;
         }
-        /* no high RAM found */
-        if ( *min_hi_ram >= *max_hi_ram )
-            *min_hi_ram = *max_hi_ram = 0;
+        else {
+            /* parts of low memory may be reserved for cseg, ISA hole,
+               etc. but these seem OK to DMA protect, so ignore reserved
+               regions <0x100000 */
+            if ( *min_lo_ram != ~0ULL && limit > 0x100000ULL )
+                found_reserved_region = true;
+        }
     }
-    else if ( mbi->flags & MBI_MEMLIMITS ) {
-        *min_lo_ram = 0;
-        *max_lo_ram = (((uint64_t)mbi->mem_upper) << 10) + 0x100000ULL;
-        *min_hi_ram = *max_hi_ram = 0;
-    }
-    else {
-        printk("no e820 map nor mem limits provided\n");
+
+    /* no low RAM found */
+    if ( *min_lo_ram >= *max_lo_ram ) {
+        printk("no low ram in e820 map\n");
         return false;
     }
+    /* no high RAM found */
+    if ( *min_hi_ram >= *max_hi_ram )
+        *min_hi_ram = *max_hi_ram = 0;
 
     return true;
 }
 
 /* find highest (< <limit>) RAM region of at least <size> bytes */
-void get_highest_sized_ram(multiboot_info_t *mbi,
-                           uint64_t size, uint64_t limit,
+void get_highest_sized_ram(uint64_t size, uint64_t limit,
                            uint64_t *ram_base, uint64_t *ram_size)
 {
     uint64_t last_fit_base = 0, last_fit_size = 0;
@@ -633,43 +625,21 @@ void get_highest_sized_ram(multiboot_info_t *mbi,
     if ( ram_base == NULL || ram_size == NULL )
         return;
 
-    if ( mbi == NULL || mbi->flags & MBI_MEMMAP ) {
-        uint32_t map_addr;
-        uint32_t map_len;
-        uint32_t entry_offset = 0;
+    for ( int i = 0; i < g_nr_map; i++ ) {
+        memory_map_t *entry = &g_copy_e820_map[i];
 
-        if ( mbi == NULL ) {
-            map_addr = (uint32_t)g_copy_e820_map;
-            map_len = g_nr_map * sizeof(memory_map_t);
-        }
-        else {
-            map_addr = mbi->mmap_addr;
-            map_len = mbi->mmap_length;
-        }
+        if ( entry->type == E820_RAM ) {
+            uint64_t base = e820_base_64(entry);
+            uint64_t length = e820_length_64(entry);
 
-        while ( entry_offset < map_len ) {
-            memory_map_t *entry = (memory_map_t *)(map_addr + entry_offset);
-            if ( entry->type == E820_RAM ) {
-                uint64_t base = e820_base_64(entry);
-                uint64_t length = e820_length_64(entry);
-
-                /* over 4GB so use the last region that fit */
-                if ( base + length > limit )
-                    break;
-                if ( size <= length ) {
-                    last_fit_base = base;
-                    last_fit_size = length;
-                }
+            /* over 4GB so use the last region that fit */
+            if ( base + length > limit )
+                break;
+            if ( size <= length ) {
+                last_fit_base = base;
+                last_fit_size = length;
             }
-            entry_offset += entry->size + sizeof(entry->size);
         }
-    }
-    if ( last_fit_size == 0 && mbi->flags & MBI_MEMLIMITS ) {
-        last_fit_base = 0;
-        last_fit_size = (((uint64_t)mbi->mem_upper) << 10) + 0x100000ULL -
-                        last_fit_base;
-        if ( last_fit_base + last_fit_size > limit )
-            last_fit_size = limit - last_fit_base;
     }
 
     *ram_base = last_fit_base;

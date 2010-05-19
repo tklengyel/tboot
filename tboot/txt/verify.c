@@ -224,8 +224,7 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
         max_hi_ram = min_hi_ram + g_pre_k_s3_state.vtd_pmr_hi_size;
     }
     else {
-        os_mle_data_t *os_mle_data = get_os_mle_data_start(txt_heap);
-        if ( !get_ram_ranges(os_mle_data->mbi, &min_lo_ram, &max_lo_ram,
+        if ( !get_ram_ranges(&min_lo_ram, &max_lo_ram,
                              &min_hi_ram, &max_hi_ram) )
             return false;
     }

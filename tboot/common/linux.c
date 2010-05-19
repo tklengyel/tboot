@@ -152,7 +152,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         mem_limit = 0x100000000ULL;
 
     uint64_t max_ram_base, max_ram_size;
-    get_highest_sized_ram(g_mbi, initrd_size, mem_limit,
+    get_highest_sized_ram(initrd_size, mem_limit,
                           &max_ram_base, &max_ram_size);
     if ( max_ram_size == 0 ) {
         printk("not enough RAM for initrd\n");
