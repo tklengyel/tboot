@@ -203,6 +203,36 @@ tb_error_t supports_txt(void)
     return TB_ERR_TXT_NOT_SUPPORTED;
 }
 
+static bool reserve_vtd_delta_mem(uint64_t min_lo_ram, uint64_t max_lo_ram,
+                                  uint64_t min_hi_ram, uint64_t max_hi_ram)
+{
+    uint64_t base, length;
+
+    txt_heap_t* txt_heap = get_txt_heap();
+    os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
+
+    if ( max_lo_ram != (os_sinit_data->vtd_pmr_lo_base +
+                        os_sinit_data->vtd_pmr_lo_size) ) {
+        base = os_sinit_data->vtd_pmr_lo_base + os_sinit_data->vtd_pmr_lo_size;
+        length = max_lo_ram - base;
+        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
+               base, base + length);
+        if ( !e820_reserve_ram(base, length) )
+            return false;
+    }
+    if ( max_hi_ram != (os_sinit_data->vtd_pmr_hi_base +
+                        os_sinit_data->vtd_pmr_hi_size) ) {
+        base = os_sinit_data->vtd_pmr_hi_base + os_sinit_data->vtd_pmr_hi_size;
+        length = max_hi_ram - base;
+        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
+               base, base + length);
+        if ( !e820_reserve_ram(base, length) )
+            return false;
+    }
+
+    return true;
+}
+
 static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
 {
     os_sinit_data_t *os_sinit_data, tmp_os_sinit_data;
@@ -227,6 +257,16 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
         if ( !get_ram_ranges(&min_lo_ram, &max_lo_ram,
                              &min_hi_ram, &max_hi_ram) )
             return false;
+
+        /* if vtd_pmr_lo/hi sizes rounded to 2MB granularity are less than the
+           max_lo/hi_ram values determined from the e820 table, then we must
+           reserve the differences in e820 table so that unprotected memory is
+           not used by the kernel */
+        if ( !reserve_vtd_delta_mem(min_lo_ram, max_lo_ram, min_hi_ram,
+                                    max_hi_ram) ) {
+            printk("failed to reserve VT-d PMR delta memory\n");
+            return false;
+        }
     }
 
     /* compare to current values */

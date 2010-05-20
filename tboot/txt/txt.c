@@ -459,38 +459,6 @@ static void txt_wakeup_cpus(void)
         printk("all APs in wait-for-sipi\n");
 }
 
-static bool reserve_vtd_delta_mem(txt_heap_t *txt_heap)
-{
-    uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
-    uint64_t base, length;
-
-    if ( !get_ram_ranges(&min_lo_ram, &max_lo_ram, &min_hi_ram, &max_hi_ram) )
-        return false;
-
-    os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
-
-    if ( max_lo_ram != (os_sinit_data->vtd_pmr_lo_base +
-                        os_sinit_data->vtd_pmr_lo_size) ) {
-        base = os_sinit_data->vtd_pmr_lo_base + os_sinit_data->vtd_pmr_lo_size;
-        length = max_lo_ram - base;
-        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
-               base, base + length);
-        if ( !e820_reserve_ram(base, length) )
-            return false;
-    }
-    if ( max_hi_ram != (os_sinit_data->vtd_pmr_hi_base +
-                        os_sinit_data->vtd_pmr_hi_size) ) {
-        base = os_sinit_data->vtd_pmr_hi_base + os_sinit_data->vtd_pmr_hi_size;
-        length = max_hi_ram - base;
-        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
-               base, base + length);
-        if ( !e820_reserve_ram(base, length) )
-            return false;
-    }
-
-    return true;
-}
-
 bool txt_is_launched(void)
 {
     txt_sts_t sts;
@@ -756,10 +724,6 @@ void txt_cpu_wakeup(void)
 tb_error_t txt_protect_mem_regions(void)
 {
     uint64_t base, size;
-    txt_heap_t* txt_heap;
-    sinit_mle_data_t *sinit_mle_data;
-    sinit_mdr_t *mdrs_base;
-    uint32_t num_mdrs;
 
     /*
      * TXT has 2 regions of RAM that need to be reserved for use by only the
@@ -793,26 +757,18 @@ tb_error_t txt_protect_mem_regions(void)
 
     /* ensure that memory not marked as good RAM by the MDRs is RESERVED in
        the e820 table */
-    txt_heap = get_txt_heap();
-    sinit_mle_data = get_sinit_mle_data_start(txt_heap);
-    num_mdrs = sinit_mle_data->num_mdrs;
-    mdrs_base = (sinit_mdr_t *)(((void *)sinit_mle_data - sizeof(uint64_t)) +
-                                sinit_mle_data->mdrs_off);
+    txt_heap_t* txt_heap = get_txt_heap();
+    sinit_mle_data_t *sinit_mle_data = get_sinit_mle_data_start(txt_heap);
+    uint32_t num_mdrs = sinit_mle_data->num_mdrs;
+    sinit_mdr_t *mdrs_base = (sinit_mdr_t *)(((void *)sinit_mle_data
+                                              - sizeof(uint64_t)) +
+                                             sinit_mle_data->mdrs_off);
     printk("verifying e820 table against SINIT MDRs: ");
     if ( !verify_e820_map(mdrs_base, num_mdrs) ) {
         printk("verification failed.\n");
         return TB_ERR_POST_LAUNCH_VERIFICATION;
     }
     printk("verification succeeded.\n");
-
-    /* if vtd_pmr_lo/hi sizes rounded to 2MB granularity are less than the
-       max_lo/hi_ram values determined from the e820 table, then we must
-       reserve the differences in e820 table so that unprotected memory is
-       not used by the kernel */
-    if ( !s3_flag && !reserve_vtd_delta_mem(txt_heap) ) {
-        printk("failed to reserve VT-d PMR delta memory\n");
-        return TB_ERR_POST_LAUNCH_VERIFICATION;
-    }
 
     return TB_ERR_NONE;
 }
