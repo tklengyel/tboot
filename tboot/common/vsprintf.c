@@ -41,47 +41,29 @@
 
 static bool div64(uint64_t num, uint32_t base, uint64_t *quot, uint32_t *rem)
 {
-    uint64_t shift;
-    int count;
-
     /* check exceptions */
     if ( (quot == NULL) || (rem == NULL) || (base == 0) )
         return false;
 
-    /* quickly calculate if num < base */
-    if ( (uint64_t)base > num ) {
-        *quot = 0;
-        *rem = (uint32_t)num;
-        return true;
+    uint32_t high = num >> 32;
+    uint32_t low = (uint32_t)num;
+    if ( high == 0 ) {
+        *quot = low / base;
+        *rem = low % base;
     }
-
-    *quot = 0;
-    shift = 0;
-    count = 64; /* 64 bit */
-
-    do {
-        /* calculate shift num, adjust num and quot */
-        shift = (shift << 1) + (num >> 63);
-        num = num << 1;
-        (*quot) <<= 1;
-
+    else {
+        uint64_t hquo = high / base;			\
+        uint32_t hrem = high % base;
+        uint32_t lquo;
         /*
-         * compare: if shift >= base, quot bit = 1
-         *          else quot bit = 0
-         */     
-        if ( shift >= base) {
-            (*quot)++;
-            shift -= base;
-        }
-
-        count--;
-    } while ( count > 0 );
-
-    /* check mod again (mod < base)*/
-    if ( (uint64_t)base > shift )
-        *rem = (uint32_t)shift;
-    else
-        return false;
+         * use "divl" instead of "/" to avoid the link error
+         * undefined reference to `__udivdi3'
+         */
+        __asm__ __volatile__ ( "divl %4;"
+                               : "=a"(lquo), "=d"(*rem)
+                               : "a"(low), "d"(hrem), "r"(base));
+        *quot = (hquo << 32) + lquo;
+    }
 
     return true;
 }
