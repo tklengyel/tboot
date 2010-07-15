@@ -1,112 +1,154 @@
-/* multiboot.h - the header for Multiboot */
-/* Copyright (C) 1999, 2001  Free Software Foundation, Inc.
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+/*
+ * multiboot.h:  definitions for the multiboot bootloader specification
+ *
+ * Copyright (c) 2010, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
 
 #ifndef __MULTIBOOT_H__
 #define __MULTIBOOT_H__
 
+#include <config.h>
 
-/*
- * Multiboot header structure.
- */
-#define MULTIBOOT_HEADER_MAGIC         0x1BADB002
-#define MULTIBOOT_HEADER_MODS_ALIGNED  0x00000001
-#define MULTIBOOT_HEADER_WANT_MEMORY   0x00000002
-#define MULTIBOOT_HEADER_HAS_VBE       0x00000004
-#define MULTIBOOT_HEADER_HAS_ADDR      0x00010000
+/* Multiboot Header Definitions of OS image*/
+#define MULTIBOOT_HEADER_MAGIC			0x1BADB002
+/* Bit definitions of flags field of multiboot header*/
+#define MULTIBOOT_HEADER_MODS_ALIGNED	0x1
+#define MULTIBOOT_HEADER_WANT_MEMORY	0x2
 
-/* The magic number passed by a Multiboot-compliant boot loader. */
-#define MULTIBOOT_BOOTLOADER_MAGIC     0x2BADB002
-
-#define MBI_MEMLIMITS  (1<<0)
-#define MBI_DRIVES     (1<<1)
-#define MBI_CMDLINE    (1<<2)
-#define MBI_MODULES    (1<<3)
-#define MBI_AOUT_SYMS  (1<<4)
-#define MBI_ELF_SYMS   (1<<5)
-#define MBI_MEMMAP     (1<<6)
-#define MBI_LOADERNAME (1<<9)
+/* bit definitions of flags field of multiboot information */
+#define MBI_MEMLIMITS		(1<<0)
+#define MBI_CMDLINE			(1<<2)
+#define MBI_MODULES			(1<<3)
+#define MBI_MEMMAP			(1<<6)
 
 #ifndef __ASSEMBLY__
 
-/* The symbol table for a.out.  */
 typedef struct {
-    u32 tabsize;
-    u32 strsize;
-    u32 addr;
-    u32 reserved;
-} aout_symbol_table_t;
+    uint32_t tabsize;
+    uint32_t strsize;
+    uint32_t addr;
+    uint32_t reserved;
+} aout_t; /* a.out kernel image */
 
-/* The section header table for ELF.  */
 typedef struct {
-    u32 num;
-    u32 size;
-    u32 addr;
-    u32 shndx;
-} elf_section_header_table_t;
+    uint32_t num;
+    uint32_t size;
+    uint32_t addr;
+    uint32_t shndx;
+} elf_t; /* elf kernel */
 
-/* The Multiboot information.  */
 typedef struct {
-    u32 flags;
+    uint8_t bios_driver;
+    uint8_t top_level_partition;
+    uint8_t sub_partition;
+    uint8_t third_partition;
+} boot_device_t;
 
-    /* Valid if flags sets MBI_MEMLIMITS */
-    u32 mem_lower;
-    u32 mem_upper;
+typedef struct {
+    uint32_t flags;
 
-    /* Valid if flags sets MBI_DRIVES */
-    u32 boot_device;
+    /* valid if flags[0] (MBI_MEMLIMITS) set */
+    uint32_t mem_lower;
+    uint32_t mem_upper;
 
-    /* Valid if flags sets MBI_CMDLINE */
-    u32 cmdline;
+    /* valid if flags[1] set */
+    boot_device_t boot_device;
 
-    /* Valid if flags sets MBI_MODULES */
-    u32 mods_count;
-    u32 mods_addr;
+    /* valid if flags[2] (MBI_CMDLINE) set */
+    uint32_t cmdline;
 
-    /* Valid if flags sets ... */
+    /* valid if flags[3] (MBI_MODS) set */
+    uint32_t mods_count;
+    uint32_t mods_addr;
+
+    /* valid if flags[4] or flags[5] set */
     union {
-        aout_symbol_table_t aout_sym;        /* ... MBI_AOUT_SYMS */
-        elf_section_header_table_t elf_sec;  /* ... MBI_ELF_SYMS */
-    } u;
+        aout_t aout_image;
+        elf_t  elf_image;
+    } syms;
 
-    /* Valid if flags sets MBI_MEMMAP */
-    u32 mmap_length;
-    u32 mmap_addr;
+    /* valid if flags[6] (MBI_MEMMAP) set */
+    uint32_t mmap_length;
+    uint32_t mmap_addr;
+
+    /* valid if flags[7] set */
+    uint32_t drives_length;
+    uint32_t drives_addr;
+
+    /* valid if flags[8] set */
+    uint32_t config_table;
+
+    /* valid if flags[9] set */
+    uint32_t boot_loader_name;
+
+    /* valid if flags[10] set */
+    uint32_t apm_table;
+
+    /* valid if flags[11] set */
+    uint32_t vbe_control_info;
+    uint32_t vbe_mode_info;
+    uint16_t vbe_mode;
+    uint16_t vbe_interface_seg;
+    uint16_t vbe_interface_off;
+    uint16_t vbe_interface_len;
 } multiboot_info_t;
 
-/* The module structure.  */
 typedef struct {
-    u32 mod_start;
-    u32 mod_end;
-    u32 string;
-    u32 reserved;
+	uint32_t mod_start;
+	uint32_t mod_end;
+	uint32_t string;
+	uint32_t reserved;
 } module_t;
 
-/* The memory map. Be careful that the offset 0 is base_addr_low
-   but no size.  */
 typedef struct {
-    u32 size;
-    u32 base_addr_low;
-    u32 base_addr_high;
-    u32 length_low;
-    u32 length_high;
-    u32 type;
+	uint32_t size;
+	uint32_t base_addr_low;
+	uint32_t base_addr_high;
+	uint32_t length_low;
+	uint32_t length_high;
+	uint32_t type;
 } memory_map_t;
-
 
 #endif /* __ASSEMBLY__ */
 
 #endif /* __MULTIBOOT_H__ */
+
+
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

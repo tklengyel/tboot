@@ -88,7 +88,7 @@ static acm_info_table_t *get_acmod_info_table(acm_hdr_t* hdr)
     }
 
     /* overflow? */
-    if ( plus_overflow_ul((unsigned long)hdr, user_area_off) ) {
+    if ( plus_overflow_u32((uint32_t)(uintptr_t)hdr, user_area_off) ) {
         printk("hdr plus user_area_off overflows\n");
         return NULL;
     }
@@ -125,7 +125,7 @@ static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
     }
 
     /* overflow? */
-    if ( plus_overflow_ul((unsigned long)hdr, id_list_off) ) {
+    if ( plus_overflow_u32((uint32_t)(uintptr_t)hdr, id_list_off) ) {
         printk("hdr plus id_list_off overflows\n");
         return NULL;
     }

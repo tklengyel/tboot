@@ -1,140 +1,79 @@
+/*
+ * misc.h:  miscellaneous support fns
+ *
+ * Copyright (c) 2010, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
 #ifndef __MISC_H__
 #define __MISC_H__
 
-/*
- * from system.h
- */
+extern void print_hex(const char * buf, const void * prtptr, size_t size);
 
-#define wbinvd() \
-	__asm__ __volatile__ ("wbinvd": : :"memory");
-
-#define __save_flags(x)		__asm__ __volatile__("pushfl ; popl %0":"=g" (x): /* no input */)
-#define __restore_flags(x) 	__asm__ __volatile__("pushl %0 ; popfl": /* no output */ :"g" (x):"memory", "cc")
-#define __cli() 		__asm__ __volatile__("cli": : :"memory")
-
-/*
- * from x86/bitops.h
- */
-
-/**
- * fls - find last bit set
- * @x: the word to search
- *
- * This is defined the same way as ffs.
- */
-static inline int fls(unsigned long x)
-{
-  long r;
-
-  __asm__("bsr %1,%0\n\t"
-                "jnz 1f\n\t"
-                "mov $-1,%0\n"
-	  "1:" : "=r" (r) : "rm" (x));
-  return (int)r+1;
-}
-
-static inline unsigned char inb(unsigned short port)
-{
-    unsigned char _v;
-
-    __asm__ __volatile__ ("inb %w1, %0"
-                          : "=a" (_v) : "Nd" (port));
-
-    return _v;
-}
-
-static inline void outb(unsigned char value, unsigned short port)
-{
-    __asm__ __volatile__ ("outb %b0, %w1"
-                          : : "a" (value), "Nd" (port));
-}
-
-static inline unsigned short inw(unsigned short port)
-{
-    unsigned short _v;
-
-    __asm__ __volatile__ ("inw %w1, %w0"
-                          : "=a" (_v) : "Nd" (port));
-
-    return _v;
-}
-
-static inline void outw(unsigned short value, unsigned short port)
-{
-    __asm__ __volatile__ ("outw %w0, %w1"
-                          : : "a" (value), "Nd" (port));
-}
-
-static inline unsigned int in(unsigned short port)
-{
-    unsigned int _v;
-
-    __asm__ __volatile__ ("in %w1, %0"
-                          : "=a" (_v) : "Nd" (port));
-
-    return _v;
-}
-
-static inline void out(unsigned int value, unsigned short port)
-{
-    __asm__ __volatile__ ("out %0, %w1"
-                          : : "a" (value), "Nd" (port));
-}
-/*
- * from io.h
- */
-
-#define readb(x)  (*(volatile char *)(x))
-#define readw(x)  (*(volatile short *)(x))
-#define readl(x)  (*(volatile int *)(x))
-#define writeb(d,x) (*(volatile char *)(x) = (d))
-#define writew(d,x) (*(volatile short *)(x) = (d))
-#define writel(d,x) (*(volatile int *)(x) = (d))
-
-/*
- * from lib.h
- */
-#include <stdarg.h>
-
-#define BUG() /**/
-#define BUG_ON(_p) do { if (_p) BUG(); } while ( 0 )
-
-/* vsprintf.c */
-unsigned long simple_strtoul(const char *,char **,unsigned int);
-long simple_strtol(const char *,char **,unsigned int);
-extern int sprintf(char * buf, const char * fmt, ...)
-    __attribute__ ((format (printf, 2, 3)));
-extern int vsprintf(char *buf, const char *, va_list)
-    __attribute__ ((format (printf, 2, 0)));
-extern int snprintf(char * buf, size_t size, const char * fmt, ...)
-    __attribute__ ((format (printf, 3, 4)));
-extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
-    __attribute__ ((format (printf, 3, 0)));
-extern int scnprintf(char * buf, size_t size, const char * fmt, ...)
-    __attribute__ ((format (printf, 3, 4)));
-extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
-    __attribute__ ((format (printf, 3, 0)));
-
-/*
- * original
- */
-#define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
-
-/* from misc.c */
-extern void print_hex(const char *prefix, const void *data, size_t n);
 extern void delay(int secs);
 
-extern bool multiply_overflow_u32(const uint32_t x, const uint32_t y);
-extern bool plus_overflow_u32(const uint32_t x, const uint32_t y);
-extern bool plus_overflow_u64(const uint64_t x, const uint64_t y);
-extern bool multiply_overflow_ul(const unsigned long x, const unsigned long y);
-extern bool plus_overflow_ul(const unsigned long x, const unsigned long y);
+/*
+ *  These three "plus overflow" functions take a "x" value
+ *    and add the "y" value to it and if the two values are
+ *    greater than the size of the variable type, they will
+ *    overflow the type and end up with a smaller value and
+ *    return TRUE - that they did overflow.  i.e.
+ *    x + y <= variable type maximum.
+ */
+static inline bool plus_overflow_u64(uint64_t x, uint64_t y)
+{
+    return ((((uint64_t)(~0)) - x) < y);
+}
 
-/* from gcc gmacros.h */
-#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+static inline bool plus_overflow_u32(uint32_t x, uint32_t y)
+{
+    return ((((uint32_t)(~0)) - x) < y);
+}
 
+/*
+ * This checks to see if two numbers multiplied together are larger
+ *   than the type that they are.  Returns TRUE if OVERFLOWING.
+ *   If the first parameter "x" is greater than zero and
+ *   if that is true, that the largest possible value 0xFFFFFFFF / "x"
+ *   is less than the second parameter "y".  If "y" is zero then
+ *   it will also fail because no unsigned number is less than zero.
+ */
+static inline bool multiply_overflow_u32(uint32_t x, uint32_t y)
+{
+    return (x > 0) ? ((((uint32_t)(~0))/x) < y) : false;
+}
 
-#endif   /*  __MISC_H__ */
+#define ARRAY_SIZE(a)    (sizeof(a) / sizeof(a[0]))
+
+#endif    /* __MISC_H__ */
 
 
 /*

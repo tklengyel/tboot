@@ -2,7 +2,7 @@
  * tboot.c: main entry point and "generic" routines for measured launch
  *          support
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <printk.h>
 #include <multiboot.h>
 #include <processor.h>
@@ -47,7 +47,8 @@
 #include <page.h>
 #include <msr.h>
 #include <atomic.h>
-#include <spinlock.h>
+#include <io.h>
+#include <mutex.h>
 #include <e820.h>
 #include <uuid.h>
 #include <loader.h>
@@ -80,7 +81,7 @@ extern char s3_wakeup_end[];
 
 extern atomic_t ap_wfs_count;
 
-extern spinlock_t ap_lock;
+extern struct mutex ap_lock;
 
 /* multiboot struct saved so that post_launch() can use it */
 __data multiboot_info_t *g_mbi = NULL;
@@ -250,7 +251,6 @@ void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec)
 
 void begin_launch(multiboot_info_t *mbi)
 {
-    unsigned long apicbase;
     tb_error_t err;
 
     g_mbi = ( g_mbi == NULL ) ? mbi : g_mbi;  /* save for post launch */
@@ -286,8 +286,7 @@ void begin_launch(multiboot_info_t *mbi)
         set_s3_resume_vector(&_tboot_shared.acpi_sinfo, 0);
 
     /* we should only be executing on the BSP */
-    rdmsrl(MSR_IA32_APICBASE, apicbase);
-    if ( !(apicbase & MSR_IA32_APICBASE_BSP) ) {
+    if ( !(rdmsr(MSR_APICBASE) & APICBASE_BSP) ) {
         printk("entry processor is not BSP\n");
         apply_policy(TB_ERR_FATAL);
     }
@@ -385,7 +384,7 @@ static void shutdown_system(uint32_t shutdown_type)
     char type[32];
 
     if ( shutdown_type >= ARRAY_SIZE(types) )
-        sprintf(type, "unknown: %u", shutdown_type);
+        snprintf(type, sizeof(type), "unknown: %u", shutdown_type);
     else
         strncpy(type, types[shutdown_type], sizeof(type));
     printk("shutdown_system() called for shutdown_type: %s\n", type);
@@ -406,19 +405,19 @@ static void shutdown_system(uint32_t shutdown_type)
             if ( txt_is_powercycle_required() ) {
                 /* powercycle by writing 0x0a+0x0e to port 0xcf9 */
                 /* (supported by all TXT-capable chipsets) */
-                outb(0x0a, 0xcf9);
-                outb(0x0e, 0xcf9);
+                outb(0xcf9, 0x0a);
+                outb(0xcf9, 0x0e);
             }
             else {
                 /* soft reset by writing 0x06 to port 0xcf9 */
                 /* (supported by all TXT-capable chipsets) */
-                outb(0x06, 0xcf9);
+                outb(0xcf9, 0x06);
             }
 
         case TB_SHUTDOWN_HALT:
         default:
-            for ( ; ; )
-                __asm__ __volatile__ ( "hlt" );
+            while ( true )
+                halt();
     }
 }
 
@@ -450,7 +449,7 @@ void shutdown(void)
 {
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
-        spin_lock(&ap_lock);
+        mtx_enter(&ap_lock);
         printk("shutdown(): TB_SHUTDOWN_WFS\n");
         handle_init_sipi_sipi(get_apicid());
         apply_policy(TB_ERR_FATAL);

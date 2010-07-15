@@ -1,7 +1,7 @@
 /*
  * vmcs.c: create and manage mini-VT VM for APs to handle INIT-SIPI-SIPI
  *
- * Copyright (c) 2003-2009, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 #include <page.h>
 #include <processor.h>
 #include <printk.h>
-#include <spinlock.h>
+#include <mutex.h>
 #include <atomic.h>
 #include <uuid.h>
 #include <tboot.h>
@@ -78,7 +78,7 @@ extern char gdt_table[];
 #define RESET_TSS_DESC(n)   gdt_table[((n)<<3)+5] = 0x89
 
 /* lock that protects APs against race conditions on wakeup and shutdown */
-DEFINE_SPINLOCK(ap_lock);
+struct mutex ap_lock;
 
 /* counter for APs entering/exiting wait-for-sipi */
 extern atomic_t ap_wfs_count;
@@ -105,8 +105,11 @@ static uint32_t vm_entry_ctrls;
 static void init_vmx_ctrl(uint32_t msr, uint32_t ctrl_val, uint32_t *ctrl)
 {
     uint32_t lo, hi;
+    uint64_t val;
 
-    rdmsr(msr, lo, hi);
+    val = rdmsr(msr);
+    lo = (uint32_t)(val & 0xffffffffUL);
+    hi = (uint32_t)(val >> 32);
     *ctrl = (ctrl_val & hi) | lo;
 
     /* make sure that the conditions we want are actually allowed */
@@ -116,10 +119,10 @@ static void init_vmx_ctrl(uint32_t msr, uint32_t ctrl_val, uint32_t *ctrl)
 
 static void init_vmcs_config(void)
 {
-    uint32_t lo, hi;
+    uint64_t val;
 
-    rdmsr(MSR_IA32_VMX_BASIC_MSR, lo, hi);
-    vmcs_rev_id = lo;
+    val = rdmsr(MSR_IA32_VMX_BASIC_MSR);
+    vmcs_rev_id = (uint32_t)(val & 0xffffffffUL);
 
     init_vmx_ctrl(MSR_IA32_VMX_PINBASED_CTLS_MSR,
                   MONITOR_PIN_BASED_EXEC_CONTROLS, &pin_based_vm_exec_ctrls);
@@ -145,7 +148,8 @@ static void build_ap_pagetable(void)
 
     while ( pt_entry <= (uint32_t)&_end + PTE_FLAGS ) {
         *pte = pt_entry;
-        pt_entry += 1 << L2_PAGETABLE_SHIFT;
+        /* Incriments 4MB page at a time */ 
+        pt_entry += 1 << FOURMB_PAGE_SHIFT;
         pte++;
     }
 }
@@ -158,7 +162,7 @@ static bool start_vmx(unsigned int cpuid)
     struct vmcs_struct *vmcs;
     static bool init_done = false;
 
-    set_in_cr4(X86_CR4_VMXE);
+    write_cr4(read_cr4() | CR4_VMXE);
 
     vmcs = (struct vmcs_struct *)host_vmcs;
 
@@ -182,13 +186,13 @@ static bool start_vmx(unsigned int cpuid)
     /* enable paging using 1:1 page table [0, _end] */
     /* addrs outside of tboot (e.g. MMIO) are not mapped) */
     write_cr3((unsigned long)idle_pg_table);
-    set_in_cr4(X86_CR4_PSE);
-    write_cr0(read_cr0() | X86_CR0_PG);
+    write_cr4(read_cr4() | CR4_PSE);
+    write_cr0(read_cr0() | CR0_PG);
 
     if ( __vmxon((unsigned long)vmcs) ) {
-        clear_in_cr4(X86_CR4_VMXE);
-        clear_in_cr4(X86_CR4_PSE);
-        write_cr0(read_cr0() & ~X86_CR0_PG);
+        write_cr4(read_cr4() & ~CR4_VMXE);
+        write_cr4(read_cr4() & ~CR4_PSE);
+        write_cr0(read_cr0() & ~CR0_PG);
         printk("VMXON failed for cpu %u\n", cpuid);
         return false;
     }
@@ -201,7 +205,7 @@ static void stop_vmx(unsigned int cpuid)
 {
     struct vmcs_struct *vmcs = NULL;
 
-    if ( !(read_cr4() & X86_CR4_VMXE) ) {
+    if ( !(read_cr4() & CR4_VMXE) ) {
         printk("stop_vmx() called when VMX not enabled\n");
         return;
     }
@@ -212,11 +216,11 @@ static void stop_vmx(unsigned int cpuid)
 
     __vmxoff();
 
-    clear_in_cr4(X86_CR4_VMXE);
+    write_cr4(read_cr4() & ~CR4_VMXE);
 
     /* diable paging to restore AP's state to boot xen */
-    write_cr0(read_cr0() & ~X86_CR0_PG);
-    clear_in_cr4(X86_CR4_PSE);
+    write_cr0(read_cr0() & ~CR0_PG);
+    write_cr4(read_cr4() & ~CR4_PSE);
 
     printk("VMXOFF done for cpu %u\n", cpuid);
 }
@@ -379,7 +383,7 @@ static void construct_vmcs(void)
     __vmwrite(GUEST_DR7, 0);
 
     /* rflags & rsp */
-    __save_flags(eflags);
+    eflags = read_eflags();
     __vmwrite(GUEST_RFLAGS, eflags);
 
     __asm__ __volatile__ ("mov %%esp,%0\n\t" :"=r" (rsp));
@@ -537,7 +541,7 @@ void handle_init_sipi_sipi(unsigned int cpuid)
     if ( cpuid >= NR_CPUS ) {
         printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
-        spin_unlock(&ap_lock);
+        mtx_leave(&ap_lock);
         return;
     }
 
@@ -551,13 +555,13 @@ void handle_init_sipi_sipi(unsigned int cpuid)
     /* 1: setup VMX environment and VMXON */
     if ( !start_vmx(cpuid) ) {
         apply_policy(TB_ERR_FATAL);
-        spin_unlock(&ap_lock);
+        mtx_leave(&ap_lock);
         return;
     }
 
     /* 2: setup VMCS */
     if ( vmx_create_vmcs(cpuid) ) {
-        spin_unlock(&ap_lock);
+        mtx_leave(&ap_lock);
 
         /* 3: launch VM */
         launch_mini_guest(cpuid);

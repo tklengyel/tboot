@@ -1,6 +1,9 @@
 /*-
- * Copyright (c) 1992, 1993
+ * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
+ *
+ * This code is derived from software contributed to Berkeley by
+ * Chris Torek.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,48 +29,73 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)libkern.h	8.1 (Berkeley) 6/10/93
- * $FreeBSD: src/sys/sys/libkern.h,v 1.60 2009/02/14 11:34:57 rrs Exp $
+ * From: @(#)strtoul.c	8.1 (Berkeley) 6/4/93
  */
+
+/* $FreeBSD: src/sys/libkern/strtoul.c,v 1.6.32.1 2010/02/10 00:26:20 kensmith Exp $ */
+
+#include <ctype.h>
+#include <string.h>
+
+#define ULONG_MAX     0xFFFFFFFFUL
+
 /*
- * Portions copyright (c) 2010, Intel Corporation
+ * Convert a string to an unsigned long integer.
+ *
+ * Ignores `locale' stuff.  Assumes that the upper and lower case
+ * alphabets and digits are each contiguous.
  */
-
-#ifndef __STRING_H__
-#define	__STRING_H__
-
-#include <stdarg.h>
-#include <types.h>
-
-int	 memcmp(const void *b1, const void *b2, size_t len);
-char	*index(const char *, int);
-int	 strcmp(const char *, const char *);
-size_t	 strlen(const char *);
-int	 strncmp(const char *, const char *, size_t);
-char	*strncpy(char * __restrict, const char * __restrict, size_t);
-void	*memcpy(void *dst, const void *src, size_t len);
-int	 snprintf(char *buf, size_t size, const char *fmt, ...);
-int	 vscnprintf(char *buf, size_t size, const char *fmt, va_list ap);
-unsigned long strtoul(const char *nptr, char **endptr, int base);
-
-static inline void *memset(void *b, int c, size_t len)
+unsigned long strtoul(const char *nptr, char **endptr, int base)
 {
-	char *bb;
+	const char *s = nptr;
+	unsigned long acc;
+	unsigned char c;
+	unsigned long cutoff;
+	int neg = 0, any, cutlim;
 
-	for (bb = (char *)b; len--; )
-		*bb++ = c;
-
-	return (b);
+	/*
+	 * See strtol for comments as to the logic used.
+	 */
+	do {
+		c = *s++;
+	} while (isspace(c));
+	if (c == '-') {
+		neg = 1;
+		c = *s++;
+	} else if (c == '+')
+		c = *s++;
+	if ((base == 0 || base == 16) &&
+	    c == '0' && (*s == 'x' || *s == 'X')) {
+		c = s[1];
+		s += 2;
+		base = 16;
+	}
+	if (base == 0)
+		base = c == '0' ? 8 : 10;
+	cutoff = (unsigned long)ULONG_MAX / (unsigned long)base;
+	cutlim = (unsigned long)ULONG_MAX % (unsigned long)base;
+	for (acc = 0, any = 0;; c = *s++) {
+		if (isdigit(c))
+			c -= '0';
+		else if (isalpha(c))
+			c -= isupper(c) ? 'A' - 10 : 'a' - 10;
+		else
+			break;
+		if (c >= base)
+			break;
+		if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
+			any = -1;
+		else {
+			any = 1;
+			acc *= base;
+			acc += c;
+		}
+	}
+	if (any < 0) {
+		acc = ULONG_MAX;
+	} else if (neg)
+		acc = -acc;
+	if (endptr != 0)
+		*((const char **)endptr) = any ? s - 1 : nptr;
+	return (acc);
 }
-
-static inline void *memmove(void *dest, const void *src, size_t n)
-{
-	return memcpy(dest, src, n);
-}
-
-static __inline char *strchr(const char *p, int ch)
-{
-	return index(p, ch);
-}
-
-#endif /* __STRING_H__ */

@@ -43,6 +43,9 @@ extern char g_cmdline[CMDLINE_SIZE];
 extern void tboot_parse_cmdline(void);
 extern void get_tboot_loglvl(void);
 extern void get_tboot_log_targets(void);
+extern void get_tboot_console(void);
+extern void get_tboot_baud(void);
+extern void get_tboot_fmt(void);
 extern void get_tboot_vga_delay(void);
 
 /* for parse cmdline of linux kernel, say vga and mem */

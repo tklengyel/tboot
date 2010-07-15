@@ -39,7 +39,7 @@
 #include <types.h>
 #include <printk.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <misc.h>
 #include <page.h>
 #include <multiboot.h>
@@ -78,14 +78,14 @@ static void print_mbi(multiboot_info_t *mbi)
     int i;
     printk("print mbi ...\n");
     printk("flags = %x\n", mbi->flags);
-    if ((mbi->flags) & ( 1<<0 ))
+    if ( mbi->flags & MBI_MEMLIMITS )
         printk("mem_lower = %uKB, mem_upper = %uKB\n", mbi->mem_lower,
                mbi->mem_upper);
-    if ((mbi->flags) & ( 1<<1 ))
+    if ( mbi->flags & 1<<1 )
         printk("boot_device = %x\n", mbi->boot_device);
-    if ((mbi->flags) & ( 1<<2 ))
+    if ( mbi->flags & MBI_CMDLINE )
         printk("cmdline = %s\n", (char *)mbi->cmdline);
-    if ((mbi->flags) & ( 1<<3 )) {
+    if ( mbi->flags & MBI_MODULES ) {
         printk("mods_count = %x, mods_addr = %x\n", mbi->mods_count,
                mbi->mods_addr);
         for ( i = 0; i < mbi->mods_count; i++ ) {
@@ -95,17 +95,17 @@ static void print_mbi(multiboot_info_t *mbi)
                    p->mod_end, p->string, (char *)p->string);
         }
     }
-    if ((mbi->flags) & ( 1<<4 )) {
+    if ( mbi->flags & 1<<4 ) {
         aout_symbol_table_t *p = &(mbi->u.aout_sym);
         printk("tabsize = %x, strsize = %x, addr = %x\n", p->tabsize,
                p->strsize, p->addr);
     }
-    if ((mbi->flags) & ( 1<<5 )) {
+    if ( mbi->flags & 1<<5 ) {
         elf_section_header_table_t *p = &(mbi->u.elf_sec);
         printk("num = %x, size = %x, addr = %x, shndx = %x\n", p->num,
                p->size, p->addr, p->shndx);
     }
-    if ((mbi->flags) & ( 1<<6 )) {
+    if ( mbi->flags & MBI_MEMMAP ) {
         memory_map_t *p;
         printk("mmap_length = %x, mmap_addr = %x\n", mbi->mmap_length,
                mbi->mmap_addr);
@@ -127,7 +127,7 @@ bool verify_mbi(multiboot_info_t *mbi)
         return false;
     }
 
-    if ( !(mbi->flags & (1 << 3)) ) {
+    if ( !(mbi->flags & MBI_MODULES) ) {
         printk("Error: Mods in mbi is invalid.\n");
         return false;
     }
@@ -188,7 +188,7 @@ static bool adjust_kernel_cmdline(multiboot_info_t *mbi,
     else
         old_cmdline = "";
 
-    snprintf(new_cmdline, TBOOT_KERNEL_CMDLINE_SIZE, "%s tboot=0x%p",
+    snprintf(new_cmdline, TBOOT_KERNEL_CMDLINE_SIZE, "%s tboot=%p",
              old_cmdline, tboot_shared_addr);
     new_cmdline[TBOOT_KERNEL_CMDLINE_SIZE - 1] = '\0';
 
@@ -274,7 +274,7 @@ bool launch_kernel(bool is_measured_launch)
         if ( !expand_elf_image((elf_header_t *)kernel_image,
                                &kernel_entry_point) )
             return false;
-        printk("transfering control to kernel @0x%p...\n", kernel_entry_point);
+        printk("transfering control to kernel @%p...\n", kernel_entry_point);
         return jump_elf_image(kernel_entry_point);
     }
     else if ( kernel_type == LINUX ) {
@@ -285,7 +285,7 @@ bool launch_kernel(bool is_measured_launch)
         expand_linux_image(kernel_image, kernel_size,
                            initrd_image, initrd_size,
                            &kernel_entry_point, is_measured_launch);
-        printk("transfering control to kernel @0x%p...\n", kernel_entry_point);
+        printk("transfering control to kernel @%p...\n", kernel_entry_point);
         return jump_linux_image(kernel_entry_point);
     }
 

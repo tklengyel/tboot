@@ -38,11 +38,11 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <misc.h>
 #include <printk.h>
 #include <cmdline.h>
-
+#include <com.h>
 
 /*
  * copy of original command line
@@ -69,11 +69,14 @@ typedef struct {
 
 /* global option array for command line */
 static const cmdline_option_t g_tboot_cmdline_options[] = {
-    { "loglvl", "all" },     /* all|none */
-    { "logging", "serial" }, /* vga,serial,memory|none */
-    { "serial", "" },        /* <baud>[/<clock_hz>][,<DPS>[,<io-base>]] or
-                                auto[/<clock_hz>][,<DPS>[,<io-base>]]*/
-    { "vga_delay", "0" },    /* # secs */
+    { "loglvl", "all" },      /* all|none */
+    { "logging", "serial" },  /* vga,serial,memory|none */
+    { "serial", "com1" },     /* com[1|2|3|4] or its address like 0x3f8 */
+    { "com1", "115200,8n1" },
+    { "com2", "115200,8n1" },
+    { "com3", "115200,8n1" },
+    { "com4", "115200,8n1" },
+    { "vga_delay", "0" },     /* # secs */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -140,8 +143,7 @@ static void cmdline_parse(char *cmdline, const cmdline_option_t *options,
         val_start++;
 
         unsigned int opt_name_size = val_start - opt_start - 1;
-        /* (+1 because we'll overwrite the last char with '\0' when we copy) */
-        unsigned int copy_size = opt_end - val_start + 1;
+        unsigned int copy_size = opt_end - val_start;
         if ( copy_size > MAX_VALUE_LEN - 1 )
             copy_size = MAX_VALUE_LEN - 1;
         if ( opt_name_size == 0 || copy_size == 0 )
@@ -151,7 +153,7 @@ static void cmdline_parse(char *cmdline, const cmdline_option_t *options,
         for ( i = 0; options[i].name != NULL; i++ ) {
             if ( strncmp(options[i].name, opt_start, opt_name_size ) == 0 ) {
                 strncpy(vals[i], val_start, copy_size);
-                vals[i][copy_size] = '\0';
+                vals[i][copy_size] = '\0'; /* add '\0' to the end of string */
                 break;
             }
         }
@@ -219,17 +221,118 @@ void get_tboot_log_targets(void)
             break; /* unrecognized, end loop */
     }
 
-    if ( g_log_targets & TBOOT_LOG_TARGET_SERIAL ) {
-        const char *serial = get_option_val(g_tboot_cmdline_options,
-                                            g_tboot_param_values, "serial");
+    if ( g_log_targets & TBOOT_LOG_TARGET_SERIAL )
+        early_serial_parse_port_config();
+}
 
-        /* nothing set, leave defaults */
-        if ( ( serial == NULL ) || ( *serial == '\0' ) )
-            return;
 
-        /* call configuration parser in early serial code to do the rest */
-        early_serial_parse_port_config(serial);
+static void parse_com_baud(const char *baud)
+{
+    g_com_port.comc_curspeed = 0;
+    while ( *baud >= '0' && *baud <= '9' ) {
+        g_com_port.comc_curspeed = g_com_port.comc_curspeed * 10 + *baud - '0';
+        baud++;
     }
+}
+
+static void parse_com_fmt(const char *fmt)
+{
+    /* fmt:  <5|6|7|8><n|o|e|m|s><0|1> */
+    /* default 8n1 */
+
+    /* must specify all values */
+    if ( strlen(fmt) != 3 )
+        return;
+
+    uint8_t data_bits = 8;
+    u_char parity = 'n';
+    uint8_t stop_bits = 1;
+
+    /* data bits */
+    if ( fmt[0] >= '5' && fmt[0] <= '8' )
+        data_bits = fmt[0] - '0';
+    else
+        return;
+
+    /* parity */
+    if ( fmt[1] == 'n' || fmt[1] == 'o' || fmt[1] == 'e' || fmt[1] == 'm' ||
+         fmt[1] == 's' )
+        parity = fmt[1];
+    else
+        return;
+
+    /* stop bits */
+    if ( fmt[2] == '0' || fmt[2] == '1' )
+        stop_bits = fmt[2] - '0';
+    else
+        return;
+
+    g_com_port.comc_fmt = GET_LCR_VALUE(data_bits, stop_bits, parity);
+}
+
+static void parse_com_param(const char *com)
+{
+    char baud[8];
+    char dps[4];
+    size_t i = 0;
+
+    /* baud rate */
+    while ( *com == ' ' ) /* ignore space */
+        com++;
+    while ( i < sizeof(baud)-1 && *com && *com != ',' )
+        baud[i++] = *com++;
+    baud[i] = '\0';
+    parse_com_baud(baud);
+
+    /* data/parity/stop */
+    if ( *com == ',' )
+        com++;
+    else
+        return;
+    while ( *com == ' ' ) /* ignore space */
+        com++;
+    i = 0;
+    while ( i < sizeof(dps)-1 && *com )
+        dps[i++] = *com++;
+    dps[i] = '\0';
+    parse_com_fmt(dps);
+}
+
+void get_tboot_console(void)
+{
+    const char *console = get_option_val(g_tboot_cmdline_options,
+                                        g_tboot_param_values, "serial");
+    char com[COM_STRING_LEN];
+
+    if ( console == NULL || strcmp(console, COM1_STRING) == 0 || 
+            strcmp(console, COM1_ADD_STRING) == 0 ) {
+        g_com_port.comc_port = COM1_ADD;
+        strncpy(com, COM1_STRING, COM_STRING_LEN);
+    }
+    else if ( strcmp(console, COM2_STRING) == 0 || 
+            strcmp(console, COM2_ADD_STRING) == 0 ) {
+        g_com_port.comc_port = COM2_ADD;
+        strncpy(com, COM2_STRING, COM_STRING_LEN);
+    }
+    else if ( strcmp(console, COM3_STRING) == 0 || 
+            strcmp(console, COM3_ADD_STRING) == 0 ) {
+        g_com_port.comc_port = COM3_ADD;
+        strncpy(com, COM3_STRING, COM_STRING_LEN);
+    }
+    else if ( strcmp(console, COM4_STRING) == 0 ||
+            strcmp(console, COM4_ADD_STRING) == 0 ) {
+        g_com_port.comc_port = COM4_ADD;
+        strncpy(com, COM4_STRING, COM_STRING_LEN);
+    }
+    else {
+        printk("unsupported serial port\n");
+        return;
+    }
+
+    const char *com_value = get_option_val(g_tboot_cmdline_options,
+                                           g_tboot_param_values, com);
+    if ( com_value != NULL )
+        parse_com_param(com_value);
 }
 
 void get_tboot_vga_delay(void)
@@ -239,7 +342,7 @@ void get_tboot_vga_delay(void)
     if ( vga_delay == NULL )
         return;
 
-    g_vga_delay = simple_strtoul(vga_delay, NULL, 0);
+    g_vga_delay = strtoul(vga_delay, NULL, 0);
 }
 
 bool get_linux_vga(int *vid_mode)
@@ -256,7 +359,7 @@ bool get_linux_vga(int *vid_mode)
     else if ( strcmp(vga, "ask") == 0 )
         *vid_mode = 0xFFFD;
     else
-        *vid_mode = simple_strtol(vga, NULL, 0);
+        *vid_mode = strtoul(vga, NULL, 0);
 
     return true;
 }
@@ -269,7 +372,7 @@ bool get_linux_mem(uint64_t *max_mem)
     if ( mem == NULL || max_mem == NULL )
         return false;
 
-    *max_mem = simple_strtoul(mem, &last, 0);
+    *max_mem = strtoul(mem, &last, 0);
     if ( *max_mem == 0 )
         return false;
 

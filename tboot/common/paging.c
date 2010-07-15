@@ -1,7 +1,7 @@
 /*
  * paging.c: enable PAE paging and map pages in tboot
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,13 +35,13 @@
 
 #include <types.h>
 #include <compiler.h>
-#include <string.h>
 #include <printk.h>
 #include <processor.h>
 #include <stdbool.h>
 #include <tb_error.h>
 #include <paging.h>
 #include <misc.h>
+#include <string.h>
 
 /* Page-Directory-Pointer Table */
 uint64_t __attribute__ ((__section__ (".bss.page_aligned")))
@@ -200,8 +200,8 @@ bool enable_paging(void)
     unsigned long eflags;
 
     /* disable interrupts */
-    __save_flags(eflags);
-    __cli();
+    eflags = read_eflags();
+    disable_intr();
 
     /* flush caches */
     wbinvd();
@@ -210,15 +210,15 @@ bool enable_paging(void)
     cr0 = read_cr0();
     cr4 = read_cr4();
 
-    write_cr4((cr4 | X86_CR4_PAE | X86_CR4_PSE) & ~X86_CR4_PGE);
+    write_cr4((cr4 | CR4_PAE | CR4_PSE) & ~CR4_PGE);
 
     write_cr3(build_directmap_pagetable());
-    write_cr0(cr0 | X86_CR0_PG);
+    write_cr0(cr0 | CR0_PG);
 
     /* enable interrupts */
-    __restore_flags(eflags);
+    write_eflags(eflags);
 
-    return (read_cr0() & X86_CR0_PG);
+    return (read_cr0() & CR0_PG);
 }
 
 bool disable_paging(void)
@@ -227,7 +227,7 @@ bool disable_paging(void)
     write_cr0(cr0);
     write_cr4(cr4);
 
-    return !(read_cr0() & X86_CR0_PG);
+    return !(read_cr0() & CR0_PG);
 }
 
 /*

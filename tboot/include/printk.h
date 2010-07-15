@@ -39,7 +39,7 @@ extern void early_memlog_init(void);
 extern void early_memlog_write(const char *str, unsigned int count);
 extern void early_memlog_print(void);
 
-extern void early_serial_parse_port_config(const char *conf);
+extern void early_serial_parse_port_config(void);
 extern void early_serial_init(void);
 extern void early_serial_write(const char *str, unsigned int count);
 

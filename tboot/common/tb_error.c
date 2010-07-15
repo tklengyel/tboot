@@ -38,7 +38,7 @@
 #include <stdbool.h>
 #include <printk.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <misc.h>
 #include <multiboot.h>
 #include <uuid.h>

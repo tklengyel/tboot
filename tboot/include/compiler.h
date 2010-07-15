@@ -1,56 +1,52 @@
-#ifndef __LINUX_COMPILER_H
-#define __LINUX_COMPILER_H
+/*
+ * compiler.h: These are various compiler-related defines
+ *
+ * Copyright (c) 2010, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
 
-#if !defined(__GNUC__) || (__GNUC__ < 3)
-#error Sorry, your compiler is too old/not recognized.
-#endif
-
-#define barrier()     __asm__ __volatile__("": : :"memory")
-
-#define likely(x)     __builtin_expect((x),1)
-#define unlikely(x)   __builtin_expect((x),0)
+#ifndef __COMPILER_H__
+#define __COMPILER_H__
 
 #define inline        __inline__
 #define always_inline __inline__ __attribute__ ((always_inline))
-#define noinline      __attribute__((noinline))
 
-#define __attribute_pure__  __attribute__((pure))
-#define __attribute_const__ __attribute__((__const__))
+#endif    /* __COMPILER_H__ */
 
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)
-#define __attribute_used__ __attribute__((__used__))
-#else
-#define __attribute_used__ __attribute__((__unused__))
-#endif
-
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
-#define __must_check __attribute__((warn_unused_result))
-#else
-#define __must_check
-#endif
-
-#if __GNUC__ > 3
-#define offsetof(a,b) __builtin_offsetof(a,b)
-#else
-#define offsetof(a,b) ((unsigned long)&(((a *)0)->b))
-#endif
-
-#ifdef GCC_HAS_VISIBILITY_ATTRIBUTE
-/* Results in more efficient PIC code (no indirections through GOT or PLT). */
-#pragma GCC visibility push(hidden)
-#endif
-
-/* This macro obfuscates arithmetic on a variable address so that gcc
-   shouldn't recognize the original var, and make assumptions about it */
 /*
- * Versions of the ppc64 compiler before 4.1 had a bug where use of
- * RELOC_HIDE could trash r30. The bug can be worked around by changing
- * the inline assembly constraint from =g to =r, in this particular
- * case either is valid.
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
  */
-#define RELOC_HIDE(ptr, off)                    \
-  ({ unsigned long __ptr;                       \
-    __asm__ ("" : "=r"(__ptr) : "0"(ptr));      \
-    (typeof(ptr)) (__ptr + (off)); })
-
-#endif /* __LINUX_COMPILER_H */

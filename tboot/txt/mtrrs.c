@@ -1,7 +1,7 @@
 /*
  * mtrrs.c: support functions for manipulating MTRRs
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,19 +77,19 @@ bool set_mtrrs_for_acmod(acm_hdr_t *hdr)
      */
 
     /* disable interrupts */
-    __save_flags(eflags);
-    __cli();
+    eflags = read_eflags();
+    disable_intr();
 
     /* save CR0 then disable cache (CRO.CD=1, CR0.NW=0) */
     cr0 = read_cr0();
-    write_cr0((cr0 & ~X86_CR0_NW) | X86_CR0_CD);
+    write_cr0((cr0 & ~CR0_NW) | CR0_CD);
 
     /* flush caches */
     wbinvd();
 
     /* save CR4 and disable global pages (CR4.PGE=0) */
     cr4 = read_cr4();
-    write_cr4(cr4 & ~X86_CR4_PGE);
+    write_cr4(cr4 & ~CR4_PGE);
 
     /* disable MTRRs */
     set_all_mtrrs(false);
@@ -117,7 +117,7 @@ bool set_mtrrs_for_acmod(acm_hdr_t *hdr)
     write_cr4(cr4);
 
     /* enable interrupts */
-    __restore_flags(eflags);
+    write_eflags(eflags);
 
     return true;
 }
@@ -128,10 +128,10 @@ void save_mtrrs(mtrr_state_t *saved_state)
     int ndx;
 
     /* IA32_MTRR_DEF_TYPE MSR */
-    rdmsrl(MSR_IA32_MTRR_DEF_TYPE, saved_state->mtrr_def_type.raw);
+    saved_state->mtrr_def_type.raw = rdmsr(MSR_MTRRdefType);
 
     /* number variable MTTRRs */
-    rdmsrl(MSR_IA32_MTRRCAP, mtrr_cap.raw);
+    mtrr_cap.raw = rdmsr(MSR_MTRRcap);
     if ( mtrr_cap.vcnt > MAX_VARIABLE_MTRRS ) {
         /* print warning but continue saving what we can */
         /* (set_mem_type() won't exceed the array, so we're safe doing this) */
@@ -144,10 +144,10 @@ void save_mtrrs(mtrr_state_t *saved_state)
 
     /* physmask's and physbase's */
     for ( ndx = 0; ndx < saved_state->num_var_mtrrs; ndx++ ) {
-        rdmsrl(MTRR_PHYS_MASK0_MSR + ndx*2,
-               saved_state->mtrr_physmasks[ndx].raw);
-        rdmsrl(MTRR_PHYS_BASE0_MSR + ndx*2,
-               saved_state->mtrr_physbases[ndx].raw);
+        saved_state->mtrr_physmasks[ndx].raw =
+            rdmsr(MTRR_PHYS_MASK0_MSR + ndx*2);
+        saved_state->mtrr_physbases[ndx].raw =
+            rdmsr(MTRR_PHYS_BASE0_MSR + ndx*2);
     }
 
     g_saved_mtrrs = saved_state;
@@ -314,7 +314,7 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
         return true;
 
     /* number variable MTRRs */
-    rdmsrl(MSR_IA32_MTRRCAP, mtrr_cap.raw);
+    mtrr_cap.raw = rdmsr(MSR_MTRRcap);
     if ( mtrr_cap.vcnt < saved_state->num_var_mtrrs ) {
         printk("actual # var MTRRs (%d) < saved # (%d)\n",
                mtrr_cap.vcnt, saved_state->num_var_mtrrs);
@@ -329,12 +329,14 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
         if ( saved_state->mtrr_physmasks[ndx].v == 0 )
             continue;
 
-        for ( tb = 0x1; tb != 0x1000000; tb = tb << 1 )
+        for ( tb = 0x1; tb != 0x1000000; tb = tb << 1 ) {
             if ( (tb & saved_state->mtrr_physmasks[ndx].mask) != 0 )
                 break;
-        for ( ; tb != 0x1000000; tb = tb << 1 )
+        }
+        for ( ; tb != 0x1000000; tb = tb << 1 ) {
             if ( (tb & saved_state->mtrr_physmasks[ndx].mask) == 0 )
                 break;
+        }
         if ( tb != 0x1000000 ) {
             printk("var MTRRs with non-contiguous regions: "
                    "base=%06x, mask=%06x\n",
@@ -439,14 +441,14 @@ void restore_mtrrs(mtrr_state_t *saved_state)
 
     /* physmask's and physbase's */
     for ( int ndx = 0; ndx < saved_state->num_var_mtrrs; ndx++ ) {
-        wrmsrl(MTRR_PHYS_MASK0_MSR + ndx*2,
-               saved_state->mtrr_physmasks[ndx].raw);
-        wrmsrl(MTRR_PHYS_BASE0_MSR + ndx*2,
-               saved_state->mtrr_physbases[ndx].raw);
+        wrmsr(MTRR_PHYS_MASK0_MSR + ndx*2,
+              saved_state->mtrr_physmasks[ndx].raw);
+        wrmsr(MTRR_PHYS_BASE0_MSR + ndx*2,
+              saved_state->mtrr_physbases[ndx].raw);
     }
 
     /* IA32_MTRR_DEF_TYPE MSR */
-    wrmsrl(MSR_IA32_MTRR_DEF_TYPE, saved_state->mtrr_def_type.raw);
+    wrmsr(MSR_MTRRdefType, saved_state->mtrr_def_type.raw);
 }
 
 /*
@@ -466,19 +468,19 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
      * disable all fixed MTRRs
      * set default type to UC
      */
-    rdmsrl(MSR_IA32_MTRR_DEF_TYPE, mtrr_def_type.raw);
+    mtrr_def_type.raw = rdmsr(MSR_MTRRdefType);
     mtrr_def_type.fe = 0;
     mtrr_def_type.type = MTRR_TYPE_UNCACHABLE;
-    wrmsrl(MSR_IA32_MTRR_DEF_TYPE, mtrr_def_type.raw);
+    wrmsr(MSR_MTRRdefType, mtrr_def_type.raw);
 
     /*
      * initially disable all variable MTRRs (we'll enable the ones we use)
      */
-    rdmsrl(MSR_IA32_MTRRCAP, mtrr_cap.raw);
+    mtrr_cap.raw = rdmsr(MSR_MTRRcap);
     for ( ndx = 0; ndx < mtrr_cap.vcnt; ndx++ ) {
-        rdmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
+        mtrr_physmask.raw = rdmsr(MTRR_PHYS_MASK0_MSR + ndx*2);
         mtrr_physmask.v = 0;
-        wrmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
+        wrmsr(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
     }
 
     /*
@@ -495,12 +497,12 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
         uint32_t pages_in_range;
 
         /* set the base of the current MTRR */
-        rdmsrl(MTRR_PHYS_BASE0_MSR + ndx*2, mtrr_physbase.raw);
+        mtrr_physbase.raw = rdmsr(MTRR_PHYS_BASE0_MSR + ndx*2);
         mtrr_physbase.base = (unsigned long)base >> PAGE_SHIFT;
         mtrr_physbase.type = mem_type;
         /* set explicitly in case base field is >24b (MAXPHYADDR >36) */
         mtrr_physbase.reserved2 = 0;
-        wrmsrl(MTRR_PHYS_BASE0_MSR + ndx*2, mtrr_physbase.raw);
+        wrmsr(MTRR_PHYS_BASE0_MSR + ndx*2, mtrr_physbase.raw);
 
         /*
          * calculate MTRR mask
@@ -509,12 +511,12 @@ bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
          */
         pages_in_range = 1 << (fls(num_pages) - 1);
 
-        rdmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
+        mtrr_physmask.raw = rdmsr(MTRR_PHYS_MASK0_MSR + ndx*2);
         mtrr_physmask.mask = ~(pages_in_range - 1);
         mtrr_physmask.v = 1;
         /* set explicitly in case mask field is >24b (MAXPHYADDR >36) */
         mtrr_physmask.reserved2 = 0;
-        wrmsrl(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
+        wrmsr(MTRR_PHYS_MASK0_MSR + ndx*2, mtrr_physmask.raw);
 
         /* prepare for the next loop depending on number of pages
          * We figure out from the above how many pages could be used in this
@@ -539,9 +541,9 @@ void set_all_mtrrs(bool enable)
 {
     mtrr_def_type_t mtrr_def_type;
 
-    rdmsrl(MSR_IA32_MTRR_DEF_TYPE, mtrr_def_type.raw);
+    mtrr_def_type.raw = rdmsr(MSR_MTRRdefType);
     mtrr_def_type.e = enable ? 1 : 0;
-    wrmsrl(MSR_IA32_MTRR_DEF_TYPE, mtrr_def_type.raw);
+    wrmsr(MSR_MTRRdefType, mtrr_def_type.raw);
 }
 
 /*

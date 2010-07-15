@@ -1,7 +1,7 @@
 /*
  * boot.S: assembly bootstrapping code for tboot module
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -172,7 +172,7 @@ ENTRY(__start)
 
         /* enable MCE */
         mov     %cr4,%eax
-        or      $X86_CR4_MCE,%eax
+        or      $CR4_MCE,%eax
         mov     %eax,%cr4
 
         /* pass multiboot info struct and call measured launch code */
@@ -217,7 +217,7 @@ ENTRY(_txt_wakeup)
 
         /* enable MCE */
         mov     %cr4,%eax
-        or      $X86_CR4_MCE,%eax
+        or      $CR4_MCE,%eax
         mov     %eax,%cr4
 
 	# get initial APIC ID for this processor

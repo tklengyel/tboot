@@ -47,7 +47,7 @@
 #include <processor.h>
 #include <printk.h>
 #include <atomic.h>
-#include <spinlock.h>
+#include <mutex.h>
 #include <tpm.h>
 #include <e820.h>
 #include <uuid.h>
@@ -78,7 +78,7 @@ extern char _txt_wakeup[];        /* RLP join address for GETSEC[WAKEUP] */
 
 extern long s3_flag;
 
-extern spinlock_t ap_lock;
+extern struct mutex ap_lock;
 
 extern void apply_policy(tb_error_t error);
 
@@ -306,7 +306,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     memset(os_mle_data, 0, sizeof(*os_mle_data));
     os_mle_data->version = 0x02;
     os_mle_data->mbi = mbi;
-    rdmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
+    os_mle_data->saved_misc_enable_msr = rdmsr(MSR_IA32_MISC_ENABLE);
 
     /*
      * OS/loader to SINIT data
@@ -410,6 +410,8 @@ static void txt_wakeup_cpus(void)
     printk("mle_join.gdt_limit = %x\n", mle_join.gdt_limit);
 
     write_priv_config_reg(TXTCR_MLE_JOIN, (uint64_t)(unsigned long)&mle_join);
+
+    mtx_init(&ap_lock);
 
     txt_heap_t *txt_heap = get_txt_heap();
     sinit_mle_data_t *sinit_mle_data = get_sinit_mle_data_start(txt_heap);
@@ -551,35 +553,35 @@ bool txt_prepare_cpu(void)
     cr0 = read_cr0();
 
     /* must be in protected mode */
-    if ( !(cr0 & X86_CR0_PE) ) {
+    if ( !(cr0 & CR0_PE) ) {
         printk("ERR: not in protected mode\n");
         return false;
     }
 
     /* cache must be enabled (CR0.CD = CR0.NW = 0) */
-    if ( cr0 & X86_CR0_CD ) {
+    if ( cr0 & CR0_CD ) {
         printk("CR0.CD set\n");
-        cr0 &= ~X86_CR0_CD;
+        cr0 &= ~CR0_CD;
     }
-    if ( cr0 & X86_CR0_NW ) {
+    if ( cr0 & CR0_NW ) {
         printk("CR0.NW set\n");
-        cr0 &= ~X86_CR0_NW;
+        cr0 &= ~CR0_NW;
     }
 
     /* native FPU error reporting must be enabled for proper */
     /* interaction behavior */
-    if ( !(cr0 & X86_CR0_NE) ) {
+    if ( !(cr0 & CR0_NE) ) {
         printk("CR0.NE not set\n");
-        cr0 |= X86_CR0_NE;
+        cr0 |= CR0_NE;
     }
 
     write_cr0(cr0);
 
     /* cannot be in virtual-8086 mode (EFLAGS.VM=1) */
-    __save_flags(eflags);
+    eflags = read_eflags();
     if ( eflags & X86_EFLAGS_VM ) {
         printk("EFLAGS.VM set\n");
-        __restore_flags(eflags | ~X86_EFLAGS_VM);
+        write_eflags(eflags | ~X86_EFLAGS_VM);
     }
 
     printk("CR0 and EFLAGS OK\n");
@@ -598,7 +600,7 @@ bool txt_prepare_cpu(void)
      */
 
     /* no machine check in progress (IA32_MCG_STATUS.MCIP=1) */
-    rdmsrl(MSR_IA32_MCG_STATUS, mcg_stat);
+    mcg_stat = rdmsr(MSR_MCG_STATUS);
     if ( mcg_stat & 0x04 ) {
         printk("machine check in progress\n");
         return false;
@@ -611,9 +613,9 @@ bool txt_prepare_cpu(void)
     }
 
     /* check if all machine check regs are clear */
-    rdmsrl(MSR_IA32_MCG_CAP, mcg_cap);
+    mcg_cap = rdmsr(MSR_MCG_CAP);
     for ( unsigned int i = 0; i < (mcg_cap & 0xff); i++ ) {
-        rdmsrl(MSR_IA32_MC0_STATUS + 4*i, mcg_stat);
+        mcg_stat = rdmsr(MSR_MC0_STATUS + 4*i);
         if ( mcg_stat & (1ULL << 63) ) {
             printk("MCG[%u] = %Lx ERROR\n", i, mcg_stat);
             if ( !params.preserve_mce )
@@ -664,7 +666,7 @@ tb_error_t txt_post_launch(void)
        prevent wakeup) */
     printk("saved IA32_MISC_ENABLE = 0x%08x\n",
            os_mle_data->saved_misc_enable_msr);
-    wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
+    wrmsr(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
 
     /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
     restore_mtrrs(&(os_mle_data->saved_mtrr_state));
@@ -698,7 +700,7 @@ void txt_cpu_wakeup(void)
         return;
     }
 
-    spin_lock(&ap_lock);
+    mtx_enter(&ap_lock);
 
     printk("cpu %u waking up from TXT sleep\n", cpuid);
 
@@ -709,7 +711,7 @@ void txt_cpu_wakeup(void)
     restore_mtrrs(&(os_mle_data->saved_mtrr_state));
 
     /* restore pre-SENTER IA32_MISC_ENABLE_MSR */
-    wrmsrl(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
+    wrmsr(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
 
     if (!verify_stm(cpuid))
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
@@ -778,11 +780,11 @@ void txt_shutdown(void)
     unsigned long apicbase;
 
     /* shutdown shouldn't be called on APs, but if it is then just hlt */
-    rdmsrl(MSR_IA32_APICBASE, apicbase);
-    if ( !(apicbase & MSR_IA32_APICBASE_BSP) ) {
+    apicbase = rdmsr(MSR_APICBASE);
+    if ( !(apicbase & APICBASE_BSP) ) {
         printk("calling txt_shutdown on AP\n");
         while ( true )
-            __asm__ __volatile__("sti; hlt": : :"memory");
+            halt();
     }
 
     /* set LT.CMD.NO-SECRETS flag (i.e. clear SECRETS flag) */
@@ -811,7 +813,7 @@ void txt_shutdown(void)
     printk("private config space closed\n");
 
     /* SMXE may not be enabled any more, so set it to make sure */
-    write_cr4(read_cr4() | X86_CR4_SMXE);
+    write_cr4(read_cr4() | CR4_SMXE);
 
     /* call GETSEC[SEXIT] */
     printk("executing GETSEC[SEXIT]...\n");
@@ -846,7 +848,7 @@ bool get_parameters(getsec_parameters_t *params)
 
     /* sanity check because GETSEC[PARAMETERS] will fail if not set */
     cr4 = read_cr4();
-    if ( !(cr4 & X86_CR4_SMXE) ) {
+    if ( !(cr4 & CR4_SMXE) ) {
         printk("SMXE not enabled, can't read parameters\n");
         return false;
     }

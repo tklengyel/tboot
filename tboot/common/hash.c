@@ -1,7 +1,7 @@
 /*
  * hash.c: support functions for tb_hash_t type
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
 #include <stdbool.h>
 #include <printk.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <misc.h>
 #include <sha1.h>
 #include <hash.h>

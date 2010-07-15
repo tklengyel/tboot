@@ -40,7 +40,7 @@
 #include <printk.h>
 #include <misc.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <hash.h>
 #include <tpm.h>
 #include <tboot.h>

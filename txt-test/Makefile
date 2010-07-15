@@ -1,3 +1,8 @@
+# Copyright (c) 2006-2007, Intel Corporation
+# All rights reserved.
+
+# -*- mode: Makefile; -*-
+
 #
 # txt-test makefile
 #

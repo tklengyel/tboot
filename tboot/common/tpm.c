@@ -1,7 +1,7 @@
 /*
  * tpm.c: TPM-related support functions
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,7 @@
 #include <misc.h>
 #include <compiler.h>
 #include <processor.h>
+#include <io.h>
 #include <string.h>
 #include <tpm.h>
 #include <sha1.h>
@@ -139,7 +140,7 @@ static void _read_tpm_reg(int locality, u32 reg, u8 *_raw, size_t size)
 static void _write_tpm_reg(int locality, u32 reg, u8 *_raw, size_t size)
 {
     for ( size_t i = 0; i < size; i++ )
-        writeb(_raw[i], (TPM_LOCALITY_BASE_N(locality) | reg) + i);
+        writeb((TPM_LOCALITY_BASE_N(locality) | reg) + i, _raw[i]);
 }
 
 /*

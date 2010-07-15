@@ -1,7 +1,7 @@
 /*
  * heap.c: fns for verifying and printing the Intel(r) TXT heap data structs
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,7 @@ static void print_os_mle_data(os_mle_data_t *os_mle_data)
            *((uint64_t *)os_mle_data - 1));
     printk("\t version: %u\n", os_mle_data->version);
     /* TBD: perhaps eventually print saved_mtrr_state field */
-    printk("\t mbi: 0x%p\n", os_mle_data->mbi);
+    printk("\t mbi: %p\n", os_mle_data->mbi);
 }
 
 static bool verify_os_mle_data(txt_heap_t *txt_heap)

@@ -1,70 +1,89 @@
+/*
+ * types.h:  defines size-based types for 32b builds
+ *
+ * Copyright (c) 2010, Intel Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
+/* Need for other later defines. */
 #include <config.h>
-#include <x86_types.h>
 
-#define BITS_TO_LONGS(bits) \
-    (((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
-#define DECLARE_BITMAP(name,bits) \
-    unsigned long name[BITS_TO_LONGS(bits)]
-
-#ifndef NULL
 #define NULL ((void*)0)
-#endif
 
-#define INT_MAX         ((int)(~0U>>1))
-#define INT_MIN         (-INT_MAX - 1)
-#define UINT_MAX        (~0U)
-#define LONG_MAX        ((long)(~0UL>>1))
-#define LONG_MIN        (-LONG_MAX - 1)
-#define ULONG_MAX       (~0UL)
+typedef unsigned char       uint8_t;
+typedef unsigned short      uint16_t;
+typedef unsigned int        uint32_t;
 
-#ifndef __ASSEMBLY__
+typedef unsigned char       u8;
+typedef unsigned short      u16;
+typedef unsigned int        u32;
 
-/* bsd */
-typedef unsigned char           u_char;
-typedef unsigned short          u_short;
-typedef unsigned int            u_int;
-typedef unsigned long           u_long;
+typedef signed short        s16;
 
-/* sysv */
-typedef unsigned char           unchar;
-typedef unsigned short          ushort;
-typedef unsigned int            uint;
-typedef unsigned long           ulong;
+typedef unsigned char       u_char;
 
-typedef         __u8            uint8_t;
-typedef         __u8            u_int8_t;
-typedef         __s8            int8_t;
+typedef unsigned int		u_int;
 
-typedef         __u16           uint16_t;
-typedef         __u16           u_int16_t;
-typedef         __s16           int16_t;
+typedef unsigned char       u_int8_t;
+typedef unsigned short      u_int16_t;
+typedef unsigned int        u_int32_t;
 
-typedef         __u32           uint32_t;
-typedef         __u32           u_int32_t;
-typedef         __s32           int32_t;
+/* 
+ * This should be unsigned int but gets an error in
+ *   policy.c that expects it to be an unsigned long.
+ */
+typedef unsigned long       size_t;
 
-typedef         __u64           uint64_t;
-typedef         __u64           u_int64_t;
-typedef         __s64           int64_t;
+/*
+ * This is specifically for IA32.
+ */
+typedef unsigned int        uintptr_t;
+typedef unsigned long long  u64;
+typedef unsigned long long  uint64_t;
+typedef unsigned long long  u_int64_t;
+#define BYTES_PER_LONG 4
 
-/* Types for `void *' pointers.  */
-#if __WORDSIZE == 64
-# ifndef __intptr_t_defined
-typedef long int                intptr_t;
-#  define __intptr_t_defined
-# endif
-typedef unsigned long int       uintptr_t;
-#else
-# ifndef __intptr_t_defined
-typedef int                     intptr_t;
-#  define __intptr_t_defined
-# endif
-typedef unsigned int            uintptr_t;
-#endif
+#define offsetof(type, field) __builtin_offsetof(type, field)
 
-#endif   /* __ASSEMBLY__ */
+#endif    /* __TYPES_H__ */
 
-#endif /* __TYPES_H__ */
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

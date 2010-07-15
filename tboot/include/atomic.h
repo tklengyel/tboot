@@ -1,198 +1,181 @@
-#ifndef __ATOMIC_H__
-#define __ATOMIC_H__
-#include <config.h>
+/*-
+ * Copyright (c) 1998 Doug Rabson
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * $FreeBSD: src/sys/i386/include/atomic.h,v 1.47.2.2.2.1 2010/02/10 00:26:20 kensmith Exp $
+ */
+/*
+ * Portions copyright (c) 2010, Intel Corporation
+ */
 
-#define LOCK "lock ; "
+#ifndef __ATOMIC_H__
+#define	__ATOMIC_H__
 
 /*
- * NB. I've pushed the volatile qualifier into the operations. This allows
- * fast accessors such as _atomic_read() and _atomic_set() which don't give
- * the compiler a fit.
- */
-typedef struct __packed { uint32_t counter; } atomic_t;
-
-#define ATOMIC_INIT(i)	{ (i) }
-
-/**
- * atomic_read - read atomic variable
- * @v: pointer of type atomic_t
+ * Various simple operations on memory, each of which is atomic in the
+ * presence of interrupts and multiple processors.
  *
- * Atomically reads the value of @v.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-#define _atomic_read(v)		((v).counter)
-#define atomic_read(v)		(*(volatile int *)&((v)->counter))
-
-/**
- * atomic_set - set atomic variable
- * @v: pointer of type atomic_t
- * @i: required value
+ * atomic_set_char(P, V)	(*(u_char *)(P) |= (V))
+ * atomic_clear_char(P, V)	(*(u_char *)(P) &= ~(V))
+ * atomic_add_char(P, V)	(*(u_char *)(P) += (V))
+ * atomic_subtract_char(P, V)	(*(u_char *)(P) -= (V))
  *
- * Atomically sets the value of @v to @i.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-#define _atomic_set(v,i)	(((v).counter) = (i))
-#define atomic_set(v,i)		(*(volatile int *)&((v)->counter) = (i))
-
-/**
- * atomic_add - add integer to atomic variable
- * @i: integer value to add
- * @v: pointer of type atomic_t
+ * atomic_set_short(P, V)	(*(u_short *)(P) |= (V))
+ * atomic_clear_short(P, V)	(*(u_short *)(P) &= ~(V))
+ * atomic_add_short(P, V)	(*(u_short *)(P) += (V))
+ * atomic_subtract_short(P, V)	(*(u_short *)(P) -= (V))
  *
- * Atomically adds @i to @v.  Note that the guaranteed useful range
- * of an atomic_t is only 24 bits.
+ * atomic_set_int(P, V)		(*(u_int *)(P) |= (V))
+ * atomic_clear_int(P, V)	(*(u_int *)(P) &= ~(V))
+ * atomic_add_int(P, V)		(*(u_int *)(P) += (V))
+ * atomic_subtract_int(P, V)	(*(u_int *)(P) -= (V))
+ * atomic_readandclear_int(P)	(return (*(u_int *)(P)); *(u_int *)(P) = 0;)
+ *
+ * atomic_set_long(P, V)	(*(u_long *)(P) |= (V))
+ * atomic_clear_long(P, V)	(*(u_long *)(P) &= ~(V))
+ * atomic_add_long(P, V)	(*(u_long *)(P) += (V))
+ * atomic_subtract_long(P, V)	(*(u_long *)(P) -= (V))
+ * atomic_readandclear_long(P)	(return (*(u_long *)(P)); *(u_long *)(P) = 0;)
  */
-static __inline__ void atomic_add(int i, atomic_t *v)
+
+/*
+ * The above functions are expanded inline in the statically-linked
+ * kernel.  Lock prefixes are generated if an SMP kernel is being
+ * built.
+ *
+ * Kernel modules call real functions which are built into the kernel.
+ * This allows kernel modules to be portable between UP and SMP systems.
+ */
+
+/* all operations will be defined only for 'int's */
+#define atomic_t u_int
+
+#define	MPLOCKED	"lock ; "
+
+/*
+ * The assembly is volatilized to avoid code chunk removal by the compiler.
+ * GCC aggressively reorders operations and memory clobbering is necessary
+ * in order to avoid that for memory barriers.
+ */
+#define	ATOMIC_ASM(NAME, TYPE, OP, CONS, V)		\
+static __inline void					\
+atomic_##NAME##_##TYPE(volatile u_##TYPE *p, u_##TYPE v)\
+{							\
+	__asm __volatile(MPLOCKED OP			\
+	: "=m" (*p)					\
+	: CONS (V), "m" (*p));				\
+}							\
+							\
+static __inline void					\
+atomic_##NAME##_barr_##TYPE(volatile u_##TYPE *p, u_##TYPE v)\
+{							\
+	__asm __volatile(MPLOCKED OP			\
+	: "=m" (*p)					\
+	: CONS (V), "m" (*p)				\
+	: "memory");					\
+}							\
+struct __hack
+
+/*
+ * Atomically add the value of v to the integer pointed to by p and return
+ * the previous value of *p.
+ */
+static __inline u_int
+atomic_fetchadd_int(volatile u_int *p, u_int v)
 {
-	__asm__ __volatile__(
-		LOCK "addl %1,%0"
-		:"=m" (*(volatile int *)&v->counter)
-		:"ir" (i), "m" (*(volatile int *)&v->counter));
+
+	__asm __volatile(
+	"	" MPLOCKED "		"
+	"	xaddl	%0, %1 ;	"
+	"# atomic_fetchadd_int"
+	: "+r" (v),			/* 0 (result) */
+	  "=m" (*p)			/* 1 */
+	: "m" (*p));			/* 2 */
+
+	return (v);
 }
 
-/**
- * atomic_sub - subtract the atomic variable
- * @i: integer value to subtract
- * @v: pointer of type atomic_t
- *
- * Atomically subtracts @i from @v.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ void atomic_sub(int i, atomic_t *v)
+#define	ATOMIC_STORE_LOAD(TYPE, LOP, SOP)		\
+static __inline u_##TYPE				\
+atomic_load_acq_##TYPE(volatile u_##TYPE *p)		\
+{							\
+	u_##TYPE res;					\
+							\
+	__asm __volatile(MPLOCKED LOP			\
+	: "=a" (res),			/* 0 */		\
+	  "=m" (*p)			/* 1 */		\
+	: "m" (*p)			/* 2 */		\
+	: "memory");					\
+							\
+	return (res);					\
+}							\
+							\
+/*							\
+ * The XCHG instruction asserts LOCK automagically.	\
+ */							\
+static __inline void					\
+atomic_store_rel_##TYPE(volatile u_##TYPE *p, u_##TYPE v)\
+{							\
+	__asm __volatile(SOP				\
+	: "=m" (*p),			/* 0 */		\
+	  "+r" (v)			/* 1 */		\
+	: "m" (*p)			/* 2 */		\
+	: "memory");					\
+}							\
+struct __hack
+
+ATOMIC_ASM(set,	     int,   "orl %1,%0",   "ir",  v);
+ATOMIC_ASM(clear,    int,   "andl %1,%0",  "ir", ~v);
+ATOMIC_ASM(add,	     int,   "addl %1,%0",  "ir",  v);
+ATOMIC_ASM(subtract, int,   "subl %1,%0",  "ir",  v);
+
+ATOMIC_STORE_LOAD(int,	"cmpxchgl %0,%1",  "xchgl %1,%0");
+
+#undef ATOMIC_ASM
+#undef ATOMIC_STORE_LOAD
+
+/* Read the current value and store a zero in the destination. */
+static __inline u_int
+atomic_readandclear_int(volatile u_int *addr)
 {
-	__asm__ __volatile__(
-		LOCK "subl %1,%0"
-		:"=m" (*(volatile int *)&v->counter)
-		:"ir" (i), "m" (*(volatile int *)&v->counter));
+	u_int res;
+
+	res = 0;
+	__asm __volatile(
+	"	xchgl	%1,%0 ;		"
+	"# atomic_readandclear_int"
+	: "+r" (res),			/* 0 */
+	  "=m" (*addr)			/* 1 */
+	: "m" (*addr));
+
+	return (res);
 }
 
-/**
- * atomic_sub_and_test - subtract value from variable and test result
- * @i: integer value to subtract
- * @v: pointer of type atomic_t
- *
- * Atomically subtracts @i from @v and returns
- * true if the result is zero, or false for all
- * other cases.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ int atomic_sub_and_test(int i, atomic_t *v)
-{
-	unsigned char c;
 
-	__asm__ __volatile__(
-		LOCK "subl %2,%0; sete %1"
-		:"=m" (*(volatile int *)&v->counter), "=qm" (c)
-		:"ir" (i), "m" (*(volatile int *)&v->counter) : "memory");
-	return c;
-}
-
-/**
- * atomic_inc - increment atomic variable
- * @v: pointer of type atomic_t
- *
- * Atomically increments @v by 1.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ void atomic_inc(atomic_t *v)
-{
-	__asm__ __volatile__(
-		LOCK "incl %0"
-		:"=m" (*(volatile int *)&v->counter)
-		:"m" (*(volatile int *)&v->counter));
-}
-
-/**
- * atomic_dec - decrement atomic variable
- * @v: pointer of type atomic_t
- *
- * Atomically decrements @v by 1.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ void atomic_dec(atomic_t *v)
-{
-	__asm__ __volatile__(
-		LOCK "decl %0"
-		:"=m" (*(volatile int *)&v->counter)
-		:"m" (*(volatile int *)&v->counter));
-}
-
-/**
- * atomic_dec_and_test - decrement and test
- * @v: pointer of type atomic_t
- *
- * Atomically decrements @v by 1 and
- * returns true if the result is 0, or false for all other
- * cases.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ int atomic_dec_and_test(atomic_t *v)
-{
-	unsigned char c;
-
-	__asm__ __volatile__(
-		LOCK "decl %0; sete %1"
-		:"=m" (*(volatile int *)&v->counter), "=qm" (c)
-		:"m" (*(volatile int *)&v->counter) : "memory");
-	return c != 0;
-}
-
-/**
- * atomic_inc_and_test - increment and test
- * @v: pointer of type atomic_t
- *
- * Atomically increments @v by 1
- * and returns true if the result is zero, or false for all
- * other cases.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ int atomic_inc_and_test(atomic_t *v)
-{
-	unsigned char c;
-
-	__asm__ __volatile__(
-		LOCK "incl %0; sete %1"
-		:"=m" (*(volatile int *)&v->counter), "=qm" (c)
-		:"m" (*(volatile int *)&v->counter) : "memory");
-	return c != 0;
-}
-
-/**
- * atomic_add_negative - add and test if negative
- * @v: pointer of type atomic_t
- * @i: integer value to add
- *
- * Atomically adds @i to @v and returns true
- * if the result is negative, or false when
- * result is greater than or equal to zero.  Note that the guaranteed
- * useful range of an atomic_t is only 24 bits.
- */
-static __inline__ int atomic_add_negative(int i, atomic_t *v)
-{
-	unsigned char c;
-
-	__asm__ __volatile__(
-		LOCK "addl %2,%0; sets %1"
-		:"=m" (*(volatile int *)&v->counter), "=qm" (c)
-		:"ir" (i), "m" (*(volatile int *)&v->counter) : "memory");
-	return c;
-}
-
-#if 0
-static __inline__ atomic_t atomic_compareandswap(
-	atomic_t old, atomic_t new, atomic_t *v)
-{
-	atomic_t rc;
-	rc.counter =
-		__cmpxchg(&v->counter, old.counter, new.counter, sizeof(int));
-	return rc;
-}
-#endif
-
-/* Atomic operations are already serializing on x86 */
-#define smp_mb__before_atomic_dec()	barrier()
-#define smp_mb__after_atomic_dec()	barrier()
-#define smp_mb__before_atomic_inc()	barrier()
-#define smp_mb__after_atomic_inc()	barrier()
+#define atomic_read(atom)          atomic_load_acq_int(atom)
+#define atomic_inc(atom)           atomic_add_int((atom), 1)
+#define atomic_dec(atom)           atomic_subtract_int((atom), 1)
+#define atomic_set(atom, val)      atomic_set_int((atom), (val))
 
 #endif /* __ATOMIC_H__ */

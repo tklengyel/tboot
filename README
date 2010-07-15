@@ -10,7 +10,7 @@ This version of tboot supports Intel (both retail and Software Development
 Platforms (SDPs)) and OEM systems that are Intel TXT-capable.
 
 This version of tboot only supports both the Xen virtual machine monitor
-(versions >= 3.4) and Linux kernel versions >= 2.6.20.
+(versions >= 3.4) and Linux kernel versions >= 2.6.33.
 
 The mercurial source code repository for this project is located at:
 http://www.bughost.org/repos.hg/tboot.hg.
@@ -109,18 +109,20 @@ o  Progress of the launch process is indicated via debug printk's using three
    combination can be used (note that when the parameter is not set, serial 
    is the default):
        logging=vga,serial,memory
-   
-   If serial logging is set, a third parameter can be used to configure the
-   serial port settings. All of the options beyond baud rate are optional:
-       serial=baud[/clock_hz][,DPS[,io_base]]
-   
-   The clock_hz allows setting different crystal frequencies, DPS sets the
-   data/parity/stop bits, and io_base sets the IO port for the device. The
-   baud rate can also be set to "auto" allowing any current settings for the
-   serial port to be left intact (e.g. if the serial port has already been
-   configured by grub). If this parameter is omitted the default is 
-   effectively the following for a legacy PC COM1:
-       serial=115200/115200,8n1,0x3f8
+
+   If vga logging is set, the vga_delay parameter can be used to specify the
+   number of seconds to pause after every screenful of output.  It is
+   specified as:
+       vga_delay=<secs>
+
+   If serial logging is set, the serial port settings can be configured with
+   the following parameters:
+       serial=com[1|2|3|4|<IO port>]   where <IO port> is specified as a hex
+                                       value (e.g. 0x3f8)
+       com[1|2|3|4]=<baud>,<data bits><parity><stop bits>
+
+   The default values for these are:  serial=com1 and com1=115200,8n1 (where
+   com1 uses IO port 0x3f8).
 
 o  tboot will attempt to seal the module measurements using the TPM so that if
    it is put into S3 it can restore the correct PCR values on resume.  In order

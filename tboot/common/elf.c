@@ -38,7 +38,7 @@
 #include <types.h>
 #include <printk.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <multiboot.h>
 #include <elf_defns.h>
 

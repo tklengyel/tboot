@@ -1,3 +1,8 @@
+# Copyright (c) 2006-2010, Intel Corporation
+# All rights reserved.
+
+# -*- mode: Makefile; -*-
+
 #
 # tb_polgen makefile
 #

@@ -1,7 +1,7 @@
 /*
  * linux.c: support functions for manipulating Linux kernel binaries
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
 #include <stdbool.h>
 #include <printk.h>
 #include <compiler.h>
-#include <string2.h>
+#include <string.h>
 #include <multiboot.h>
 #include <page.h>
 #include <e820.h>

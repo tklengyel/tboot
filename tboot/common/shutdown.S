@@ -1,7 +1,7 @@
 /*
  * shutdown.S: assembly extry points for shutdown
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@
 compat_mode_entry:
 	/* Disable paging and therefore leave 64 bit mode. */
         movl %cr0, %eax
-        andl $~X86_CR0_PG, %eax
+        andl $~CR0_PG, %eax
         movl %eax, %cr0
 
         /* Clear MSR_EFER[LME], disabling long mode */
@@ -61,9 +61,9 @@ shutdown_entry32:
 1:      leal	bsp_stack,%esp	# default to BSP stack
 
 	# BSP has separate stack (above)
-        movl	$MSR_IA32_APICBASE,%ecx
+        movl	$MSR_APICBASE,%ecx
         rdmsr
-        andl	$MSR_IA32_APICBASE_BSP,%eax
+        andl	$APICBASE_BSP,%eax
 	jnz	3f
 
 	# get initial APIC ID for this processor
@@ -93,7 +93,7 @@ shutdown_entry32:
 
         /* disable paging */
         mov %cr0, %eax
-        and $~X86_CR0_PG, %eax
+        and $~CR0_PG, %eax
         mov %eax, %cr0
         jmp 1f
 

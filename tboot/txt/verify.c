@@ -1,7 +1,7 @@
 /*
  * verify.c: verify that platform and processor supports Intel(r) TXT
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,6 @@
 #include <string.h>
 #include <misc.h>
 #include <processor.h>
-#include <cpufeature.h>
 #include <page.h>
 #include <printk.h>
 #include <multiboot.h>
@@ -97,14 +96,14 @@ static void read_processor_info(void)
 
     g_cpuid_ext_feat_info = cpuid_ecx(1);
 
-    rdmsrl(IA32_FEATURE_CONTROL_MSR, g_feat_ctrl_msr);
+    g_feat_ctrl_msr = rdmsr(MSR_IA32_FEATURE_CONTROL);
     printk("IA32_FEATURE_CONTROL_MSR: %08lx\n", g_feat_ctrl_msr);
 }
 
 static bool supports_vmx(void)
 {
     /* check that processor supports VMX instructions */
-    if ( !(g_cpuid_ext_feat_info & bitmaskof(X86_FEATURE_VMXE)) ) {
+    if ( !(g_cpuid_ext_feat_info & CPUID_X86_FEATURE_VMX) ) {
         printk("ERR: CPU does not support VMX\n");
         return false;
     }
@@ -123,7 +122,7 @@ static bool supports_vmx(void)
 static bool supports_smx(void)
 {
     /* check that processor supports SMX instructions */
-    if ( !(g_cpuid_ext_feat_info & bitmaskof(X86_FEATURE_SMXE)) ) {
+    if ( !(g_cpuid_ext_feat_info & CPUID_X86_FEATURE_SMX) ) {
         printk("ERR: CPU does not support SMX\n");
         return false;
     }
@@ -145,7 +144,7 @@ static bool supports_smx(void)
                            IA32_FEATURE_CONTROL_MSR_ENABLE_SENTER |
                            IA32_FEATURE_CONTROL_MSR_SENTER_PARAM_CTL |
                            IA32_FEATURE_CONTROL_MSR_LOCK;
-        wrmsrl(IA32_FEATURE_CONTROL_MSR, g_feat_ctrl_msr);
+        wrmsrl(MSR_IA32_FEATURE_CONTROL, g_feat_ctrl_msr);
         return true;
 #else
         return false;
@@ -176,7 +175,7 @@ tb_error_t supports_txt(void)
         return TB_ERR_VMX_NOT_SUPPORTED;
 
     /* testing for chipset support requires enabling SMX on the processor */
-    write_cr4(read_cr4() | X86_CR4_SMXE);
+    write_cr4(read_cr4() | CR4_SMXE);
     printk("SMX is enabled\n");
 
     /*
@@ -198,7 +197,7 @@ tb_error_t supports_txt(void)
         printk("ERR: TXT-capable chipset not present\n");
 
     /* since we are failing, we should clear the SMX flag */
-    write_cr4(read_cr4() & ~X86_CR4_SMXE);
+    write_cr4(read_cr4() & ~CR4_SMXE);
 
     return TB_ERR_TXT_NOT_SUPPORTED;
 }
@@ -521,9 +520,9 @@ bool verify_stm(unsigned int cpuid)
     static uint64_t ilp_smm_mon_ctl;
     uint64_t smm_mon_ctl, apicbase;
 
-    rdmsrl(MSR_IA32_SMM_MONITOR_CTL, smm_mon_ctl);
-    rdmsrl(MSR_IA32_APICBASE, apicbase);
-    if ( apicbase & MSR_IA32_APICBASE_BSP ) {
+    smm_mon_ctl = rdmsr(MSR_IA32_SMM_MONITOR_CTL);
+    apicbase = rdmsr(MSR_APICBASE);
+    if ( apicbase & APICBASE_BSP ) {
         ilp_smm_mon_ctl = smm_mon_ctl;
         printk("MSR for SMM monitor control on BSP is 0x%Lx.\n",
                ilp_smm_mon_ctl);

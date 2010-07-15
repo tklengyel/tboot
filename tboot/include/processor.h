@@ -1,23 +1,41 @@
-
-/* Portions are: Copyright (c) 1994 Linus Torvalds */
-
-#ifndef __ASM_X86_PROCESSOR_H
-#define __ASM_X86_PROCESSOR_H
-
-/*
- * CPU vendor IDs
+/* Copyright (c) 1991 The Regents of the University of California.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
  */
-#define X86_VENDOR_INTEL 0
-#define X86_VENDOR_CYRIX 1
-#define X86_VENDOR_AMD 2
-#define X86_VENDOR_UMC 3
-#define X86_VENDOR_NEXGEN 4
-#define X86_VENDOR_CENTAUR 5
-#define X86_VENDOR_RISE 6
-#define X86_VENDOR_TRANSMETA 7
-#define X86_VENDOR_NSC 8
-#define X86_VENDOR_NUM 9
-#define X86_VENDOR_UNKNOWN 0xff
+/*
+ * Portions copyright (c) 2010, Intel Corporation
+ */
+
+#ifndef __PROCESSOR_H__
+#define __PROCESSOR_H__
+
+/* from: @(#)specialreg.h  7.1 (Berkeley) 5/9/91
+ * $FreeBSD: stable/8/sys/i386/include/specialreg.h 198989 2009-11-06 15:24:48Z attilio $
+ */
 
 /*
  * EFLAGS bits
@@ -41,284 +59,180 @@
 #define X86_EFLAGS_ID	0x00200000 /* CPUID detection flag */
 
 /*
- * Intel CPU flags in CR0
+ * Bits in 386 special registers:
  */
-#define X86_CR0_PE              0x00000001 /* Enable Protected Mode    (RW) */
-#define X86_CR0_MP              0x00000002 /* Monitor Coprocessor      (RW) */
-#define X86_CR0_EM              0x00000004 /* Require FPU Emulation    (RO) */
-#define X86_CR0_TS              0x00000008 /* Task Switched            (RW) */
-#define X86_CR0_ET              0x00000010 /* Extension type           (RO) */
-#define X86_CR0_NE              0x00000020 /* Numeric Error Reporting  (RW) */
-#define X86_CR0_WP              0x00010000 /* Supervisor Write Protect (RW) */
-#define X86_CR0_AM              0x00040000 /* Alignment Checking       (RW) */
-#define X86_CR0_NW              0x20000000 /* Not Write-Through        (RW) */
-#define X86_CR0_CD              0x40000000 /* Cache Disable            (RW) */
-#define X86_CR0_PG              0x80000000 /* Paging                   (RW) */
+#define CR0_PE  0x00000001 /* Protected mode Enable */
+#define CR0_MP  0x00000002 /* "Math" (fpu) Present */
+#define CR0_EM  0x00000004 /* EMulate FPU instructions. (trap ESC only) */
+#define CR0_TS  0x00000008 /* Task Switched (if MP, trap ESC and WAIT) */
+#define CR0_PG  0x80000000 /* PaGing enable */
 
 /*
- * Intel CPU features in CR4
+ * Bits in 486 special registers:
  */
-#define X86_CR4_VME		0x0001	/* enable vm86 extensions */
-#define X86_CR4_PVI		0x0002	/* virtual interrupts flag enable */
-#define X86_CR4_TSD		0x0004	/* disable time stamp at ipl 3 */
-#define X86_CR4_DE		0x0008	/* enable debugging extensions */
-#define X86_CR4_PSE		0x0010	/* enable page size extensions */
-#define X86_CR4_PAE		0x0020	/* enable physical address extensions */
-#define X86_CR4_MCE		0x0040	/* Machine check enable */
-#define X86_CR4_PGE		0x0080	/* enable global pages */
-#define X86_CR4_PCE		0x0100	/* enable performance counters at ipl 3 */
-#define X86_CR4_OSFXSR		0x0200	/* enable fast FPU save and restore */
-#define X86_CR4_OSXMMEXCPT	0x0400	/* enable unmasked SSE exceptions */
-#define X86_CR4_VMXE		0x2000  /* enable VMX */
-#define X86_CR4_SMXE        0x4000  /* enable SMX */
+#define CR0_NE  0x00000020 /* Numeric Error enable (EX16 vs IRQ13) */
+#define CR0_WP  0x00010000 /* Write Protect (honor page protect in all modes) */
+#define CR0_AM  0x00040000 /* Alignment Mask (set to enable AC flag) */
+#define CR0_NW  0x20000000 /* Not Write-through */
+#define CR0_CD  0x40000000 /* Cache Disable */
 
 /*
- * Trap/fault mnemonics.
+ * Bits in PPro special registers
  */
-#define TRAP_divide_error      0
-#define TRAP_debug             1
-#define TRAP_nmi               2
-#define TRAP_int3              3
-#define TRAP_overflow          4
-#define TRAP_bounds            5
-#define TRAP_invalid_op        6
-#define TRAP_no_device         7
-#define TRAP_double_fault      8
-#define TRAP_copro_seg         9
-#define TRAP_invalid_tss      10
-#define TRAP_no_segment       11
-#define TRAP_stack_error      12
-#define TRAP_gp_fault         13
-#define TRAP_page_fault       14
-#define TRAP_spurious_int     15
-#define TRAP_copro_error      16
-#define TRAP_alignment_check  17
-#define TRAP_machine_check    18
-#define TRAP_simd_error       19
-#define TRAP_deferred_nmi     31
-
-/* Set for entry via SYSCALL. Informs return code to use SYSRETQ not IRETQ. */
-/* NB. Same as VGCF_in_syscall. No bits in common with any other TRAP_ defn. */
-#define TRAP_syscall         256
-
-/*
- * Non-fatal fault/trap handlers return an error code to the caller. If the
- * code is non-zero, it means that either the exception was not due to a fault
- * (i.e., it was a trap) or that the fault has been fixed up so the instruction
- * replay ought to succeed.
- */
-#define EXCRET_not_a_fault 1 /* It was a trap. No instruction replay needed. */
-#define EXCRET_fault_fixed 1 /* It was fault that we fixed: try a replay. */
-
-/* 'trap_bounce' flags values */
-#define TBF_EXCEPTION          1
-#define TBF_EXCEPTION_ERRCODE  2
-#define TBF_INTERRUPT          8
-#define TBF_FAILSAFE          16
-
-/* 'arch_vcpu' flags values */
-#define _TF_kernel_mode        0
-#define TF_kernel_mode         (1<<_TF_kernel_mode)
-
-/* #PF error code values. */
-#define PFEC_page_present   (1U<<0)
-#define PFEC_write_access   (1U<<1)
-#define PFEC_user_mode      (1U<<2)
-#define PFEC_reserved_bit   (1U<<3)
-#define PFEC_insn_fetch     (1U<<4)
+#define CR4_VME 0x00000001 /* Virtual 8086 mode extensions */
+#define CR4_PVI 0x00000002 /* Protected-mode virtual interrupts */
+#define CR4_TSD 0x00000004 /* Time stamp disable */
+#define CR4_DE  0x00000008 /* Debugging extensions */
+#define CR4_PSE 0x00000010 /* Page size extensions */
+#define CR4_PAE 0x00000020 /* Physical address extension */
+#define CR4_MCE 0x00000040 /* Machine check enable */
+#define CR4_PGE 0x00000080 /* Page global enable */
+#define CR4_PCE 0x00000100 /* Performance monitoring counter enable */
+#define CR4_FXSR 0x00000200/* Fast FPU save/restore used by OS */
+#define CR4_XMM 0x00000400 /* enable SIMD/MMX2 to use except 16 */
+#define CR4_VMXE 0x00002000/* enable VMX */
+#define CR4_SMXE 0x00004000/* enable SMX */
 
 #ifndef __ASSEMBLY__
 
-/*
- * Generic CPUID function
- * clear %ecx since some cpus (Cyrix MII) do not set or clear %ecx
- * resulting in stale register contents being returned.
+/* from:
+ * $FreeBSD: src/sys/i386/include/cpufunc.h,v 1.158 2010/01/01 20:55:11 obrien Exp $
  */
-#define cpuid(_op,_eax,_ebx,_ecx,_edx)          \
-    __asm__ __volatile__ ("cpuid"                             \
-                          : "=a" (*(int *)(_eax)),            \
-                            "=b" (*(int *)(_ebx)),            \
-                            "=c" (*(int *)(_ecx)),            \
-                            "=d" (*(int *)(_edx))             \
-                          : "0" (_op), "2" (0))
 
-/* Some CPUID calls want 'count' to be placed in ecx */
-static inline void cpuid_count(
-    int op,
-    int count,
-    unsigned int *eax,
-    unsigned int *ebx,
-    unsigned int *ecx,
-    unsigned int *edx)
+static inline void do_cpuid(unsigned int ax, uint32_t *p)
 {
     __asm__ __volatile__ ("cpuid"
-                          : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
-                          : "0" (op), "c" (count));
+                          : "=a" (p[0]), "=b" (p[1]), "=c" (p[2]), "=d" (p[3])
+                          :  "0" (ax));
 }
 
-/*
- * CPUID functions returning a single datum
- */
-static always_inline unsigned int cpuid_eax(unsigned int op)
+static always_inline uint32_t cpuid_ebx(unsigned int op)
 {
-    unsigned int eax;
+     /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
+    uint32_t regs[4];
 
-    __asm__ __volatile__ ("cpuid"
-                          : "=a" (eax)
-                          : "0" (op)
-                          : "bx", "cx", "dx");
-    return eax;
+    do_cpuid(op, regs);
+
+    return regs[1];
 }
-static always_inline unsigned int cpuid_ebx(unsigned int op)
+
+static always_inline uint32_t cpuid_ecx(unsigned int op)
 {
-    unsigned int eax, ebx;
+     /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
+    uint32_t regs[4];
 
-    __asm__ __volatile__ ("cpuid"
-                          : "=a" (eax), "=b" (ebx)
-                          : "0" (op)
-                          : "cx", "dx" );
-    return ebx;
-}
-static always_inline unsigned int cpuid_ecx(unsigned int op)
-{
-    unsigned int eax, ecx;
+    do_cpuid(op, regs);
 
-    __asm__ __volatile__ ("cpuid"
-                          : "=a" (eax), "=c" (ecx)
-                          : "0" (op)
-                          : "bx", "dx" );
-    return ecx;
-}
-static always_inline unsigned int cpuid_edx(unsigned int op)
-{
-    unsigned int eax, edx;
-
-    __asm__ __volatile__ ("cpuid"
-                          : "=a" (eax), "=d" (edx)
-                          : "0" (op)
-                          : "bx", "cx");
-    return edx;
+    return regs[2];
 }
 
-
+#define CPUID_X86_FEATURE_VMX    (1<<5)
+#define CPUID_X86_FEATURE_SMX    (1<<6)
 
 static inline unsigned long read_cr0(void)
 {
-    unsigned long __cr0;
-    __asm__ __volatile__ ("mov %%cr0,%0\n\t" :"=r" (__cr0));
-    return __cr0;
+    unsigned long data;
+    __asm__ __volatile__ ("movl %%cr0,%0" : "=r" (data));
+    return (data);
 }
-
-static inline void write_cr0(unsigned long val)
+static inline void write_cr0(unsigned long data)
 {
-    __asm__ __volatile__ ("mov %0,%%cr0": :"r" ((unsigned long)val));
-}
-
-static inline unsigned long read_cr2(void)
-{
-    unsigned long __cr2;
-    __asm__ __volatile__ ("mov %%cr2,%0\n\t" :"=r" (__cr2));
-    return __cr2;
+    __asm__ __volatile__("movl %0,%%cr0" : : "r" (data));
 }
 
 static inline unsigned long read_cr4(void)
 {
-    unsigned long __cr4;
-    __asm__ __volatile__ ("mov %%cr4,%0\n\t" :"=r" (__cr4));
-    return __cr4;
+    unsigned long data;
+    __asm__ __volatile__ ("movl %%cr4,%0" : "=r" (data));
+    return (data);
 }
-
-static inline void write_cr4(unsigned long val)
+static inline void write_cr4(unsigned long data)
 {
-	__asm__ __volatile__ ("mov %0,%%cr4": :"r" ((unsigned long)val));
+    __asm__ __volatile__ ("movl %0,%%cr4" : : "r" (data));
 }
 
-/* Read pagetable base. */
 static inline unsigned long read_cr3(void)
 {
-    unsigned long cr3;
-    __asm__ __volatile__ ("mov %%cr3, %0" : "=r" (cr3) : );
-    return cr3;
+    unsigned long data;
+    __asm__ __volatile__ ("movl %%cr3,%0" : "=r" (data));
+    return (data);
 }
-
-static inline void write_cr3(unsigned long cr3)
+static inline void write_cr3(unsigned long data)
 {
-    __asm__ __volatile__ ( "mov %0, %%cr3" : : "r" (cr3) : "memory" );
+    __asm__ __volatile__("movl %0,%%cr3" : : "r" (data) : "memory");
 }
 
-static always_inline void set_in_cr4 (unsigned long mask)
+
+static inline uint32_t read_eflags(void)
 {
-    unsigned long dummy;
-    __asm__ __volatile__ (
-        "mov %%cr4,%0\n\t"
-        "or %1,%0\n\t"
-        "mov %0,%%cr4\n"
-        : "=&r" (dummy) : "irg" (mask) );
+    uint32_t ef;
+    __asm__ __volatile__ ("pushfl; popl %0" : "=r" (ef));
+    return (ef);
 }
-
-static always_inline void clear_in_cr4 (unsigned long mask)
+static inline void write_eflags(uint32_t ef)
 {
-    unsigned long dummy;
-    __asm__ __volatile__ (
-        "mov %%cr4,%0\n\t"
-        "and %1,%0\n\t"
-        "mov %0,%%cr4\n"
-        : "=&r" (dummy) : "irg" (~mask) );
+    __asm__ __volatile__ ("pushl %0; popfl" : : "r" (ef));
 }
 
-/* Clear and set 'TS' bit respectively */
-static inline void clts(void)
+
+static inline void disable_intr(void)
 {
-    __asm__ __volatile__ ("clts");
+    __asm__ __volatile__ ("cli" : : : "memory");
 }
-
-static inline void stts(void)
+static inline void enable_intr(void)
 {
-    write_cr0(X86_CR0_TS|read_cr0());
+    __asm__ __volatile__ ("sti");
 }
 
 
-/* Stop speculative execution */
-static inline void sync_core(void)
+/* was ia32_pause() */
+static inline void cpu_relax(void)
 {
-    int tmp;
-    __asm__ __volatile__ ("cpuid" : "=a" (tmp) : "0" (1)
-                          : "ebx","ecx","edx","memory");
+    __asm__ __volatile__ ("pause");
 }
 
-static always_inline void __monitor(const void *eax, unsigned long ecx,
-		unsigned long edx)
+
+static inline void halt(void)
 {
-	/* "monitor %eax,%ecx,%edx;" */
-	__asm__ __volatile__ (
-		".byte 0x0f,0x01,0xc8;"
-		: :"a" (eax), "c" (ecx), "d"(edx));
+    __asm__ __volatile__ ("hlt");
 }
 
-static always_inline void __mwait(unsigned long eax, unsigned long ecx)
-{
-	/* "mwait %eax,%ecx;" */
-	__asm__ __volatile__ (
-		".byte 0x0f,0x01,0xc9;"
-		: :"a" (eax), "c" (ecx));
-}
-
-/* REP NOP (PAUSE) is a good thing to insert into busy-wait loops. */
-static always_inline void rep_nop(void)
-{
-    __asm__ __volatile__ ( "rep;nop" : : : "memory" );
-}
-
-#define cpu_relax() rep_nop()
 
 static inline unsigned int get_apicid(void)
 {
     return cpuid_ebx(1) >> 24;
 }
 
+
+static inline uint64_t rdtsc(void)
+{
+	uint64_t rv;
+
+	__asm__ __volatile__ ("rdtsc" : "=A" (rv));
+	return (rv);
+}
+
+static inline void wbinvd(void)
+{
+    __asm__ __volatile__ ("wbinvd");
+}
+
+
+static inline uint32_t bsrl(uint32_t mask)
+{
+    uint32_t   result;
+
+    __asm__ __volatile__ ("bsrl %1,%0" : "=r" (result) : "rm" (mask) : "cc");
+    return (result);
+}
+static inline int fls(int mask)
+{
+    return (mask == 0 ? mask : (int)bsrl((u_int)mask) + 1);
+}
+
 #endif /* __ASSEMBLY__ */
 
-#endif /* __ASM_X86_PROCESSOR_H */
+#endif /* __PROCESSOR_H__ */
 
 /*
  * Local variables:

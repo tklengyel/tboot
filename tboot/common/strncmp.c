@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 1992, 1993
+ * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,49 +25,26 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)libkern.h	8.1 (Berkeley) 6/10/93
- * $FreeBSD: src/sys/sys/libkern.h,v 1.60 2009/02/14 11:34:57 rrs Exp $
  */
 /*
- * Portions copyright (c) 2010, Intel Corporation
+ * From: FreeBSD sys/libkern/strncmp.c
  */
 
-#ifndef __STRING_H__
-#define	__STRING_H__
+#include <string.h>
 
-#include <stdarg.h>
-#include <types.h>
-
-int	 memcmp(const void *b1, const void *b2, size_t len);
-char	*index(const char *, int);
-int	 strcmp(const char *, const char *);
-size_t	 strlen(const char *);
-int	 strncmp(const char *, const char *, size_t);
-char	*strncpy(char * __restrict, const char * __restrict, size_t);
-void	*memcpy(void *dst, const void *src, size_t len);
-int	 snprintf(char *buf, size_t size, const char *fmt, ...);
-int	 vscnprintf(char *buf, size_t size, const char *fmt, va_list ap);
-unsigned long strtoul(const char *nptr, char **endptr, int base);
-
-static inline void *memset(void *b, int c, size_t len)
+int strncmp(s1, s2, n)
+	register const char *s1, *s2;
+	register size_t n;
 {
-	char *bb;
 
-	for (bb = (char *)b; len--; )
-		*bb++ = c;
-
-	return (b);
+	if (n == 0)
+		return (0);
+	do {
+		if (*s1 != *s2++)
+			return (*(const unsigned char *)s1 -
+				*(const unsigned char *)(s2 - 1));
+		if (*s1++ == 0)
+			break;
+	} while (--n != 0);
+	return (0);
 }
-
-static inline void *memmove(void *dest, const void *src, size_t n)
-{
-	return memcpy(dest, src, n);
-}
-
-static __inline char *strchr(const char *p, int ch)
-{
-	return index(p, ch);
-}
-
-#endif /* __STRING_H__ */

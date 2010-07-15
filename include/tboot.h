@@ -2,7 +2,7 @@
  * tboot.h: shared data structure with MLE and kernel and functions
  *          used by kernel for runtime support
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,10 +67,10 @@ typedef struct __packed {
 
 /* GAS - Generic Address Structure (ACPI 2.0+) */
 typedef struct __packed {
-    uint8_t  space_id;
+    uint8_t  space_id;         /* only 0,1 (memory, I/O) are supported */
     uint8_t  bit_width;
     uint8_t  bit_offset;
-    uint8_t  access_width;
+    uint8_t  access_width;     /* only 1-3 (byte, word, dword) are supported */
     uint64_t address;
 } tboot_acpi_generic_address_t;
 

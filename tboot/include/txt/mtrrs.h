@@ -1,7 +1,7 @@
 /*
  * mtrrs.c: Intel(r) TXT MTRR-related definitions
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,6 @@
 #ifndef __TXT_MTRRS_H__
 #define __TXT_MTRRS_H__
 
-#include <mtrr.h>
 #include <txt/acmod.h>
 
 enum fix_mtrr_t {

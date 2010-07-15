@@ -1,6 +1,6 @@
 /*-
- * Copyright (c) 1992, 1993
- *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 1993 The Regents of the University of California.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,48 +26,66 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)libkern.h	8.1 (Berkeley) 6/10/93
- * $FreeBSD: src/sys/sys/libkern.h,v 1.60 2009/02/14 11:34:57 rrs Exp $
  */
 /*
  * Portions copyright (c) 2010, Intel Corporation
  */
 
-#ifndef __STRING_H__
-#define	__STRING_H__
+#ifndef __IO_H__
+#define __IO_H__
 
-#include <stdarg.h>
-#include <types.h>
+/* from:
+ * $FreeBSD: src/sys/i386/include/cpufunc.h,v 1.158 2010/01/01 20:55:11 obrien Exp $
+ */
 
-int	 memcmp(const void *b1, const void *b2, size_t len);
-char	*index(const char *, int);
-int	 strcmp(const char *, const char *);
-size_t	 strlen(const char *);
-int	 strncmp(const char *, const char *, size_t);
-char	*strncpy(char * __restrict, const char * __restrict, size_t);
-void	*memcpy(void *dst, const void *src, size_t len);
-int	 snprintf(char *buf, size_t size, const char *fmt, ...);
-int	 vscnprintf(char *buf, size_t size, const char *fmt, va_list ap);
-unsigned long strtoul(const char *nptr, char **endptr, int base);
+/* modified to use tboot's types */
 
-static inline void *memset(void *b, int c, size_t len)
+#define readb(va)	(*(volatile uint8_t *) (va))
+#define readw(va)	(*(volatile uint16_t *) (va))
+#define readl(va)	(*(volatile uint32_t *) (va))
+
+#define writeb(va, d)	(*(volatile uint8_t *) (va) = (d))
+#define writew(va, d)	(*(volatile uint16_t *) (va) = (d))
+#define writel(va, d)	(*(volatile uint32_t *) (va) = (d))
+
+static inline uint8_t inb(uint16_t port)
 {
-	char *bb;
+	uint8_t	data;
 
-	for (bb = (char *)b; len--; )
-		*bb++ = c;
-
-	return (b);
+	__asm volatile("inb %w1, %0" : "=a" (data) : "Nd" (port));
+	return (data);
 }
 
-static inline void *memmove(void *dest, const void *src, size_t n)
+static inline uint16_t inw(uint16_t port)
 {
-	return memcpy(dest, src, n);
+	uint16_t data;
+
+	__asm volatile("inw %w1, %0" : "=a" (data) : "Nd" (port));
+	return (data);
 }
 
-static __inline char *strchr(const char *p, int ch)
+static inline uint32_t inl(uint16_t port)
 {
-	return index(p, ch);
+	uint32_t data;
+
+	__asm volatile("inl %w1, %0" : "=a" (data) : "Nd" (port));
+	return (data);
 }
 
-#endif /* __STRING_H__ */
+static inline void outb(uint16_t port, uint8_t data)
+{
+	__asm __volatile("outb %0, %w1" : : "a" (data), "Nd" (port));
+}
+
+static inline void outw(uint16_t port, uint16_t data)
+{
+	__asm volatile("outw %0, %w1" : : "a" (data), "Nd" (port));
+}
+
+static inline void outl(uint16_t port, uint32_t data)
+{
+	__asm volatile("outl %0, %w1" : : "a" (data), "Nd" (port));
+}
+
+
+#endif /* __IO_H__ */
