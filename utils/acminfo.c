@@ -96,14 +96,14 @@ static void *load_acm(const char *file_name, size_t *size)
     return addr;
 }
 
-static void print_hex(const char* prefix, uint8_t *start, size_t len)
+void print_hex(const char* prefix, const void *start, size_t len)
 {
-    uint8_t *end = start + len;
+    const void *end = start + len;
     while ( start < end ) {
         printf("%s", prefix);
         for ( int i = 0; i < 16; i++ ) {
             if ( start < end )
-                printf("%02x ", *start);
+                printf("%02x ", *(uint8_t *)start);
             start++;
         }
         printf("\n");
