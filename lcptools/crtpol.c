@@ -1,5 +1,5 @@
 /*
- * Copyright 2001 - 2009 Intel Corporation. All Rights Reserved. 
+ * Copyright 2001 - 2010 Intel Corporation. All Rights Reserved. 
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -462,7 +462,7 @@ main (int argc, char *argv[])
             goto _error_end;
         }
 	/* ensure that convert_hashes() won't overrun the buffer */
-	mle_data_ascii[BUFFER_SIZE] = '\0';
+	mle_data_ascii[BUFFER_SIZE - 1] = '\0';
 	/* convert ASCII hashes to binary */
 	if ( convert_hashes(mle_len_ascii, mle_data_ascii, &mle_len,
 			    mle_data) < 0 ) {
