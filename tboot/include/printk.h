@@ -21,6 +21,9 @@
 #ifndef __PRINTK_H__
 #define __PRINTK_H__
 
+#include <com.h>
+#include <vga.h>
+
 #define TBOOT_LOG_LEVEL_NONE    0x00
 #define TBOOT_LOG_LEVEL_ALL     0xFF
 
@@ -32,21 +35,15 @@
 extern uint8_t g_log_level;
 extern uint8_t g_log_targets;
 extern uint8_t g_vga_delay;
+extern serial_port_t g_com_port;
 
-#define printk       early_printk
+#define serial_init()         comc_init()
+#define serial_write(s, n)    comc_puts(s, n)
 
-extern void early_memlog_init(void);
-extern void early_memlog_write(const char *str, unsigned int count);
-extern void early_memlog_print(void);
+#define vga_write(s,n)        vga_puts(s, n)
 
-extern void early_serial_parse_port_config(void);
-extern void early_serial_init(void);
-extern void early_serial_write(const char *str, unsigned int count);
-
-extern void early_vga_write(const char *str, unsigned int count);
-
-extern void early_printk_init(void);
-extern void early_printk(const char *fmt, ...)
+extern void printk_init(void);
+extern void printk(const char *fmt, ...)
                          __attribute__ ((format (printf, 1, 2)));
 
 #endif

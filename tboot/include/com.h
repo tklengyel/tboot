@@ -248,55 +248,51 @@
 #define	EMR_EFMODE	0x80
 
 /* com port */
-#define COM1_ADD        0x3f8
-#define COM2_ADD        0x2f8
-#define COM3_ADD        0x3e8
-#define COM4_ADD        0x2e8
+#define COM1_ADDR        0x3f8
+#define COM2_ADDR        0x2f8
+#define COM3_ADDR        0x3e8
+#define COM4_ADDR        0x2e8
 
-#define COM_STRING_LEN  5    /* the length of console value: "com[1|2|3|4]" */
-#define COM1_STRING   "com1"
-#define COM2_STRING   "com2"
-#define COM3_STRING   "com3"
-#define COM4_STRING   "com4"
+#define GET_LCR_DATABIT(x)  ({                              \
+            typeof(x) val = 0;                              \
+            val = (((x) == 5) ? LCR_5BITS : (val));         \
+            val = (((x) == 6) ? LCR_6BITS : (val));         \
+            val = (((x) == 7) ? LCR_7BITS : (val));         \
+            val = (((x) == 8) ? LCR_8BITS : (val));         \
+            val; })
 
-#define COM1_ADD_STRING  "0x3f8"
-#define COM2_ADD_STRING  "0x2f8"
-#define COM3_ADD_STRING  "0x3e8"
-#define COM4_ADD_STRING  "0x2e8"
+#define GET_LCR_STOPBIT(x) ({                           \
+            typeof(x) val = 0;                          \
+            val = (((x) > 1) ? LCR_STOPB : val);        \
+            val; })
 
-#define GET_LCR_DATABIT(x)  ({                   \
-        typeof(x) val = 0;                       \
-        val = (((x) == 5) ? LCR_5BITS : (val));  \
-        val = (((x) == 6) ? LCR_6BITS : (val));  \
-        val = (((x) == 7) ? LCR_7BITS : (val));  \
-        val = (((x) == 8) ? LCR_8BITS : (val));  \
-        val; })
-
-#define GET_LCR_STOPBIT(x) ({                    \
-        typeof(x) val = 0;                       \
-        val = (((x) == 1) ? LCR_STOPB : val);    \
-        val; })
-
-#define GET_LCR_PARITY(x) ({                           \
-        uint8_t val = 0;                               \
-        val = (((x) == 'n') ? (!LCR_PENAB) : val);     \
-        val = (((x) == 'o') ? LCR_ODD_PARITY : val);   \
-        val = (((x) == 'e') ? LCR_EVEN_PARITY : val);  \
-        val = (((x) == 'm') ? LCR_MARK_PARITY : val);  \
-        val = (((x) == 's') ? LCR_SPACE_PARITY : val); \
-        val; })
+#define GET_LCR_PARITY(x) ({                                    \
+            typeof(x) val = 0;                                  \
+            val = (((x) == 'n') ? (!LCR_PENAB) : val);          \
+            val = (((x) == 'o') ? LCR_ODD_PARITY : val);        \
+            val = (((x) == 'e') ? LCR_EVEN_PARITY : val);       \
+            val = (((x) == 'm') ? LCR_MARK_PARITY : val);       \
+            val = (((x) == 's') ? LCR_SPACE_PARITY : val);      \
+            val; })
 
 #define GET_LCR_VALUE(data, stop, parity)      \
     (GET_LCR_DATABIT(data) | GET_LCR_STOPBIT(stop) | GET_LCR_PARITY(parity))
 
+typedef struct __packed {
+    uint32_t bus;
+    uint32_t slot;
+    uint32_t func;
+} bdf_t;
 
-typedef struct serial_port {
-    uint32_t comc_port;     /* serial port, COM[1|2|3|4] */
-    uint32_t comc_curspeed; /* baud rate */
-    uint8_t comc_fmt;       /* lcr value */ 
-    /* any other param ? */
+typedef struct __packed {
+    uint32_t comc_curspeed;  /* baud rate */
+    uint32_t comc_clockhz;   /* clock hz */
+    uint8_t  comc_fmt;       /* lcr value */
+    uint32_t comc_port;      /* serial port, COM[1|2|3|4] */ 
+    uint32_t comc_irq;       /* irq */
+    bdf_t    comc_psbdf;     /* PCI serial controller bdf */
+    bdf_t    comc_pbbdf;     /* PCI bridge bdf */
 } serial_port_t;
-extern serial_port_t g_com_port;
 
 extern void comc_init(void);
 extern void comc_puts(const char*, unsigned int);

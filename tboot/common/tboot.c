@@ -271,7 +271,7 @@ void begin_launch(multiboot_info_t *mbi)
     tboot_parse_cmdline();
 
     /* initialize all logging targets */
-    early_printk_init();
+    printk_init();
 
     printk("******************* TBOOT *******************\n");
     printk("   %s\n", TBOOT_CHANGESET);
@@ -456,7 +456,8 @@ void shutdown(void)
     }
 
     /* re-initialize serial port since kernel may have used it */
-    early_serial_init();
+    if ( g_log_targets & TBOOT_LOG_TARGET_SERIAL )
+        serial_init();
 
     /* ensure localities 0, 1 are inactive (in case kernel used them) */
     release_locality(0);

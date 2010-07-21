@@ -33,15 +33,10 @@
 #include <types.h>
 #include <stdbool.h>
 #include <misc.h>
-#include <printk.h>
+#include <mutex.h>
 #include <io.h>
+#include <pci_cfgreg.h>
 #include <com.h>
-#include <cmdline.h>
-
-/* default serial port config */
-#define DEFAULT_COMPORT     COM1_ADD
-#define DEFAULT_COMSPEED	115200
-#define COMC_FMT	        0x3		/* 8N1 */
 
 #define COMC_TXWAIT	    0x40000			/* transmit timeout */
 #define COMC_BPS(x)	    (115200 / (x))	/* speed to DLAB divisor */
@@ -50,7 +45,11 @@
 #define OUTB(add, val)   outb(g_com_port.comc_port + (add), (val))
 #define INB(add)         inb(g_com_port.comc_port + (add))
 
-serial_port_t g_com_port = { DEFAULT_COMPORT, DEFAULT_COMSPEED, COMC_FMT };
+serial_port_t g_com_port = {115200, 0, 0x3, COM1_ADDR}; /* com1,115200,8n1 */
+
+extern bool g_psbdf_enabled;
+extern bool g_pbbdf_enabled;
+extern struct mutex pcicfg_mtx;
 
 static void comc_putchar(int c)
 {
@@ -76,8 +75,38 @@ static void comc_setup(int speed)
     while ( INB(com_lsr) & LSR_RXRDY );
 }
 
+static void comc_pci_setup(void)
+{
+    if ( g_psbdf_enabled ) {
+        if ( g_pbbdf_enabled ) {
+            pcireg_cfgwrite(g_com_port.comc_pbbdf.bus,
+                            g_com_port.comc_pbbdf.slot,
+                            g_com_port.comc_pbbdf.func,
+                            PCIR_IOBASEL_1,
+                            (g_com_port.comc_port & 0xF000)
+                            | ((g_com_port.comc_port & 0xF000) >> 8),
+                            2);
+        }
+        pcireg_cfgwrite(g_com_port.comc_psbdf.bus,
+                        g_com_port.comc_psbdf.slot,
+                        g_com_port.comc_psbdf.func,
+                        PCIR_BARS,
+                        g_com_port.comc_port | 0x1,
+                        4);
+        pcireg_cfgwrite(g_com_port.comc_psbdf.bus,
+                        g_com_port.comc_psbdf.slot,
+                        g_com_port.comc_psbdf.func,
+                        PCIR_COMMAND,
+                        0x1,
+                        2);
+
+        mtx_init(&pcicfg_mtx);
+    }
+}               
+
 void comc_init(void)
 {
+    comc_pci_setup(); 
     comc_setup(g_com_port.comc_curspeed);
 }
 

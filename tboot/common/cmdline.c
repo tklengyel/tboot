@@ -42,7 +42,6 @@
 #include <misc.h>
 #include <printk.h>
 #include <cmdline.h>
-#include <com.h>
 
 /*
  * copy of original command line
@@ -50,15 +49,13 @@
  */
 __text char g_cmdline[CMDLINE_SIZE] = { 0 };
 
-
-
-/*Used for kernel command line parameter setup */
+/* Used for kernel command line parameter setup */
 typedef struct {
     const char *name;          /* set to NULL for last item in list */
     const char *def_val;
 } cmdline_option_t;
 
-#define MAX_VALUE_LEN 32
+#define MAX_VALUE_LEN 64
 
 /*
  * the option names and default values must be separate from the actual
@@ -69,9 +66,10 @@ typedef struct {
 
 /* global option array for command line */
 static const cmdline_option_t g_tboot_cmdline_options[] = {
-    { "loglvl", "all" },      /* all|none */
-    { "logging", "serial" },  /* vga,serial,memory|none */
-    { "serial", "com1" },     /* com[1|2|3|4] or its address like 0x3f8 */
+    { "loglvl",   "all" },      /* all|none */
+    { "logging",  "serial" },   /* vga,serial,memory|none */
+    { "serial",   "com1" },     /* com[1|2|3|4] or its IO port (e.g. 0x3f8) */
+    /* comX=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
     { "com1", "115200,8n1" },
     { "com2", "115200,8n1" },
     { "com3", "115200,8n1" },
@@ -220,119 +218,178 @@ void get_tboot_log_targets(void)
         else
             break; /* unrecognized, end loop */
     }
-
-    if ( g_log_targets & TBOOT_LOG_TARGET_SERIAL )
-        early_serial_parse_port_config();
 }
 
-
-static void parse_com_baud(const char *baud)
+static bool parse_pci_bdf(const char **bdf, uint32_t *bus, uint32_t *slot,
+                          uint32_t *func)
 {
-    g_com_port.comc_curspeed = 0;
-    while ( *baud >= '0' && *baud <= '9' ) {
-        g_com_port.comc_curspeed = g_com_port.comc_curspeed * 10 + *baud - '0';
-        baud++;
-    }
+    *bus = strtoul(*bdf, (char **)bdf, 16);
+    if ( **bdf != ':' )
+        return false;
+    (*bdf)++;
+    *slot = strtoul(*bdf, (char **)bdf, 16);
+    if ( **bdf != '.' )
+        return false;
+    (*bdf)++;
+    *func = strtoul(*bdf, (char **)bdf, 16);
+
+    return true;
 }
 
-static void parse_com_fmt(const char *fmt)
+bool g_psbdf_enabled = false;
+static bool parse_com_psbdf(const char **bdf)
+{
+    g_psbdf_enabled = parse_pci_bdf(bdf,
+                  &g_com_port.comc_psbdf.bus,
+                  &g_com_port.comc_psbdf.slot,
+                  &g_com_port.comc_psbdf.func);
+
+    return g_psbdf_enabled;
+}
+
+bool g_pbbdf_enabled = false;
+static bool parse_com_pbbdf(const char **bdf)
+{
+    g_pbbdf_enabled = parse_pci_bdf(bdf,
+                  &g_com_port.comc_pbbdf.bus,
+                  &g_com_port.comc_pbbdf.slot,
+                  &g_com_port.comc_pbbdf.func);
+
+    return g_pbbdf_enabled;
+}
+
+static bool parse_com_fmt(const char **fmt)
 {
     /* fmt:  <5|6|7|8><n|o|e|m|s><0|1> */
     /* default 8n1 */
-
-    /* must specify all values */
-    if ( strlen(fmt) != 3 )
-        return;
-
     uint8_t data_bits = 8;
-    u_char parity = 'n';
+    uint8_t parity = 'n';
     uint8_t stop_bits = 1;
 
+
+    /* must specify all values */
+    if ( strlen(*fmt) < 3 )
+        return false;
+
     /* data bits */
-    if ( fmt[0] >= '5' && fmt[0] <= '8' )
-        data_bits = fmt[0] - '0';
+    if ( **fmt >= '5' && **fmt <= '8' )
+        data_bits = **fmt - '0';
     else
-        return;
+        return false;
+    (*fmt)++;
 
     /* parity */
-    if ( fmt[1] == 'n' || fmt[1] == 'o' || fmt[1] == 'e' || fmt[1] == 'm' ||
-         fmt[1] == 's' )
-        parity = fmt[1];
+    if ( **fmt == 'n' || **fmt == 'o' || **fmt == 'e' || **fmt == 'm' ||
+         **fmt == 's' )
+        parity = **fmt;
     else
-        return;
+        return false;
+    (*fmt)++;
 
     /* stop bits */
-    if ( fmt[2] == '0' || fmt[2] == '1' )
-        stop_bits = fmt[2] - '0';
+    if ( **fmt == '0' || **fmt == '1' )
+        stop_bits = **fmt - '0';
     else
-        return;
+        return false;
+    (*fmt)++;
 
     g_com_port.comc_fmt = GET_LCR_VALUE(data_bits, stop_bits, parity);
+
+    return true;
 }
 
-static void parse_com_param(const char *com)
+static bool parse_com_param(const char *com)
 {
-    char baud[8];
-    char dps[4];
-    size_t i = 0;
+    /* parse baud */
+    g_com_port.comc_curspeed = strtoul(com, (char **)&com, 10);
+    if ( (g_com_port.comc_curspeed < 1200) ||
+         (g_com_port.comc_curspeed > 115200) )
+        return false;
 
-    /* baud rate */
-    while ( *com == ' ' ) /* ignore space */
-        com++;
-    while ( i < sizeof(baud)-1 && *com && *com != ',' )
-        baud[i++] = *com++;
-    baud[i] = '\0';
-    parse_com_baud(baud);
+    /* parse clock hz */
+    if ( *com == '/' ) {
+        ++com;
+        g_com_port.comc_clockhz = strtoul(com, (char **)&com, 0) << 4;
+        if ( g_com_port.comc_clockhz == 0 )
+            return false;
+    }
 
-    /* data/parity/stop */
-    if ( *com == ',' )
+    /* parse data_bits/parity/stop_bits */
+    if ( *com != ',' )
+        goto exit;
+    ++com;
+    while ( isspace(*com) )
         com++;
-    else
-        return;
-    while ( *com == ' ' ) /* ignore space */
-        com++;
-    i = 0;
-    while ( i < sizeof(dps)-1 && *com )
-        dps[i++] = *com++;
-    dps[i] = '\0';
-    parse_com_fmt(dps);
+    if ( !parse_com_fmt(&com) )
+        return false;
+
+    /* parse IO base */
+    if ( *com != ',' )
+        goto exit;
+    ++com;
+    g_com_port.comc_port = strtoul(com, (char **)&com, 0);
+    if ( g_com_port.comc_port == 0 )
+        return false;
+
+    /* parse irq */
+    if ( *com != ',' )
+        goto exit;
+    ++com;
+    g_com_port.comc_irq = strtoul(com, (char **)&com, 10);
+    if ( g_com_port.comc_irq == 0 )
+        return false;
+
+    /* parse PCI serial controller bdf */
+    if ( *com != ',' )
+        goto exit;
+    ++com;
+    if ( !parse_com_psbdf(&com) )
+        return false;
+
+    /* parse PCI bridge bdf */
+    if ( *com != ',' )
+        goto exit;
+    ++com;
+    if ( !parse_com_pbbdf(&com) )
+        return false;
+
+ exit:
+    return true;
 }
 
-void get_tboot_console(void)
+bool get_tboot_console(void)
 {
+    static struct {
+        const char *com_name;
+        unsigned long com_addr;
+    } coms[] = { {"com1", COM1_ADDR}, {"com2", COM2_ADDR},
+                 {"com3", COM3_ADDR}, {"com4", COM4_ADDR} };
+
     const char *console = get_option_val(g_tboot_cmdline_options,
                                         g_tboot_param_values, "serial");
-    char com[COM_STRING_LEN];
+    if ( console == NULL || *console == '\0' )
+        return false;
 
-    if ( console == NULL || strcmp(console, COM1_STRING) == 0 || 
-            strcmp(console, COM1_ADD_STRING) == 0 ) {
-        g_com_port.comc_port = COM1_ADD;
-        strncpy(com, COM1_STRING, COM_STRING_LEN);
+    unsigned int i;
+    for ( i = 0; i < ARRAY_SIZE(coms); i++ ) {
+        if ( strcmp(console, coms[i].com_name) == 0 ||
+             strtoul(console, NULL, 0) == coms[i].com_addr ) {
+            g_com_port.comc_port = coms[i].com_addr;
+            break;
+        }
     }
-    else if ( strcmp(console, COM2_STRING) == 0 || 
-            strcmp(console, COM2_ADD_STRING) == 0 ) {
-        g_com_port.comc_port = COM2_ADD;
-        strncpy(com, COM2_STRING, COM_STRING_LEN);
-    }
-    else if ( strcmp(console, COM3_STRING) == 0 || 
-            strcmp(console, COM3_ADD_STRING) == 0 ) {
-        g_com_port.comc_port = COM3_ADD;
-        strncpy(com, COM3_STRING, COM_STRING_LEN);
-    }
-    else if ( strcmp(console, COM4_STRING) == 0 ||
-            strcmp(console, COM4_ADD_STRING) == 0 ) {
-        g_com_port.comc_port = COM4_ADD;
-        strncpy(com, COM4_STRING, COM_STRING_LEN);
-    }
-    else {
+    if ( i == ARRAY_SIZE(coms) ) {
         printk("unsupported serial port\n");
-        return;
+        return false;
     }
 
     const char *com_value = get_option_val(g_tboot_cmdline_options,
-                                           g_tboot_param_values, com);
-    if ( com_value != NULL )
-        parse_com_param(com_value);
+                                           g_tboot_param_values,
+                                           coms[i].com_name);
+    if ( com_value != NULL && *com_value != '\0' )
+        return parse_com_param(com_value);
+
+    return false;
 }
 
 void get_tboot_vga_delay(void)

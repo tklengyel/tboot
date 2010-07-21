@@ -43,13 +43,9 @@
 #include <printk.h>
 #include <cmdline.h>
 #include <tboot.h>
-#include <com.h>
 
 uint8_t g_log_level = TBOOT_LOG_LEVEL_ALL;
 uint8_t g_log_targets = TBOOT_LOG_TARGET_SERIAL | TBOOT_LOG_TARGET_VGA;
-
-extern void vga_init(void);
-extern void vga_puts(const char *s, unsigned int cnt);
 
 static struct mutex print_lock;
 
@@ -61,7 +57,7 @@ static struct mutex print_lock;
 /* memory-based serial log (ensure in .data section so that not cleared) */
 __data tboot_log_t *g_log = NULL;
 
-void early_memlog_init(void)
+static void memlog_init(void)
 {
     if ( g_log == NULL ) {
         g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
@@ -80,7 +76,7 @@ void early_memlog_init(void)
         g_log->curr_pos = 0;
 }
 
-void early_memlog_write(const char *str, unsigned int count)
+static void memlog_write(const char *str, unsigned int count)
 {
     if ( g_log == NULL || count > g_log->max_size )
         return;
@@ -102,43 +98,38 @@ void early_memlog_write(const char *str, unsigned int count)
     }
 }
 
-void early_serial_parse_port_config()
-{
-    get_tboot_console();
-}
-
-void early_serial_init(void) 
-{
-    comc_init();
-}
-
-void early_printk_init(void)
+void printk_init(void)
 {
     mtx_init(&print_lock);
 
     /* parse loglvl from string to int */
     get_tboot_loglvl();
 
-    /* parse logging targets and serial settings */
+    /* parse logging targets */
     get_tboot_log_targets();
 
-    /* parse vga delay time */
-    get_tboot_vga_delay();
+    /* parse serial settings */
+    if ( !get_tboot_console() )
+        g_log_targets &= ~TBOOT_LOG_TARGET_SERIAL;
 
     if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY )
-        early_memlog_init();
+        memlog_init();
     if ( g_log_targets & TBOOT_LOG_TARGET_SERIAL )
-        early_serial_init();
-    if ( g_log_targets & TBOOT_LOG_TARGET_VGA )
+        serial_init();
+    if ( g_log_targets & TBOOT_LOG_TARGET_VGA ) {
         vga_init();
+        get_tboot_vga_delay(); /* parse vga delay time */
+    }
 }
 
 #define WRITE_LOGS(s, n) \
-    if (g_log_targets & TBOOT_LOG_TARGET_VGA) vga_puts(s, n);     \
-    if (g_log_targets & TBOOT_LOG_TARGET_SERIAL) comc_puts(s, n);  \
-    if (g_log_targets & TBOOT_LOG_TARGET_MEMORY) early_memlog_write(s, n);
+    do {                                                                 \
+        if (g_log_targets & TBOOT_LOG_TARGET_VGA) vga_write(s, n);       \
+        if (g_log_targets & TBOOT_LOG_TARGET_SERIAL) serial_write(s, n); \
+        if (g_log_targets & TBOOT_LOG_TARGET_MEMORY) memlog_write(s, n); \
+    } while (0)
 
-void early_printk(const char *fmt, ...)
+void printk(const char *fmt, ...)
 {
     char buf[256];
     int n;

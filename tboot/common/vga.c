@@ -34,46 +34,10 @@
 
 #include <types.h>
 #include <stdbool.h>
-#include <compiler.h>
 #include <string.h>
 #include <misc.h>
 #include <io.h>
-#include <cmdline.h>
-#include <printk.h>
-
-#define VGA_BASE                    0xb8000
-
-/* 80*25 text mode */
-#define MAX_LINES                   25
-#define MAX_COLS                    80
-#define SCREEN_BUFFER               (MAX_LINES*MAX_COLS*2)
-#define VGA_ADDR(x, y)              (VGA_BASE + 2*(MAX_COLS*(y) + (x)))
-
-/* registers */
-#define CTL_ADDR_REG                0x3D4                             
-#define CTL_DATA_REG                0x3D5
-#define START_ADD_HIGH_REG          0x0C
-#define START_ADD_LOW_REG           0x0D 
-
-/* colors */
-#define COLOR_BLACK                 0x00
-#define COLOR_BLUE                  0x01
-#define COLOR_GREEN                 0x02
-#define COLOR_CYAN                  0x03
-#define COLOR_RED                   0x04
-#define COLOR_MAGENTA               0x05
-#define COLOR_BROWN                 0x06
-#define COLOR_LTGRAY                0x07
-#define COLOR_DKGRAY                0x08
-#define COLOR_LTBLUE                0x09
-#define COLOR_LTGREEN               0x0A
-#define COLOR_LTCYAN                0x0B
-#define COLOR_LTRED                 0x0C
-#define COLOR_LTMAGENTA             0x0D
-#define COLOR_LTBROWN               0x0E
-#define COLOR_WHITE                 0x0F
-
-#define COLOR                       ((COLOR_BLACK << 4) | COLOR_LTGRAY)
+#include <vga.h>
 
 static uint16_t * const screen = (uint16_t * const)VGA_BASE;
 static __data uint8_t cursor_x, cursor_y;
@@ -151,7 +115,6 @@ static void vga_putc(int c)
 void vga_init(void)
 {
     reset_screen();
-    get_tboot_vga_delay();
 }
 
 void vga_puts(const char *s, unsigned int cnt)

@@ -1,13 +1,13 @@
 /*
- * cmdline.h: support functions for command line parsing
- *
+ * vga.h: definitions of and supports functions for VGA
+ * 
  * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- *
+ * 
  *   * Redistributions of source code must retain the above copyright
  *     notice, this list of conditions and the following disclaimer.
  *   * Redistributions in binary form must reproduce the above
@@ -17,7 +17,7 @@
  *   * Neither the name of the Intel Corporation nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -30,34 +30,51 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * 
  */
 
-#ifndef __CMDLINE_H__
-#define __CMDLINE_H__
+#ifndef __VGA_H__
+#define __VGA_H__
 
-#define CMDLINE_SIZE   512
-extern char g_cmdline[CMDLINE_SIZE];
+#define VGA_BASE                    0xb8000
+
+/* 80*25 text mode*/
+#define MAX_LINES                   25
+#define MAX_COLS                    80
+#define SCREEN_BUFFER               (MAX_LINES*MAX_COLS*2)
+#define VGA_ADDR(x, y)              (VGA_BASE + 2*(MAX_COLS*(y) + (x)))
+
+/* registers */
+#define CTL_ADDR_REG                0x3D4
+#define CTL_DATA_REG                0x3D5
+#define START_ADD_HIGH_REG          0x0C
+#define START_ADD_LOW_REG           0x0D
+
+/* colors */
+#define COLOR_BLACK                 0x00
+#define COLOR_BLUE                  0x01
+#define COLOR_GREEN                 0x02
+#define COLOR_CYAN                  0x03
+#define COLOR_RED                   0x04
+#define COLOR_MAGENTA               0x05
+#define COLOR_BROWN                 0x06
+#define COLOR_LTGRAY                0x07
+#define COLOR_DKGRAY                0x08
+#define COLOR_LTBLUE                0x09
+#define COLOR_LTGREEN               0x0A
+#define COLOR_LTCYAN                0x0B
+#define COLOR_LTRED                 0x0C
+#define COLOR_LTMAGENTA             0x0D
+#define COLOR_LTBROWN               0x0E
+#define COLOR_WHITE                 0x0F
+
+#define COLOR                       ((COLOR_BLACK << 4) | COLOR_LTGRAY)
 
 
-extern void tboot_parse_cmdline(void);
-extern void get_tboot_loglvl(void);
-extern void get_tboot_log_targets(void);
-extern bool get_tboot_console(void);
-extern void get_tboot_baud(void);
-extern void get_tboot_fmt(void);
-extern void get_tboot_vga_delay(void);
+void vga_init(void);
+void vga_puts(const char *s, unsigned int cnt);
 
-/* for parse cmdline of linux kernel, say vga and mem */
-extern void linux_parse_cmdline(char *cmdline);
-extern bool get_linux_vga(int *vid_mode);
-extern bool get_linux_mem(uint64_t *initrd_max_mem);
-
-extern const char *skip_filename(const char *cmdline);
-
-
-#endif    /* __CMDLINE_H__ */
-
+#endif /* __VGA_H__ */
 
 /*
  * Local variables:
