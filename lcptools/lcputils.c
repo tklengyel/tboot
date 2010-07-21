@@ -224,9 +224,10 @@ str_split(const char *str_in, char **str_out, unsigned int *number)
 {
     char * temp;
     int num = 0;
-    char * sep = ",";
-    int str_length = 0;
+    const char *sep = ",";
+    size_t str_length = 0;
     char *string = (char *)malloc(strlen(str_in) + 1);
+
     if ( string == NULL )
         return -1;
     if ( str_in == NULL || str_out == NULL || number == NULL ) {

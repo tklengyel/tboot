@@ -1,7 +1,7 @@
 /*
  * loader.h: support functions for manipulating ELF and AOUT binaries
  *
- * Copyright (c) 2006-2007, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@ extern bool is_kernel_linux(void);
 extern bool launch_kernel(bool is_measured_launch);
 extern bool verify_mbi(multiboot_info_t *mbi);
 extern bool verify_modules(multiboot_info_t *mbi);
-extern module_t *get_module(multiboot_info_t *mbi, int i);
+extern module_t *get_module(multiboot_info_t *mbi, unsigned int i);
 extern bool remove_txt_modules(multiboot_info_t *mbi);
 
 #endif /* __LOADER_H__ */

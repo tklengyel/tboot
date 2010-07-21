@@ -91,7 +91,7 @@ static struct option long_opts[MAX_CMDLINE_OPTS] =
 static void add_plugins(void)
 {
     /* we will add each plugin's opts to end, so find initial last one */
-    int nr_opts = 0;
+    unsigned int nr_opts = 0;
     struct option *opt = long_opts;
     while ( opt->name != NULL ) {
         opt++;

@@ -100,8 +100,8 @@ static struct option long_options[] =
 };
 
 typedef struct {
-    char   *name;
-    int     int_opt;
+    const char   *name;
+    int           int_opt;
 } option_table_t;
 
 static option_table_t policy_type_opts[] = {
@@ -186,7 +186,7 @@ void print_params(param_data_t *params)
 
 static bool validate_params(param_data_t *params)
 {
-    char *msg = NULL;
+    const char *msg = NULL;
 
     switch( params->cmd ) {
         case POLGEN_CMD_NONE:

@@ -138,7 +138,7 @@ static lcp_signature_t *read_pubkey_file(const char *file)
         return NULL;
     }
 
-    int keysize = RSA_size(pubkey);
+    unsigned int keysize = RSA_size(pubkey);
     if ( keysize == 0 ) {
         ERROR("Error: public key size is 0\n");
         RSA_free(pubkey);
@@ -154,7 +154,7 @@ static lcp_signature_t *read_pubkey_file(const char *file)
 
     memset(sig, 0, sizeof(*sig) + 2*keysize);
     sig->pubkey_size = keysize;
-    if ( BN_num_bytes(pubkey->n) != keysize ) {
+    if ( (unsigned int)BN_num_bytes(pubkey->n) != keysize ) {
         ERROR("Error: modulus size not match key size\n");
         free(sig);
         RSA_free(pubkey);

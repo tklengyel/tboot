@@ -94,6 +94,7 @@ bool verify_policy(const lcp_policy_t *pol, size_t size, bool silent)
 
 void display_policy(const char *prefix, const lcp_policy_t *pol, bool brief)
 {
+    (void)brief;        /* quiet compiler warning portbly */
     if ( pol == NULL )
         return;
 
@@ -115,7 +116,7 @@ void display_policy(const char *prefix, const lcp_policy_t *pol, bool brief)
 
 const char *policy_type_to_str(uint8_t type)
 {
-    static char *types[] = { "list", "any" };
+    static const char *types[] = { "list", "any" };
     static char buf[32] = "";
 
     if ( type >= ARRAY_SIZE(types) ) {

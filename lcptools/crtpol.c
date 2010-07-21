@@ -74,23 +74,23 @@ static struct option longopts[]= {
     {0, 0, 0, 0},
 };
 
-static const char * usage_string = "lcp_crtpol -t policy_type [-a hashalg] "\
-              "[-v version] [-sr SINIT revocation_counter] [-s srtm_file] "\
+static const char *usage_string = "lcp_crtpol -t policy_type [-a hashalg] "
+              "[-v version] [-sr SINIT revocation_counter] [-s srtm_file] "
               "[-m mle_file] [-o policyfile] [-b policydata_file] [-h]\n";
 
-static const char * option_strings[] ={
-        "-t Policy type: uint8/string.\n"\
-            "\tPolicy type is:\n"\
-            "\tLCP_POLTYPE_HASHONLY: 0 or \"hashonly\" \n"\
-            "\tLCP_POLTYPE_UNSIGNED: 1 or \"unsigned\" \n"\
-            "\tLCP_POLTYPE_SIGNED: 2 or \"signed\" \n"\
-            "\tLCP_POLTYPE_ANY: 3 or \"any\" \n"\
+static const char *option_strings[] = {
+        "-t Policy type: uint8/string.\n"
+            "\tPolicy type is:\n"
+            "\tLCP_POLTYPE_HASHONLY: 0 or \"hashonly\" \n"
+            "\tLCP_POLTYPE_UNSIGNED: 1 or \"unsigned\" \n"
+            "\tLCP_POLTYPE_SIGNED: 2 or \"signed\" \n"
+            "\tLCP_POLTYPE_ANY: 3 or \"any\" \n"
             "\tLCP_POLTYPE_FORCEOWNERPOLICY: 4 or \"forceowner\" \n",
-        "-a algorithm: uint8/string. algorithm used in the policy.\n"\
-            "\tAlgorithm choice:\n"\
-            "\t\tLCP_POLHALG_SHA1: 0 or \"sha1\" \n"\
+        "-a algorithm: uint8/string. algorithm used in the policy.\n"
+            "\tAlgorithm choice:\n"
+            "\t\tLCP_POLHALG_SHA1: 0 or \"sha1\" \n"
             "\tCurrently we only support SHA-1 algorithm.\n",
-        "-v version: uint8. version number.\n"\
+        "-v version: uint8. version number.\n"
             "\tCurrently 0 or 1 is allowed.\n",
         "-s PConf file name: String. File name of PConf data.\n",
         "-m MLE hash file name: String. File containing the MLE hashes.\n",
@@ -98,8 +98,8 @@ static const char * option_strings[] ={
         "-b LCPPOLICYDATA file name: String. File to save Policy data.\n",
         "-sr SINIT Revocation count number: uint8.\n",
         "-pcf Policy Control Field: uint32.\n",
-        "-h help. Will print out this help message.\n"
-        ,0
+        "-h help. Will print out this help message.\n",
+        NULL
 };
 
 static param_option_t poltype_option_table[] = {
@@ -131,11 +131,11 @@ parse_cmdline(int argc, const char * argv[])
                 /*
                  * if not, then the users should input the 0~4 number,
                  */
-                if ( temp == -1 )
+                if ( temp == (unsigned int)-1 )
                     if ( strtonum(optarg, &temp) )
                         return LCP_E_INVALID_PARAMETER;
 
-                if ( temp < 0 || temp > 4 ) {
+                if ( temp > 4 ) {
                         log_error("policy type out of range.\n");
                         return LCP_E_INVALID_PARAMETER;
                 }
@@ -185,7 +185,7 @@ parse_cmdline(int argc, const char * argv[])
             case 'n':
                 if ( strtonum(optarg, &temp) )
                     return LCP_E_INVALID_PARAMETER;
-                if ( temp > 0xff || temp < 0 )
+                if ( temp > 0xff )
                     return LCP_E_INVALID_PARAMETER;
                 sinit_revoc = temp;
                 break;

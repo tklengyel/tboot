@@ -239,7 +239,7 @@ bool parse_file(const char *filename, bool (*parse_line)(const char *line))
 
 const char *hash_alg_to_str(uint8_t alg)
 {
-    static char *alg_str[] = { "LCP_POLHALG_SHA1" };
+    static const char *alg_str[] = { "LCP_POLHALG_SHA1" };
     static char buf[32];
 
     if ( alg > ARRAY_SIZE(alg_str) ) {

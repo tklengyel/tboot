@@ -1,7 +1,7 @@
 /*
  * e820.c: support functions for manipulating the e820 table
  *
- * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@
  * this version will replace original in mbi
  */
 #define MAX_E820_ENTRIES      (TBOOT_E820_COPY_SIZE / sizeof(memory_map_t))
-static int g_nr_map;
+static unsigned int g_nr_map;
 static memory_map_t *g_copy_e820_map = (memory_map_t *)TBOOT_E820_COPY_ADDR;
 
 static inline void split64b(uint64_t val, uint32_t *val_lo, uint32_t *val_hi)
@@ -94,18 +94,16 @@ static void print_map(memory_map_t *e820, int nr_map)
     }
 }
 
-static bool insert_after_region(memory_map_t *e820map, int *nr_map, int pos,
-                               uint64_t addr, uint64_t size,
-                               uint32_t type)
+static bool insert_after_region(memory_map_t *e820map, unsigned int *nr_map,
+                                unsigned int pos, uint64_t addr, uint64_t size,
+                                uint32_t type)
 {
-    int i;
-
     /* no more room */
     if ( *nr_map + 1 > MAX_E820_ENTRIES )
         return false;
 
     /* shift (copy) everything up one entry */
-    for (i = *nr_map - 1; i > pos; i--)
+    for ( unsigned int i = *nr_map - 1; i > pos; i--)
         e820map[i+1] = e820map[i];
 
     /* now add our entry */
@@ -121,24 +119,23 @@ static bool insert_after_region(memory_map_t *e820map, int *nr_map, int pos,
     return true;
 }
 
-static void remove_region(memory_map_t *e820map, int *nr_map, int pos)
+static void remove_region(memory_map_t *e820map, unsigned int *nr_map,
+                          unsigned int pos)
 {
-    int i;
-
     /* shift (copy) everything down one entry */
-    for (i = pos; i < *nr_map - 1; i++)
+    for ( unsigned int i = pos; i < *nr_map - 1; i++)
         e820map[i] = e820map[i+1];
 
     (*nr_map)--;
 }
 
-static bool protect_region(memory_map_t *e820map, int *nr_map,
+static bool protect_region(memory_map_t *e820map, unsigned int *nr_map,
                            uint64_t new_addr, uint64_t new_size,
                            uint32_t new_type)
 {
     uint64_t addr, tmp_addr, size, tmp_size;
     uint32_t type;
-    int i;
+    unsigned int i;
 
     if ( new_size == 0 )
         return true;
@@ -361,7 +358,7 @@ uint32_t e820_check_region(uint64_t base, uint64_t length)
     e820_base = 0;
     e820_length = 0;
 
-    for ( int i = 0; i < g_nr_map; i = gap ? i : i+1, gap = !gap ) {
+    for ( unsigned int i = 0; i < g_nr_map; i = gap ? i : i+1, gap = !gap ) {
         e820_entry = &g_copy_e820_map[i];
         if ( gap ) {
             /* deal with the gap in e820 map */
@@ -463,7 +460,7 @@ bool e820_reserve_ram(uint64_t base, uint64_t length)
     end = base + length;
 
     /* find where our region should cover the ram in e820 */
-    for ( int i = 0; i < g_nr_map; i++ ) {
+    for ( unsigned int i = 0; i < g_nr_map; i++ ) {
         e820_entry = &g_copy_e820_map[i];
         e820_base = e820_base_64(e820_entry);
         e820_length = e820_length_64(e820_entry);
@@ -559,7 +556,7 @@ bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
     *max_lo_ram = *max_hi_ram = 0;
     bool found_reserved_region = false;
 
-    for ( int i = 0; i < g_nr_map; i++ ) {
+    for ( unsigned int i = 0; i < g_nr_map; i++ ) {
         memory_map_t *entry = &g_copy_e820_map[i];
         uint64_t base = e820_base_64(entry);
         uint64_t limit = base + e820_length_64(entry);
@@ -625,7 +622,7 @@ void get_highest_sized_ram(uint64_t size, uint64_t limit,
     if ( ram_base == NULL || ram_size == NULL )
         return;
 
-    for ( int i = 0; i < g_nr_map; i++ ) {
+    for ( unsigned int i = 0; i < g_nr_map; i++ ) {
         memory_map_t *entry = &g_copy_e820_map[i];
 
         if ( entry->type == E820_RAM ) {

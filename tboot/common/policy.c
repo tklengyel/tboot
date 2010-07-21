@@ -156,7 +156,7 @@ static const tb_policy_t* g_policy = &_def_policy;
 static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
 {
 #define NV_READ_SEG_SIZE    256
-    int offset = 0;
+    unsigned int offset = 0;
     unsigned int data_size = 0;
     uint32_t ret, index_size;
 
@@ -317,10 +317,10 @@ static tb_policy_action_t evaluate_error(tb_error_t error)
     if ( error == TB_ERR_NONE )
         return TB_POLACT_CONTINUE;
 
-    for ( int i = 0; i < ARRAY_SIZE(g_policy_map); i++ ) {
+    for ( unsigned int i = 0; i < ARRAY_SIZE(g_policy_map); i++ ) {
         if ( g_policy_map[i].policy_type == g_policy->policy_type ) {
             action = g_policy_map[i].default_action;
-            for ( int j = 0;
+            for ( unsigned int j = 0;
                   j < ARRAY_SIZE(g_policy_map[i].exception_action_table);
                   j++ ) {
                 if ( g_policy_map[i].exception_action_table[j].error ==

@@ -2,7 +2,7 @@
  * tb_policy.h: data structures, definitions, and helper fns for tboot
  *              verified launch policies
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -106,7 +106,7 @@ typedef struct __packed {
  * helper fns
  */
 #ifndef PRINT
-#define PRINT(...)  /**/
+#define PRINT(...)  {}
 #endif
 
 static inline const char *hash_type_to_string(uint8_t hash_type)
@@ -250,7 +250,7 @@ static inline tb_policy_entry_t* find_policy_entry(const tb_policy_t *policy,
 static inline bool verify_policy(const tb_policy_t *policy, size_t size,
                                  bool print)
 {
-    if ( print) PRINT("policy:\n");
+    if ( print ) PRINT("policy:\n");
 
     if ( policy == NULL ) {
         if ( print ) PRINT("policy pointer is NULL\n");

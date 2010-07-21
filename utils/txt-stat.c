@@ -207,7 +207,7 @@ static void display_tboot_log(void *log_base)
     /* map'ed us, but since it is always jsut past end of struct, use that */
     char *log_buf = (char *)log + sizeof(*log);
     /* log is too big for single printk(), so break it up */
-    for ( int curr_pos = 0; curr_pos < log->curr_pos;
+    for ( unsigned int curr_pos = 0; curr_pos < log->curr_pos;
           curr_pos += sizeof(buf)-1 ) {
         strncpy(buf, log_buf + curr_pos, sizeof(buf)-1);
         buf[sizeof(buf)-1] = '\0';
@@ -227,7 +227,9 @@ int main(int argc, char *argv[])
     uint64_t heap_size = 0;
     void *buf = NULL;
     off_t seek_ret = -1;
-    int read_ret = 0;
+    size_t read_ret = 0;
+
+    (void)argc; (void)argv;     /* portably quiet warning */
 
     if ( !is_txt_supported() ) {
         printf("Intel(r) TXT is not supported\n");

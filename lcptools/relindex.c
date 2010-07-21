@@ -94,7 +94,7 @@ parse_cmdline(int argc, const char * argv[])
                  * if not, then the users should input the non-0 number,
                  * 0 is not allowed for index
                  */
-                if ( index_value == -1 )
+                if ( index_value == (uint32_t)-1 )
                     if ( strtonum(optarg, &index_value) || (index_value == 0) )
                         return LCP_E_INVALID_PARAMETER;
                 break;

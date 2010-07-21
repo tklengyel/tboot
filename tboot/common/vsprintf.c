@@ -91,7 +91,7 @@ static unsigned long write_pads_to_buffer(char *buf, size_t buf_len,
                                           unsigned long buf_pos, char pad,
                                           size_t pad_len)
 {
-    for ( int i = 0; i < pad_len; i++ )
+    for ( unsigned int i = 0; i < pad_len; i++ )
         buf_pos = write_char_to_buffer(buf, buf_len, buf_pos, pad);
 
     return buf_pos;
@@ -126,7 +126,7 @@ static unsigned long write_string_to_buffer(char *buf, size_t buf_len,
                                             const char* str, size_t strlen,
                                             modifiers_t *mods)
 {
-    int i;
+    unsigned int i;
 
     mods->width = ( mods->width > strlen ) ? mods->width - strlen : 0;
     if ( mods->flag & LEFT_ALIGNED ) { /* left align */
@@ -150,7 +150,7 @@ static unsigned long write_string_to_buffer(char *buf, size_t buf_len,
 static size_t int2str(long long val, char *str, size_t strlen,
                       const modifiers_t *mods)
 {
-    int i;
+    unsigned int i;
     size_t length = 0, number_length = 0;
     unsigned long number_start = 0;
     const char hexdig_lowercase[] = "0123456789abcdef";
@@ -244,7 +244,7 @@ static size_t int2str(long long val, char *str, size_t strlen,
 
 int vscnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 {
-    int buf_pos = 0; /* return value doesn't count the last '\0' */
+    unsigned int buf_pos = 0; /* return value doesn't count the last '\0' */
     const char *fmt_ptr;
     modifiers_t mods;
 

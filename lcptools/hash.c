@@ -118,13 +118,11 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint8_t hash_alg)
 
 void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
 {
-    int i;
-
     if ( hash == NULL )
         return;
 
     if ( hash_alg == TB_HALG_SHA1 ) {
-        for ( i = 0; i < sizeof(hash->sha1); i++ )
+        for ( unsigned int i = 0; i < sizeof(hash->sha1); i++ )
             fprintf(stderr, "%02x ", hash->sha1[i]);
         fprintf(stderr, "\n");
     }

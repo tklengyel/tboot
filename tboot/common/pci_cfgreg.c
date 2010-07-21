@@ -79,6 +79,8 @@ pci_cfgenable(unsigned bus, unsigned slot, unsigned func, int reg, int bytes)
 			outb(CONF2_FORWARD_PORT, bus);
 			dataport = 0xc000 | (slot << 8) | reg;
 			break;
+        default:
+            break;
 		}
 	}
 	return (dataport);
@@ -101,6 +103,8 @@ pci_cfgdisable(void)
 	case CFGMECH_2:
 		outb(CONF2_ENABLE_PORT, 0);
 		break;
+    default:
+        break;
 	}
 }
 
@@ -122,6 +126,8 @@ int pcireg_cfgread(int bus, int slot, int func, int reg, int bytes)
 		case 4:
 			data = inl(port);
 			break;
+        default:
+            break;
 		}
 		pci_cfgdisable();
 	}
@@ -146,6 +152,8 @@ void pcireg_cfgwrite(int bus, int slot, int func, int reg, int data, int bytes)
 		case 4:
 			outl(port, data);
 			break;
+        default:
+            break;
 		}
 		pci_cfgdisable();
 	}

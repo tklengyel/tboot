@@ -383,7 +383,7 @@ static void txt_wakeup_cpus(void)
 {
     uint16_t cs;
     mle_join_t mle_join;
-    int ap_wakeup_count;
+    unsigned int ap_wakeup_count;
 
     if ( !verify_stm(get_apicid()) )
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);

@@ -65,7 +65,7 @@
                  }while (0)
 
 typedef struct {
-    char *param;
+    const char *param;
     uint32_t option;
 } param_option_t;
 

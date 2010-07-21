@@ -184,8 +184,7 @@ static int get_page_type(const mtrr_state_t *saved_state, uint32_t base)
 
         if ( mask_i->v == 0 )
             continue;
-        if ( (base & mask_i->mask)
-                != (base_i->base & mask_i->mask) )
+        if ( (base & mask_i->mask) != (uint32_t)(base_i->base & mask_i->mask) )
             continue;
 
         type = base_i->type;

@@ -235,7 +235,7 @@ static bool read_file(const char *filename, void **buffer, size_t *length)
 {
     FILE *fcompressed = NULL;
     FILE *fdecompressed = NULL;
-    struct stat filestat = {0};
+    struct stat filestat;
     char tmpbuffer[1024];
     unsigned long i;
 

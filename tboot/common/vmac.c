@@ -5,6 +5,9 @@
  * Please send bug reports to the authors.
  * Last modified: 17 APR 08, 1700 PDT
  * ----------------------------------------------------------------------- */
+/*
+ * Portions copyright (c) 2010, Intel Corporation
+ */
 
 //#include "vmac.h"
 //#include <string.h>
@@ -855,6 +858,7 @@ uint64_t xvhash(unsigned char m[],
     #endif
     const uint64_t *kptr = (uint64_t *)ctx->nhkey;
     int i, remaining;
+    (void)tagl;
 
     remaining = mbytes % VMAC_NHBYTES;
     i = mbytes-remaining;
@@ -916,6 +920,7 @@ uint64_t vhash(unsigned char m[],
         uint64_t pkh2 = ctx->polykey[2];
         uint64_t pkl2 = ctx->polykey[3];
     #endif
+    (void)tagl;
 
     mptr = (uint64_t *)m;
     i = mbytes / VMAC_NHBYTES;
@@ -1015,6 +1020,7 @@ uint64_t vmac(unsigned char m[],
     uint64_t *in_n, *out_p;
     uint64_t p, h;
     int i;
+    (void)tagl;
 
     #if VMAC_CACHE_NONCES
     in_n = ctx->cached_nonce;

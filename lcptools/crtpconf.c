@@ -1,5 +1,5 @@
 /*
- * Copyright 2001 - 2007 Intel Corporation. All Rights Reserved. 
+ * Copyright 2001 - 2010 Intel Corporation. All Rights Reserved. 
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -163,12 +163,12 @@ main(int argc, char *argv[])
         ret_value = LCP_E_INVALID_PARAMETER;
         goto _error_end;
     }
-    for (i = 0; i < idx_num; i++) {
+    for ( i = 0; i < idx_num; i++ ) {
       if ( strtonum((char *)pcr_num[i], &temp) < 0 ) {
             ret_value = LCP_E_INVALID_PARAMETER;
             goto _error_end;
         }
-        if ( temp < 0 || temp > 23 ) {
+        if ( temp > 23 ) {
             ret_value = LCP_E_INVALID_PARAMETER;
             goto _error_end;
         }

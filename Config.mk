@@ -34,9 +34,14 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
 
 
+CFLAGS_WARN       = -Wall -Wformat-security -Werror -Wstrict-prototypes \
+	            -Wextra -Winit-self -Wswitch-default -Wunused-parameter \
+	            -Wwrite-strings -Wlogical-op \
+	            -Wno-missing-field-initializers \
+	            -D_FORTIFY_SOURCE=2
+
 HOSTCC            = gcc
-HOSTCFLAGS        = -Wall -Wformat-security -Werror -Wstrict-prototypes
-HOSTCFLAGS       += -O2 -std=gnu99 -fno-strict-aliasing
+HOSTCFLAGS        = $(CFLAGS_WARN) -O2 -std=gnu99 -fno-strict-aliasing
 
 HOSTCFLAGS_x86_32 = -m32
 HOSTCFLAGS_x86_64 = -m64
@@ -67,8 +72,7 @@ INSTALL_PROG = $(INSTALL) $(INSTALL_STRIP) -m0755 -p
 #
 TARGET_ARCH  ?= $(shell uname -m | sed -e s/i.86/x86_32/ -e s/i86pc/x86_32/)
 
-CFLAGS += -Wall -Wformat-security -Werror -Wstrict-prototypes
-CFLAGS += -fno-strict-aliasing -std=gnu99
+CFLAGS += $(CFLAGS_WARN) -fno-strict-aliasing -std=gnu99
 # due to bug in gcc v4.2,3,?
 CFLAGS += $(call cc-option,$(CC),-Wno-array-bounds,)
 

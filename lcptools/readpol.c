@@ -33,6 +33,7 @@
  * Command: lcp_readpol.
  * This command can read LCP policy from TPM NV Storage.
  */
+#include <stddef.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -56,19 +57,19 @@ static uint32_t passwd_length = 0;
 static int help_input = 0;
 
 static const char *short_option = "hi:f:s:p:";
-static const char *usage_string = "lcp_readpol -i index_value "\
-                       "[-s read_size] [-f output_file] [-p passwd] [-h]";
+static const char *usage_string = "lcp_readpol -i index_value "
+                                  "[-s read_size] [-f output_file] [-p passwd] [-h]";
 
-static const char *option_strings[] ={
-        "-i index value: uint32/string.\n"\
-        "\tINDEX_LCP_DEF:0x50000001 or \"default\",\n"\
-        "\tINDEX_LCP_OWN:0x40000001 or \"owner\",\n"\
-        "\tINDEX_AUX:0x50000002 or \"aux\"\n",
-        "-f file_name: string. Name of file to store the policy data in. \n",
-        "-s size to read: uint32. Value size to read from NV store.\n",
-        "-p password: string. \n",
-        "-h help. Will print out this help message.\n",
-        0
+static const char *option_strings[] = {
+    "-i index value: uint32/string.\n"
+    "\tINDEX_LCP_DEF:0x50000001 or \"default\",\n"
+    "\tINDEX_LCP_OWN:0x40000001 or \"owner\",\n"
+    "\tINDEX_AUX:0x50000002 or \"aux\"\n",
+    "-f file_name: string. Name of file to store the policy data in. \n",
+    "-s size to read: uint32. Value size to read from NV store.\n",
+    "-p password: string. \n",
+    "-h help. Will print out this help message.\n",
+    NULL
 };
 
 static param_option_t index_option_table[] = {
@@ -96,7 +97,7 @@ parse_cmdline(int argc, const char * argv[])
                  * if not, then the users should input the non-0 number,
                  * 0 is not allowed for index
                  */
-                if ( index_value == -1 )
+                if ( index_value == (uint32_t)-1 )
                     if ( strtonum(optarg, &index_value) || (index_value == 0) )
                         return LCP_E_INVALID_PARAMETER;
 
@@ -131,7 +132,7 @@ parse_cmdline(int argc, const char * argv[])
 
 static void print_hash(lcp_hash_t *hash)
 {
-    int i;
+    unsigned int i;
 
     for ( i = 0; i < sizeof(hash->sha1)/sizeof(hash->sha1[0]); i++ )
         log_info("%02x ", hash->sha1[i]);
@@ -142,10 +143,16 @@ static void print_policy(unsigned char* pol_buf, uint32_t buf_len)
 {
     lcp_policy_t pol;
     unsigned char *pdata = pol_buf;
-    static char *pol_types[] = {"LCP_POLTYPE_HASHONLY", "LCP_POLTYPE_UNSIGNED",
-				"LCP_POLTYPE_SIGNED", "LCP_POLTYPE_ANY",
-				"LCP_POLTYPE_FORCEOWNERPOLICY"};
+    static const char *pol_types[] = {"LCP_POLTYPE_HASHONLY",
+                                      "LCP_POLTYPE_UNSIGNED",
+                                      "LCP_POLTYPE_SIGNED", "LCP_POLTYPE_ANY",
+                                      "LCP_POLTYPE_FORCEOWNERPOLICY"};
 
+    if ( buf_len < (offsetof(lcp_policy_t, policy_hash) +
+                    sizeof(pol.policy_hash.sha1) + 1) ) {
+        log_error("policy buffer is too small\n");
+        return;
+    }
     lcp_unloaddata_byte(&pol.version, &pdata);
     lcp_unloaddata_byte(&pol.hash_alg, &pdata);
     lcp_unloaddata_byte(&pol.policy_type, &pdata);
@@ -219,7 +226,6 @@ main (int argc, char *argv[])
     if ( ret_value )
         goto exit;
 
-
     if ( file != NULL ) {
         /*
          * Write policy data into file.
@@ -236,9 +242,10 @@ main (int argc, char *argv[])
             ret_value = LCP_E_COMD_INTERNAL_ERR;
             goto exit;
         }
-    } else {
+    }
+    else {
         print_hexmsg("the policy is:\n", data_length, policy_data);
-	print_policy(policy_data, data_length);
+        print_policy(policy_data, data_length);
     }
 
 exit:
@@ -247,8 +254,19 @@ exit:
     if ( ret_value != LCP_SUCCESS ) {
         log_error("\nCommand ReadPol failed:\n");
         print_error(ret_value);
-    } else
+    }
+    else
         log_info("Successfully read value from index: 0x%08x.\n", index_value);
 
     return ret_value;
 }
+
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

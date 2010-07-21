@@ -143,7 +143,7 @@ bool verify_mbi(multiboot_info_t *mbi)
 static void *remove_module(multiboot_info_t *mbi, void *mod_start)
 {
     module_t *m = NULL;
-    int i;
+    unsigned int i;
 
     if ( !verify_mbi(mbi) )
         return NULL;
@@ -179,12 +179,12 @@ static void *remove_module(multiboot_info_t *mbi, void *mod_start)
 static bool adjust_kernel_cmdline(multiboot_info_t *mbi,
                                   const void *tboot_shared_addr)
 {
-    char *old_cmdline;
+    const char *old_cmdline;
 
     /* assumes mbi is valid */
 
     if ( mbi->flags & MBI_CMDLINE && mbi->cmdline != 0 )
-        old_cmdline = (char *)mbi->cmdline;
+        old_cmdline = (const char *)mbi->cmdline;
     else
         old_cmdline = "";
 
@@ -293,7 +293,7 @@ bool launch_kernel(bool is_measured_launch)
     return false;
 }
 
-module_t *get_module(multiboot_info_t *mbi, int i)
+module_t *get_module(multiboot_info_t *mbi, unsigned int i)
 {
     if ( mbi == NULL ) {
         printk("Error: mbi pointer is zero.\n");
@@ -377,7 +377,7 @@ bool verify_modules(multiboot_info_t *mbi)
 
     /* verify e820 map to make sure each module is OK in e820 map */
     /* check modules in mbi should be in RAM */
-    for ( int i = 0; i < mbi->mods_count; i++ ) {
+    for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
         m = (module_t *)(mbi->mods_addr + i*sizeof(module_t));
         base = m->mod_start;
         size = m->mod_end - m->mod_start;

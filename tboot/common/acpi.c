@@ -57,7 +57,8 @@ static __data bool g_hide_dmar;
 static void dump_gas(const char *reg_name,
                      const tboot_acpi_generic_address_t *reg)
 {
-    char *space_id[] = { "memory", "I/O", "PCI config space", "EC", "SMBus" };
+    const char *space_id[] = { "memory", "I/O", "PCI config space", "EC",
+                               "SMBus" };
 
     printk("%s GAS @ %p:\n", reg_name, reg);
     if ( reg == NULL )

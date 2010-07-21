@@ -206,6 +206,7 @@ static bool reserve_vtd_delta_mem(uint64_t min_lo_ram, uint64_t max_lo_ram,
                                   uint64_t min_hi_ram, uint64_t max_hi_ram)
 {
     uint64_t base, length;
+    (void)min_lo_ram; (void)min_hi_ram;/* portably suppress compiler warning */
 
     txt_heap_t* txt_heap = get_txt_heap();
     os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);

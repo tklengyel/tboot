@@ -180,7 +180,7 @@ bool verify_policy_list(const lcp_policy_list_t *pollist, size_t size,
 void display_policy_list(const char *prefix, const lcp_policy_list_t *pollist,
                          bool brief)
 {
-    static char *sig_alg_str[] =
+    static const char *sig_alg_str[] =
         { "LCP_POLSALG_NONE", "LCP_POLSALG_RSA_PKCS_15" };
 
     if ( pollist == NULL )

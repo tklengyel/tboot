@@ -57,21 +57,21 @@ static int help_input = 0;
 static unsigned char empty_pol_data[] = {0};
 
 static const char *short_option = "ehi:f:p:";
-static const char *usage_string = "lcp_writepol -i index_value "\
-                            "[-f policy_file] [-e] [-p passwd] [-h]";
+static const char *usage_string = "lcp_writepol -i index_value "
+                                  "[-f policy_file] [-e] [-p passwd] [-h]";
 
-static const char * option_strings[] ={
-        "-i index value: uint32/string.\n"\
-        "\tINDEX_LCP_DEF:0x50000001 or \"default\",\n"\
-        "\tINDEX_LCP_OWN:0x40000001 or \"owner\",\n"\
-        "\tINDEX_AUX:0x50000002 or \"aux\"\n",
-        "-f file_name: string. File name of the policy data is stored. \n",
-        "-p password: string. \n",
-        "-e write 0 length data to the index.\n"\
-        "\tIt will be used for some special index.\n"\
-        "\tFor example, the index with permission WRITEDEFINE.\n",
-        "-h help. Will print out this help message.\n",
-        0
+static const char *option_strings[] = {
+    "-i index value: uint32/string.\n"
+    "\tINDEX_LCP_DEF:0x50000001 or \"default\",\n"
+    "\tINDEX_LCP_OWN:0x40000001 or \"owner\",\n"
+    "\tINDEX_AUX:0x50000002 or \"aux\"\n",
+    "-f file_name: string. File name of the policy data is stored. \n",
+    "-p password: string. \n",
+    "-e write 0 length data to the index.\n"
+    "\tIt will be used for some special index.\n"
+    "\tFor example, the index with permission WRITEDEFINE.\n",
+    "-h help. Will print out this help message.\n",
+    NULL
 };
 
 static param_option_t index_option_table[] = {
@@ -99,7 +99,7 @@ parse_cmdline(int argc, const char * argv[])
                  * if not, then the users should input the non-0 number,
                  * 0 is not allowed for index
                  */
-                if ( index_value == -1 )
+                if ( index_value == (uint32_t)-1 )
                     if ( strtonum(optarg, &index_value) || (index_value == 0) )
                         return LCP_E_INVALID_PARAMETER;
 
@@ -234,3 +234,13 @@ exit:
 
     return ret_value;
 }
+
+/*
+ * Local variables:
+ * mode: C
+ * c-set-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

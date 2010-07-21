@@ -237,7 +237,7 @@ static void print_sinit_mdrs(sinit_mdr_t mdrs[], uint32_t num_mdrs)
                                       "PCIE EXTENDED CONFIG", "PROTECTED"};
 
     printk("\t sinit_mdrs:\n");
-    for ( int i = 0; i < num_mdrs; i++ ) {
+    for ( unsigned int i = 0; i < num_mdrs; i++ ) {
         printk("\t\t %016Lx - %016Lx ", mdrs[i].base,
                mdrs[i].base + mdrs[i].length);
         if ( mdrs[i].mem_type < sizeof(mem_types)/sizeof(mem_types[0]) )

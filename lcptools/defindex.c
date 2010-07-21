@@ -70,10 +70,10 @@ static struct option longopts[] = {
             {"rl", 1, 0, 'r'},
             {0, 0, 0, 0}};
 
-static char *usage_string = "tpmnv_defindex -i index [-s size] "\
-                     "[-pv permission_value] "\
-                     "[-p passwd] [-av authentication_value] "\
-                     "[-wl write_locality] [-rl read_locality] [-h]";
+static const char *usage_string = "tpmnv_defindex -i index [-s size] "
+                                  "[-pv permission_value] "
+                                  "[-p passwd] [-av authentication_value] "
+                                  "[-wl write_locality] [-rl read_locality] [-h]";
 
 static const char * option_strings[] = {
     "-i index value: uint32/string.\n"\
@@ -94,7 +94,7 @@ static const char * option_strings[] = {
     "\tFor example, locality value is 0x18 if locality 3 or 4. \n",
     "-wl write locality value: uint8. The same as read locality value.\n",
     "-h help. Will print out this help message.\n",
-    0
+    NULL
 };
 
 static param_option_t index_option_table[] = {
@@ -125,7 +125,7 @@ parse_cmdline(int argc, const char* argv[])
                  * if not, then the users should input the non-0 number,
                  * 0 is not allowed for index
                  */
-                if ( index_value == -1 )
+                if ( index_value == (uint32_t)-1 )
                     if ( strtonum(optarg, &index_value) || (index_value == 0) )
                         return LCP_E_INVALID_PARAMETER;
 

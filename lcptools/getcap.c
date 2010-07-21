@@ -61,7 +61,7 @@ static char *password = NULL;
 static uint32_t passwd_length = 0;
 
 static const char *short_option = "hi:f:";
-static char *usage_string = "tpmnv_getcap [-i index] [-f password] [-h]";
+static const char *usage_string = "tpmnv_getcap [-i index] [-f password] [-h]";
 
 static const char * option_strings[] ={
     "-i index value: uint32/string. To get the public data of this index.\n"\
@@ -70,7 +70,7 @@ static const char * option_strings[] ={
     "\tINDEX_AUX:0x50000002 or \"aux\"\n",
     "-f password: string  displays TPM_PERMANENT_FLAGS.\n",
     "-h help. Will print out this help message.\n",
-    0
+    NULL
 };
 
 static param_option_t index_option_table[] = {
@@ -97,7 +97,7 @@ static int parse_cmdline(int argc, const char * argv[])
                  * if not, then the users should input the non-0 number,
                  * 0 is not allowed for index
                  */
-                if ( index_value == -1 )
+                if ( index_value == (uint32_t)-1 )
                     if ( strtonum(optarg, &index_value) || (index_value == 0) )
                         return LCP_E_INVALID_PARAMETER;
                 break;
@@ -271,7 +271,7 @@ static lcp_result_t get_pubdata(uint32_t index)
     lcp_result_t ret_value = LCP_E_COMD_INTERNAL_ERR;
 
     ret_value = lcp_get_tpmcap(TSS_TPMCAP_NV_INDEX, 4,
-                    (unsigned char *)&index_value,
+                    (unsigned char *)&index,
                     &datasize, buffer);
 
     if ( ret_value != LCP_SUCCESS )
@@ -287,9 +287,8 @@ static lcp_result_t get_pubdata(uint32_t index)
          * If the index retrieved correctly,
          * print the public data to the screen.
          */
-        if ( index_retrieve == index_value ) {
-            log_info("\nThe public data value of index 0x%08x is: \n",
-                     index_value);
+        if ( index_retrieve == index ) {
+            log_info("\nThe public data value of index 0x%08x is: \n", index);
             /* print the public data to the screen */
             print_nv_caps_msg(datasize, buffer, "");
 
@@ -297,8 +296,8 @@ static lcp_result_t get_pubdata(uint32_t index)
             lcp_unloaddata_uint16(&pcrread_sizeofselect, &pbuffer, 1);
             pbuffer += pcrread_sizeofselect;
             log_info("\n\tRead locality: ");
-	    print_locality(*pbuffer);
-	    log_info(".\n");
+            print_locality(*pbuffer);
+            log_info(".\n");
 
             /* move the pbuffer to the start of pcrInfoWrite */
             pbuffer += pcrread_sizeofselect
@@ -309,8 +308,8 @@ static lcp_result_t get_pubdata(uint32_t index)
             lcp_unloaddata_uint16(&pcrwrite_sizeofselect, &pbuffer, 1);
             pbuffer += pcrwrite_sizeofselect;
             log_info("\n\tWrite locality: ");
-	    print_locality(*pbuffer);
-	    log_info(".\n");
+            print_locality(*pbuffer);
+            log_info(".\n");
 
             /* move the pointer and get permission value */
             pbuffer += pcrwrite_sizeofselect
@@ -319,7 +318,7 @@ static lcp_result_t get_pubdata(uint32_t index)
                      + sizeof(TPM_STRUCTURE_TAG);
             lcp_unloaddata_uint32(&permission, &pbuffer, 1);
             log_info("\n\tPermission value is 0x%x:\n", permission);
-	    print_permissions(permission, "\t\t");
+            print_permissions(permission, "\t\t");
 
             /* move the pointer and get data size */
             pbuffer += sizeof(unsigned char) + sizeof(unsigned char)

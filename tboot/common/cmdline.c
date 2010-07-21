@@ -436,7 +436,7 @@ bool get_linux_mem(uint64_t *max_mem)
     if ( last == NULL )
         return true;
 
-    switch (*last) {
+    switch ( *last ) {
         case 'G':
         case 'g':
             *max_mem = *max_mem << 30;
@@ -449,6 +449,8 @@ bool get_linux_mem(uint64_t *max_mem)
         case 'k':
             *max_mem = *max_mem << 10;
             return true;
+        default:
+            return false;
     }
 
     return true;
