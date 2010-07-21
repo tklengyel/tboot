@@ -45,13 +45,23 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <fcntl.h>
+
+/* tboot code assumes 4k pages */
+#ifdef PAGE_SHIFT
+#undef PAGE_SHIFT
+#endif
+#define PAGE_SHIFT       12
+#ifdef PAGE_SIZE
+#undef PAGE_SIZE
+#endif
+#define PAGE_SIZE        (1 << PAGE_SHIFT)
+
 #define printk   printf
 #include "../include/config.h"
 #include "../include/uuid.h"
 #include "../include/tboot.h"
 #include "../tboot/include/txt/config_regs.h"
 
-//#include "../tboot/include/txt/heap.h"
 /*
  * BIOS structure
  */

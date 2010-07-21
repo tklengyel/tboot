@@ -1,7 +1,7 @@
 /*
  * crtpolelt.c: Intel(R) TXT policy element (LCP_POLICY_ELEMENT) creation tool
  *
- * Copyright (c) 2009, Intel Corporation
+ * Copyright (c) 2009 - 2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -115,7 +115,7 @@ static void add_plugins(void)
             ERROR("Error: too many plugin options\n");
 
         /* copy help text */
-        strncat(help, plugin->help_txt, MAX_HELP_TEXT);
+        strncat(help, plugin->help_txt, MAX_HELP_TEXT - strlen(help) - 1);
     }
 }
 
