@@ -36,7 +36,8 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 
 CFLAGS_WARN       = -Wall -Wformat-security -Werror -Wstrict-prototypes \
 	            -Wextra -Winit-self -Wswitch-default -Wunused-parameter \
-	            -Wwrite-strings -Wlogical-op \
+	            -Wwrite-strings \
+	            $(call cc-option,$(CC),-Wlogical-op,) \
 	            -Wno-missing-field-initializers \
 	            -D_FORTIFY_SOURCE=2
 
