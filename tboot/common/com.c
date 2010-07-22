@@ -70,9 +70,11 @@ static void comc_setup(int speed)
     OUTB(com_cfcr, g_com_port.comc_fmt);
     OUTB(com_mcr, MCR_RTS | MCR_DTR);
 
-    do
+    for ( int wait = COMC_TXWAIT; wait > 0; wait-- ) {
         INB(com_data);
-    while ( INB(com_lsr) & LSR_RXRDY );
+        if ( !(INB(com_lsr) & LSR_RXRDY) )
+            break;
+    }
 }
 
 static void comc_pci_setup(void)

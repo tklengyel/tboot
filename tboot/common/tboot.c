@@ -455,10 +455,6 @@ void shutdown(void)
         apply_policy(TB_ERR_FATAL);
     }
 
-    /* re-initialize serial port since kernel may have used it */
-    if ( g_log_targets & TBOOT_LOG_TARGET_SERIAL )
-        serial_init();
-
     /* ensure localities 0, 1 are inactive (in case kernel used them) */
     release_locality(0);
     release_locality(1);
