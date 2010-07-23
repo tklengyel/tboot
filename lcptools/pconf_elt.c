@@ -1,7 +1,7 @@
 /*
  * pconf_elt.c: platform config policy element (LCP_PCONF_ELEMENT) plugin
  *
- * Copyright (c) 2009, Intel Corporation
+ * Copyright (c) 2009 - 2010, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,12 +34,14 @@
  */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <endian.h>
 #define PRINT   printf
 #include "../include/config.h"
 #include "../include/hash.h"
@@ -70,6 +72,13 @@ typedef struct __packed {
 } tpm_digest_t;
 
 typedef tpm_digest_t tpm_composite_hash_t;
+typedef tpm_digest_t tpm_pcrvalue_t;
+
+typedef struct __packed {
+    tpm_pcr_selection_t   select;
+    uint32_t              value_size;
+    tpm_pcrvalue_t        pcr_value[];
+} tpm_pcr_composite_t;
 
 typedef struct __packed {
     tpm_pcr_selection_t         pcr_selection;
@@ -113,11 +122,6 @@ static bool parse_pconf_line(const char *line)
     return true;
 }
 
-static void bswap16(uint16_t *u16)
-{
-    *u16 = ((*u16 & 0xff) << 8) | (*u16 >> 8);
-}
-
 static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
                           tb_hash_t digests[], tpm_pcr_info_short_t *pcr_info)
 {
@@ -126,9 +130,10 @@ static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
        runtime dependency on a TSS */
 
     /* fill in pcrSelection */
-    pcr_info->pcr_selection.size_of_select = 3;
     /* TPM structures are big-endian, so byte-swap */
-    bswap16(&pcr_info->pcr_selection.size_of_select);
+    pcr_info->pcr_selection.size_of_select = htobe16(3);
+    memset(&pcr_info->pcr_selection.pcr_select, 0,
+           sizeof(pcr_info->pcr_selection.pcr_select));
     for ( i = 0; i < nr_pcrs; i++ )
         pcr_info->pcr_selection.pcr_select[pcrs[i]/8] |= 1 << (pcrs[i] % 8);
 
@@ -136,26 +141,33 @@ static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
     pcr_info->locality_at_release = 0x1f;
 
     /*
-     * digest is hash of concatenation of specified digests
+     * digest is hash of TPM_PCR_COMPOSITE
      */
-    /* first concat specified digests */
-    size_t hash_size = get_hash_size(TB_HALG_SHA1);
-    uint8_t *digest_concat = (uint8_t *)malloc(hash_size * nr_pcrs);
-    if ( digest_concat == NULL )
+    size_t pcr_comp_size = offsetof(tpm_pcr_composite_t, pcr_value) +
+                           nr_pcrs * sizeof(tpm_pcrvalue_t);
+    tpm_pcr_composite_t *pcr_comp = (tpm_pcr_composite_t *)malloc(pcr_comp_size);
+                                      
+    if ( pcr_comp == NULL )
         return false;
-    for ( i = 0; i < nr_pcrs; i++ )
-        memcpy(digest_concat + i*hash_size, &digests[i], hash_size);
+    memcpy(&pcr_comp->select, &pcr_info->pcr_selection, sizeof(pcr_comp->select));
+    pcr_comp->value_size = htobe32(nr_pcrs * sizeof(tpm_pcrvalue_t));
+    /* concat specified digests */
+    for ( i = 0; i < nr_pcrs; i++ ) {
+        memcpy(&pcr_comp->pcr_value[i], &digests[i],
+               sizeof(pcr_comp->pcr_value[0]));
+    }
     /* then hash it */
     tb_hash_t hash;
-    if ( !hash_buffer(digest_concat, hash_size * nr_pcrs, &hash, TB_HALG_SHA1) ) {
-        free(digest_concat);
+    if ( !hash_buffer((uint8_t *)pcr_comp, pcr_comp_size, &hash,
+                      TB_HALG_SHA1) ) {
+        free(pcr_comp);
         return false;
     }
     /* then copy it */
     memcpy(&pcr_info->digest_at_release, &hash,
            sizeof(pcr_info->digest_at_release));
 
-    free(digest_concat);
+    free(pcr_comp);
     return true;
 }
 
@@ -210,6 +222,8 @@ static void display(const char *prefix, const lcp_policy_element_t *elt)
                 pcr_info->pcr_selection.pcr_select[0],
                 pcr_info->pcr_selection.pcr_select[1],
                 pcr_info->pcr_selection.pcr_select[2]);
+        DISPLAY("%s     localityAtRelease: 0x%x\n", prefix,
+                pcr_info->locality_at_release);
         DISPLAY("%s     digestAtRelease: ", prefix);
         print_hex("", &pcr_info->digest_at_release,
                   get_hash_size(TB_HALG_SHA1));
