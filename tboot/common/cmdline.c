@@ -43,6 +43,8 @@
 #include <printk.h>
 #include <cmdline.h>
 
+extern bool g_no_usb;
+
 /*
  * copy of original command line
  * part of tboot measurement (hence in .text section)
@@ -66,15 +68,16 @@ typedef struct {
 
 /* global option array for command line */
 static const cmdline_option_t g_tboot_cmdline_options[] = {
-    { "loglvl",   "all" },      /* all|none */
-    { "logging",  "serial" },   /* vga,serial,memory|none */
-    { "serial",   "com1" },     /* com[1|2|3|4] or its IO port (e.g. 0x3f8) */
+    { "loglvl",     "all" },     /* all|none */
+    { "logging",    "serial" },  /* vga,serial,memory|none */
+    { "serial",     "com1" },    /* com[1|2|3|4] or its IO port (e.g. 0x3f8) */
     /* comX=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
-    { "com1", "115200,8n1" },
-    { "com2", "115200,8n1" },
-    { "com3", "115200,8n1" },
-    { "com4", "115200,8n1" },
-    { "vga_delay", "0" },     /* # secs */
+    { "com1",       "115200,8n1" },
+    { "com2",       "115200,8n1" },
+    { "com3",       "115200,8n1" },
+    { "com4",       "115200,8n1" },
+    { "vga_delay",  "0" },      /* # secs */
+    { "no_usb",     "true" },   /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -86,12 +89,6 @@ static const cmdline_option_t g_linux_cmdline_options[] = {
 };
 static char g_linux_param_values[ARRAY_SIZE(g_linux_cmdline_options)][MAX_VALUE_LEN];
 
-void print_tboot_values(void)
-{
-    for ( int i = 0; g_tboot_cmdline_options[i].name != NULL; i++ )
-        printk("val[%d]: %s\n", i, &(g_tboot_param_values[i][0]));
-}
-
 static const char* get_option_val(const cmdline_option_t *options,
                                   char vals[][MAX_VALUE_LEN],
                                   const char *opt_name)
@@ -100,6 +97,7 @@ static const char* get_option_val(const cmdline_option_t *options,
         if ( strcmp(options[i].name, opt_name) == 0 )
             return vals[i];
     }
+    printk("requested unknown option: %s\n", opt_name);
     return NULL;
 }
 
@@ -401,6 +399,21 @@ void get_tboot_vga_delay(void)
 
     g_vga_delay = strtoul(vga_delay, NULL, 0);
 }
+
+void get_tboot_no_usb(void)
+{
+    const char *no_usb = get_option_val(g_tboot_cmdline_options,
+                                        g_tboot_param_values, "no_usb");
+    if ( no_usb == NULL )
+        return;
+
+    g_no_usb = ( strcmp(no_usb, "true") == 0 );
+}
+
+
+/*
+ * linux kernel command line parsing
+ */
 
 bool get_linux_vga(int *vid_mode)
 {

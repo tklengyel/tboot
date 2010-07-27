@@ -124,6 +124,15 @@ o  Progress of the launch process is indicated via debug printk's using three
    The default values for these are:  serial=com1 and com1=115200,8n1 (where
    com1 uses IO port 0x3f8).
 
+o  Disabling legacy USB SMIs:
+   By default, tboot will disable legacy USB SMIs, which allows it to avoid
+   wasting memory due to DMA protection.  By disabling SMIs, tboot can DMA
+   protect all memory, even the BIOS reserved regions (since even though there
+   may be USB buffers in them, no SMIs will be generated).  However, this has
+   effect of disabling a USB keyboard until the VMM/kernel starts a USB stack.
+   This behavior can be disabled by setting the command line option "no_usb"
+   to false (e.g. "no_usb=false").
+
 o  tboot will attempt to seal the module measurements using the TPM so that if
    it is put into S3 it can restore the correct PCR values on resume.  In order
    for this to work, the TPM must be owned and the SRK auth must be set to all

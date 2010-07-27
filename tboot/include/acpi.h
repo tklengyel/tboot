@@ -498,6 +498,7 @@ extern bool remove_vtd_dmar_table(void);
 
 extern struct acpi_table_ioapic *get_acpi_ioapic_table(void);
 extern struct acpi_mcfg *get_acpi_mcfg_table(void);
+extern void disable_smis(void);
 
 extern bool machine_sleep(const tboot_acpi_sleep_info_t *);
 extern void set_s3_resume_vector(const tboot_acpi_sleep_info_t *, uint64_t);

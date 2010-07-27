@@ -42,13 +42,16 @@
 #include <tboot.h>
 #include <acpi.h>
 #include <misc.h>
-
+#include <cmdline.h>
+#include <pci_cfgreg.h>
 
 #ifdef ACPI_DEBUG
 #define acpi_printk         printk
 #else
 #define acpi_printk(...)    /* */
 #endif
+
+bool g_no_usb;
 
 static struct acpi_rsdp *rsdp;
 static struct acpi_table_header *g_dmar_table;
@@ -434,6 +437,17 @@ void set_s3_resume_vector(const tboot_acpi_sleep_info_t *acpi_sinfo,
 
     acpi_printk("wakeup_vector_address = %llx\n", acpi_sinfo->wakeup_vector);
     acpi_printk("wakeup_vector_value = %llxx\n", resume_vector);
+}
+
+void disable_smis(void)
+{
+    if ( g_no_usb ) {
+        printk("disabling legacy USB SMIs\n");
+        uint32_t pmbase = pcireg_cfgread(0, 31, 0, 0x40, 4) & ~1;
+        uint32_t smi_en = inl(pmbase + 0x30);
+        smi_en &= ~0x20008;
+        outl(pmbase + 0x30, smi_en);
+    }
 }
 
 /*
