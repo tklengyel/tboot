@@ -70,12 +70,8 @@ typedef struct {
 static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "loglvl",     "all" },     /* all|none */
     { "logging",    "serial" },  /* vga,serial,memory|none */
-    { "serial",     "com1" },    /* com[1|2|3|4] or its IO port (e.g. 0x3f8) */
-    /* comX=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
-    { "com1",       "115200,8n1" },
-    { "com2",       "115200,8n1" },
-    { "com3",       "115200,8n1" },
-    { "com4",       "115200,8n1" },
+    { "serial",     "115200,8n1" },
+    /* serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
     { "vga_delay",  "0" },      /* # secs */
     { "no_usb",     "true" },   /* true|false */
     { NULL, NULL }
@@ -296,7 +292,7 @@ static bool parse_com_fmt(const char **fmt)
     return true;
 }
 
-static bool parse_com_param(const char *com)
+static bool parse_serial_param(const char *com)
 {
     /* parse baud */
     g_com_port.comc_curspeed = strtoul(com, (char **)&com, 10);
@@ -355,39 +351,14 @@ static bool parse_com_param(const char *com)
     return true;
 }
 
-bool get_tboot_console(void)
+bool get_tboot_serial(void)
 {
-    static struct {
-        const char *com_name;
-        unsigned long com_addr;
-    } coms[] = { {"com1", COM1_ADDR}, {"com2", COM2_ADDR},
-                 {"com3", COM3_ADDR}, {"com4", COM4_ADDR} };
-
-    const char *console = get_option_val(g_tboot_cmdline_options,
+    const char *serial = get_option_val(g_tboot_cmdline_options,
                                         g_tboot_param_values, "serial");
-    if ( console == NULL || *console == '\0' )
+    if ( serial == NULL || *serial == '\0' )
         return false;
 
-    unsigned int i;
-    for ( i = 0; i < ARRAY_SIZE(coms); i++ ) {
-        if ( strcmp(console, coms[i].com_name) == 0 ||
-             strtoul(console, NULL, 0) == coms[i].com_addr ) {
-            g_com_port.comc_port = coms[i].com_addr;
-            break;
-        }
-    }
-    if ( i == ARRAY_SIZE(coms) ) {
-        printk("unsupported serial port\n");
-        return false;
-    }
-
-    const char *com_value = get_option_val(g_tboot_cmdline_options,
-                                           g_tboot_param_values,
-                                           coms[i].com_name);
-    if ( com_value != NULL && *com_value != '\0' )
-        return parse_com_param(com_value);
-
-    return false;
+    return parse_serial_param(serial);
 }
 
 void get_tboot_vga_delay(void)

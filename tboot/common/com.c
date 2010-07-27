@@ -38,8 +38,8 @@
 #include <pci_cfgreg.h>
 #include <com.h>
 
-#define COMC_TXWAIT	    0x40000			/* transmit timeout */
-#define COMC_BPS(x)	    (115200 / (x))	/* speed to DLAB divisor */
+#define COMC_TXWAIT	0x40000		/* transmit timeout */
+#define COMC_BPS(x)	(115200 / (x))	/* speed to DLAB divisor */
 #define COMC_DIV2BPS(x)	(115200 / (x))	/* DLAB divisor to speed */
 
 #define OUTB(add, val)   outb(g_com_port.comc_port + (add), (val))

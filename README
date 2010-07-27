@@ -117,12 +117,10 @@ o  Progress of the launch process is indicated via debug printk's using three
 
    If serial logging is set, the serial port settings can be configured with
    the following parameters:
-       serial=com[1|2|3|4|<IO port>]   where <IO port> is specified as a hex
-                                       value (e.g. 0x3f8)
-       com[1|2|3|4]=<baud>,<data bits><parity><stop bits>
+       serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>
+              [,<bridge-bdf>]]]]]
 
-   The default values for these are:  serial=com1 and com1=115200,8n1 (where
-   com1 uses IO port 0x3f8).
+   The default values for these are:  serial=115200,8n1,0x3f8.
 
 o  Disabling legacy USB SMIs:
    By default, tboot will disable legacy USB SMIs, which allows it to avoid

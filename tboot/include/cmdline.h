@@ -43,7 +43,7 @@ extern char g_cmdline[CMDLINE_SIZE];
 extern void tboot_parse_cmdline(void);
 extern void get_tboot_loglvl(void);
 extern void get_tboot_log_targets(void);
-extern bool get_tboot_console(void);
+extern bool get_tboot_serial(void);
 extern void get_tboot_baud(void);
 extern void get_tboot_fmt(void);
 extern void get_tboot_vga_delay(void);

@@ -109,7 +109,7 @@ void printk_init(void)
     get_tboot_log_targets();
 
     /* parse serial settings */
-    if ( !get_tboot_console() )
+    if ( !get_tboot_serial() )
         g_log_targets &= ~TBOOT_LOG_TARGET_SERIAL;
 
     if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY )
