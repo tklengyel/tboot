@@ -72,49 +72,59 @@ extern bool jump_linux_image(void *entry_point);
 extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet);
 
 #if 0
-static void print_mbi(multiboot_info_t *mbi)
+void print_mbi(multiboot_info_t *mbi)
 {
     /* print mbi for debug */
-    int i;
+    unsigned int i;
+
     printk("print mbi ...\n");
-    printk("flags = %x\n", mbi->flags);
+    printk("\t flags: 0x%x\n", mbi->flags);
     if ( mbi->flags & MBI_MEMLIMITS )
-        printk("mem_lower = %uKB, mem_upper = %uKB\n", mbi->mem_lower,
+        printk("\t mem_lower: %uKB, mem_upper: %uKB\n", mbi->mem_lower,
                mbi->mem_upper);
-    if ( mbi->flags & 1<<1 )
-        printk("boot_device = %x\n", mbi->boot_device);
+    if ( mbi->flags & 1<<1 ) {
+        printk("\t boot_device.bios_driver: 0x%x\n", mbi->boot_device.bios_driver);
+        printk("\t boot_device.top_level_partition: 0x%x\n",
+               mbi->boot_device.top_level_partition);
+        printk("\t boot_device.sub_partition: 0x%x\n",
+               mbi->boot_device.sub_partition);
+        printk("\t boot_device.third_partition: 0x%x\n",
+               mbi->boot_device.third_partition);
+    }
     if ( mbi->flags & MBI_CMDLINE )
-        printk("cmdline = %s\n", (char *)mbi->cmdline);
+        printk("\t cmdline: \"%s\"\n", (char *)mbi->cmdline);
     if ( mbi->flags & MBI_MODULES ) {
-        printk("mods_count = %x, mods_addr = %x\n", mbi->mods_count,
+        printk("\t mods_count: %u, mods_addr: 0x%x\n", mbi->mods_count,
                mbi->mods_addr);
         for ( i = 0; i < mbi->mods_count; i++ ) {
 	        module_t *p = (module_t *)(mbi->mods_addr + i*sizeof(module_t));
-	        printk("\t %d : mod_start = 0x%x, mod_end = 0x%x\n"
-                   "\t      string (@0x%x) = %s\n", i, p->mod_start,
-                   p->mod_end, p->string, (char *)p->string);
+	        printk("\t     %d : mod_start: 0x%x, mod_end: 0x%x\n", i,
+                   p->mod_start, p->mod_end);
+            printk("\t         string (@0x%x): \"%s\"\n", p->string,
+                   (char *)p->string);
         }
     }
     if ( mbi->flags & 1<<4 ) {
-        aout_symbol_table_t *p = &(mbi->u.aout_sym);
-        printk("tabsize = %x, strsize = %x, addr = %x\n", p->tabsize,
-               p->strsize, p->addr);
+        aout_t *p = &(mbi->syms.aout_image);
+        printk("\t aout :: tabsize: 0x%x, strsize: 0x%x, addr: 0x%x\n",
+               p->tabsize, p->strsize, p->addr);
     }
     if ( mbi->flags & 1<<5 ) {
-        elf_section_header_table_t *p = &(mbi->u.elf_sec);
-        printk("num = %x, size = %x, addr = %x, shndx = %x\n", p->num,
-               p->size, p->addr, p->shndx);
+        elf_t *p = &(mbi->syms.elf_image);
+        printk("\t elf :: num: %u, size: 0x%x, addr: 0x%x, shndx: 0x%x\n",
+               p->num, p->size, p->addr, p->shndx);
     }
     if ( mbi->flags & MBI_MEMMAP ) {
         memory_map_t *p;
-        printk("mmap_length = %x, mmap_addr = %x\n", mbi->mmap_length,
+        printk("\t mmap_length: 0x%x, mmap_addr: 0x%x\n", mbi->mmap_length,
                mbi->mmap_addr);
         for ( p = (memory_map_t *)mbi->mmap_addr;
               (uint32_t)p < mbi->mmap_addr + mbi->mmap_length;
               p=(memory_map_t *)((uint32_t)p + p->size + sizeof(p->size)) ) {
-	        printk("size = %x, base_addr = 0x%x%x, length = 0x%x%x, "
-                   "type = %x\n", p->size, p->base_addr_high,
-                   p->base_addr_low, p->length_high, p->length_low, p->type);
+	        printk("\t     size: 0x%x, base_addr: 0x%04x%04x, "
+                   "length: 0x%04x%04x, type: %u\n", p->size,
+                   p->base_addr_high, p->base_addr_low,
+                   p->length_high, p->length_low, p->type);
         }
     }
 }
