@@ -736,7 +736,7 @@ lcp_create_policy_list(pdlist_src_t src,
                 pcr_length = select + sizeof(select)
                              + sizeof(TPM_LOCALITY_SELECTION) + SHA1_HASH_LEN;
                 /* check whether the data input is long enough */
-                if ( (pcr_length + (pread_data - src.listdata) -2)
+                if ( (pcr_length + (size_t)(pread_data - src.listdata) -2)
                         > src.listdata_length ) {
                     log_error("the policy list data is not correct\n");
                     result = LCP_E_COMD_INTERNAL_ERR;
