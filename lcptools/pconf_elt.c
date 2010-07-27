@@ -41,7 +41,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
-#include <endian.h>
+#include <byteswap.h>
 #define PRINT   printf
 #include "../include/config.h"
 #include "../include/hash.h"
@@ -131,7 +131,7 @@ static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
 
     /* fill in pcrSelection */
     /* TPM structures are big-endian, so byte-swap */
-    pcr_info->pcr_selection.size_of_select = htobe16(3);
+    pcr_info->pcr_selection.size_of_select = bswap_16(3);
     memset(&pcr_info->pcr_selection.pcr_select, 0,
            sizeof(pcr_info->pcr_selection.pcr_select));
     for ( i = 0; i < nr_pcrs; i++ )
@@ -150,7 +150,7 @@ static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
     if ( pcr_comp == NULL )
         return false;
     memcpy(&pcr_comp->select, &pcr_info->pcr_selection, sizeof(pcr_comp->select));
-    pcr_comp->value_size = htobe32(nr_pcrs * sizeof(tpm_pcrvalue_t));
+    pcr_comp->value_size = bswap_32(nr_pcrs * sizeof(tpm_pcrvalue_t));
     /* concat specified digests */
     for ( i = 0; i < nr_pcrs; i++ ) {
         memcpy(&pcr_comp->pcr_value[i], &digests[i],
