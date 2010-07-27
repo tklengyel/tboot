@@ -75,7 +75,7 @@ distclean : clean
 #
 
 trousers_dep:
-	@echo -e "#include <trousers/tss.h>" | $(CC) -x c $(CFLAGS) $(LDFLAGS) $(LIBS) - -Wl,--defsym=main=0 -o $@ >/dev/null 2>&1 || (echo trousers-devel package is not installed && false)
+	@printf "#include <trousers/tss.h>\n" | $(CC) -x c $(CFLAGS) $(LDFLAGS) $(LIBS) - -Wl,--defsym=main=0 -o $@ >/dev/null 2>&1 || (echo trousers-devel package is not installed && false)
 
 #
 # dependencies
