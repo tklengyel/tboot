@@ -303,7 +303,7 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
     params->image_file[0] = '\0';
 
     while ( true ) {
-        c = getopt_long_only(argc, argv, "HCSp:h:m:r:f:c:l:", long_options,
+        c = getopt_long_only(argc, argv, "HCADSt:c:n:p:h:l:i:o:", long_options,
                              &option_index);
         if ( c == -1 )     /* no more args */
             break;
