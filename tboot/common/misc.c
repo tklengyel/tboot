@@ -57,55 +57,79 @@ void print_hex(const char *prefix, const void *prtptr, size_t size)
 }
 
 static bool g_calibrated = false;
-static uint64_t g_ticks_per_sec;
+static uint64_t g_ticks_per_millisec;
+
+#define TIMER_FREQ	1193182
+#define TIMER_DIV(hz)	((TIMER_FREQ+(hz)/2)/(hz))
 
 static void wait_tsc_uip(void)
 {
-    outb(0x70, 0x0a);     /* status A */
-    /* wait for UIP to be set */
     do {
+        outb(0x43, 0xe8);
         cpu_relax();
-    } while ( !(inb(0x71) & 0x80) );
-    /* now wait for it to clear */
+    } while ( !(inb(0x42) & 0x80) );
     do {
+        outb(0x43, 0xe8);
         cpu_relax();
-    } while ( inb(0x71) & 0x80 );
+    } while ( inb(0x42) & 0x80 );
 }
 
-static bool calibrate_tsc(void)
+static void calibrate_tsc(void)
 {
     if ( g_calibrated )
-        return false;
+        return;
 
-    /* wait for UIP to be de-asserted */
+    /* disable speeker */
+    uint8_t val = inb(0x61);
+    val = ((val & ~0x2) | 0x1);
+    outb(0x61, val);
+
+    /* 0xb6 - counter2, low then high byte write */
+    /* mode 3, binary */
+    outb(0x43, 0xb6);
+
+    /* 0x4a9 - divisor to get 1ms period time */
+    /* 1.19318 MHz / 1193 = 1000.15Hz */
+    uint16_t latch = TIMER_DIV(1000);
+    outb(0x42, latch & 0xff);
+    outb(0x42, latch >> 8);
+
+    /* 0xe8 - read back command, don't get count */
+    /* get status, counter2 select */
+    do {
+        outb(0x43, 0xe8);
+        cpu_relax();
+    } while ( inb(0x42) & 0x40 );
+
     wait_tsc_uip();
 
     /* get starting TSC val */
-    uint64_t rtc_start = rdtsc();
+    uint64_t start = rdtsc();
 
-    /* wait for seconds to be updated */
     wait_tsc_uip();
 
-    uint64_t rtc_end = rdtsc();
+    uint64_t end = rdtsc();
 
-    /* # ticks in 1 sec */
-    g_ticks_per_sec = rtc_end - rtc_start;
+    /* # ticks in 1 millisecond */
+    g_ticks_per_millisec = end - start;
 
-    return true;
+    /* restore timer 1 programming */
+    outb(0x43, 0x54);
+    outb(0x41, 0x12);
+
+    g_calibrated = true;
 }
 
-void delay(int secs)
+void delay(int millisecs)
 {
-    /* calibration will take 1sec */
-    if ( calibrate_tsc() )
-        secs -= 1;
-
-    if ( secs <= 0 )
+    if ( millisecs <= 0 )
         return;
+
+    calibrate_tsc();
 
     uint64_t rtc = rdtsc();
 
-    uint64_t end_ticks = rtc + secs * g_ticks_per_sec;
+    uint64_t end_ticks = rtc + millisecs * g_ticks_per_millisec;
     while ( rtc < end_ticks ) {
         cpu_relax();
         rtc = rdtsc();

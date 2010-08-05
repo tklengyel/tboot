@@ -108,7 +108,7 @@ static void vga_putc(int c)
 
         /* (optionally) pause after every screenful */
         if ( (num_lines % (MAX_LINES - 1)) == 0 && g_vga_delay > 0 )
-            delay(g_vga_delay);
+            delay(g_vga_delay * 1000);
     }
 }
 

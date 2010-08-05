@@ -48,8 +48,8 @@
 /* un-comment to enable detailed command tracing */
 //#define TPM_TRACE
 
-/* ~530 are required for Infineon that requires this, so leave some extra */
-#define MAX_SAVESTATE_RETRIES       1000
+/* ~5 secs are required for Infineon that requires this, so leave some extra */
+#define MAX_SAVESTATE_RETRIES       60
 
 #define TPM_TAG_RQU_COMMAND         0x00C1
 #define TPM_TAG_RQU_AUTH1_COMMAND   0x00C2
@@ -1981,10 +1981,15 @@ uint32_t tpm_save_state(uint32_t locality)
             printk("retrying command: .");
         else
             printk(".");
-        retries++;
 
-        cpu_relax();
-    } while ( ret == TPM_RETRY && retries < MAX_SAVESTATE_RETRIES );
+        if ( ret != TPM_RETRY )
+            break;
+
+        retries++;
+        delay(100);
+    } while ( retries < MAX_SAVESTATE_RETRIES );
+    if ( retries >= MAX_SAVESTATE_RETRIES )
+        printk("TIMEOUT!");
     if ( retries > 0 )
         printk("\n");
 

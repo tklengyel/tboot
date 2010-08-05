@@ -38,7 +38,7 @@
 
 extern void print_hex(const char * buf, const void * prtptr, size_t size);
 
-extern void delay(int secs);
+extern void delay(int millisecs);
 
 /*
  *  These three "plus overflow" functions take a "x" value
