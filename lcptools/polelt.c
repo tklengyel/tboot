@@ -70,48 +70,18 @@ polelt_plugin_t *find_polelt_plugin_by_type_string(const char *type_str)
     return NULL;
 }
 
-bool verify_policy_element(const lcp_policy_element_t *elt, size_t size)
+void display_policy_element(const char *prefix, const lcp_policy_element_t *elt)
 {
-    if ( size < sizeof(*elt) ) {
-        ERROR("Error: data is too small\n");
-        return false;
-    }
-
-    if ( size != elt->size ) {
-        ERROR("Error: data is too small\n");
-        return false;
-    }
-
-    /* no members to verify */
-    return true;
-}
-
-void display_policy_element(const char *prefix,
-                            const lcp_policy_element_t *elt, bool brief)
-{
-    DISPLAY("%s size: 0x%x (%u)\n", prefix, elt->size, elt->size);
-
     polelt_plugin_t *plugin = find_polelt_plugin_by_type(elt->type);
-
-    const char *type_str = (plugin == NULL) ? "unknown" : plugin->type_string;
-    DISPLAY("%s type: \'%s\' (%u)\n", prefix, type_str, elt->type);
-
-    DISPLAY("%s policy_elt_control: 0x%08x\n", prefix,
-            elt->policy_elt_control);
-
-    /* don't display element data for brief output */
-    if ( brief )
-        return;
-
     char new_prefix[strlen(prefix)+8];
-    snprintf(new_prefix, sizeof(new_prefix), "%s    ", prefix);
+
+    snprintf(new_prefix, sizeof(new_prefix), "%s\t", prefix);
     DISPLAY("%s data:\n", prefix);
     if ( plugin == NULL )
         print_hex(new_prefix, elt->data, elt->size - sizeof(*elt));
     else
         (*plugin->display)(new_prefix, elt);
 }
-
 
 /*
  * Local variables:

@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -49,7 +50,9 @@
 #include "../include/lcp2.h"
 #include "polelt_plugin.h"
 #include "polelt.h"
+#include "pollist.h"
 #include "lcputils2.h"
+#include "../include/lcp2_fns.h"
 
 #define MAX_HELP_TEXT       4096
 static char help[MAX_HELP_TEXT] =
@@ -209,9 +212,9 @@ int main (int argc, char *argv[])
                                      read_file(argv[optind++], &len, false);
             if ( elt == NULL )
                 return 1;
-            if ( !verify_policy_element(elt, len) )
+            /* this also displays it */
+            if ( !verify_policy_element(elt, len, false, false) )
                 return 1;
-            display_policy_element("    ", elt, false);
         }
         return 0;
     }

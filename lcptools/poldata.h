@@ -36,17 +36,8 @@
 #ifndef __POLDATA_H__
 #define __POLDATA_H__
 
-extern size_t get_policy_data_size(const lcp_policy_data_t *poldata);
-extern bool verify_policy_data(const lcp_policy_data_t *poldata, size_t size);
-extern void display_policy_data(const char *prefix,
-                                const lcp_policy_data_t *poldata, bool brief);
-
 extern lcp_policy_data_t *add_policy_list(lcp_policy_data_t *poldata,
                                           const lcp_policy_list_t *pollist);
-
-extern void calc_policy_data_hash(const lcp_policy_data_t *poldata,
-                                  lcp_hash_t *hash, uint8_t hash_alg);
-
 
 #endif    /* __POLDATA_H__ */
 

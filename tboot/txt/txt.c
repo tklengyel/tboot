@@ -54,7 +54,8 @@
 #include <loader.h>
 #include <tboot.h>
 #include <mle.h>
-#define LCP_UUID_ONLY
+#include <hash.h>
+#    define LCP_TBOOT_ONLY
 #include <lcp2.h>
 #include <cmdline.h>
 #include <txt/txt.h>
@@ -197,7 +198,7 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
  * (size can be NULL)
  */
 static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
-                                       uint32_t *size)
+                                       size_t *size)
 {
     if ( base != NULL )
         *base = NULL;
@@ -227,7 +228,7 @@ static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
         printk("checking if module %s is an SINIT for this platform...\n",
                (const char *)m->string);
         void *base2 = (void *)m->mod_start;
-        uint32_t size2 = m->mod_end - (unsigned long)(base2);
+        size_t size2 = m->mod_end - (unsigned long)(base2);
         if ( is_sinit_acmod(base2, size2, false) &&
              does_acmod_match_chipset((acm_hdr_t *)base2) ) {
             if ( base != NULL )
@@ -243,10 +244,14 @@ static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
     return false;
 }
 
-bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
+/*
+ * return the version of lcp policy data, 0 for failure
+ */
+int find_lcp_module(multiboot_info_t *mbi, void **base, size_t *size)
 {
     size_t size2 = 0;
     void *base2 = NULL;
+    int ret = 0;
 
     if ( base != NULL )
         *base = NULL;
@@ -264,20 +269,24 @@ bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
 
         if ( base2 == NULL ) {
             printk("no LCP module found\n");
-            return false;
+            return 0;
         }
-        else
+        else {
             printk("v2 LCP policy data found\n");
+            ret = 2;
+        }
     }
-    else
+    else {
         printk("v1 LCP policy data found\n");
+        ret = 1;
+    }
 
 
     if ( base != NULL )
         *base = base2;
     if ( size != NULL )
         *size = size2;
-    return true;
+    return ret;
 }
 
 /*
@@ -338,12 +347,11 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
                  max_hi_ram);
     /* LCP owner policy data */
     void *lcp_base = NULL;
-    uint32_t lcp_size = 0;
-    find_lcp_module(mbi, &lcp_base, &lcp_size);
-    if ( lcp_size > 0 ) {
+    size_t lcp_size = 0;
+    if ( find_lcp_module(mbi, &lcp_base, &lcp_size) && lcp_size > 0 ) {
         /* copy to heap */
         if ( lcp_size > sizeof(os_mle_data->lcp_po_data) ) {
-            printk("LCP owner policy data file is too large (%u)\n", lcp_size);
+            printk("LCP owner policy data file is too large (%lu)\n", lcp_size);
             return NULL;
         }
         memcpy(os_mle_data->lcp_po_data, lcp_base, lcp_size);

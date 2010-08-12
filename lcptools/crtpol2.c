@@ -32,7 +32,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -53,10 +52,11 @@
 #include "../include/uuid.h"
 #include "../include/lcp2.h"
 #include "polelt_plugin.h"
-#include "pol.h"
+#include "polelt.h"
 #include "poldata.h"
 #include "pollist.h"
 #include "lcputils2.h"
+#include "../include/lcp2_fns.h"
 
 static const char help[] =
     "Usage: lcp_crtpol2 <COMMAND> [OPTION]\n"
@@ -192,9 +192,10 @@ static int show(void)
     if ( data == NULL )
         return 1;
 
+    DISPLAY("probing policy file or policy data file, errors can be ignored\n");
     /* we allow files in any order or either one only, so assume that if
        first file doesn't verify as a policy then it must be policy data */
-    if ( !verify_policy(data, len, true) ) {
+    if ( !verify_lcp_policy(data, len, true, brief) ) {
         poldata = (lcp_policy_data_t *)data;
         poldata_len = len;
         poldata_file = files[0];
@@ -204,6 +205,7 @@ static int show(void)
         pol_len = len;
         pol_file = files[0];
     }
+    DISPLAY("probing done\n\n");
 
     if ( nr_files == 2 ) {
         data = read_file(files[1], &len, false);
@@ -223,16 +225,15 @@ static int show(void)
 
     if ( pol != NULL ) {
         DISPLAY("policy file: %s\n", pol_file);
-        if ( verify_policy(pol, pol_len, false) ) {
-            display_policy("    ", pol, brief);
+        /* this also display it */
+        if ( verify_lcp_policy(pol, pol_len, false, brief) )
             err = 0;
-        }
     }
 
     if ( poldata != NULL ) {
         DISPLAY("\npolicy data file: %s\n", poldata_file);
-        if ( verify_policy_data(poldata, len) ) {
-            display_policy_data("    ", poldata, brief);
+        /* this also display it */
+        if ( verify_policy_data(poldata, len, false, brief) ) {
 
             /* no use verifying hash if policy didn't validate or doesn't
                exist or isn't list type */
@@ -240,7 +241,7 @@ static int show(void)
                 lcp_hash_t hash;
                 calc_policy_data_hash(poldata, &hash, pol->hash_alg);
                 if ( memcmp(&hash, &pol->policy_hash,
-                            get_lcp_hash_size(pol->hash_alg)) == 0 )
+                            get_hash_size(pol->hash_alg)) == 0 )
                     DISPLAY("\npolicy data hash matches policy hash\n");
                 else {
                     ERROR("\nError: policy data hash does not match policy hash\n");

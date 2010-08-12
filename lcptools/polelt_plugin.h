@@ -61,11 +61,6 @@ extern polelt_plugin_t *polelt_plugins[];
         polelt_plugins[nr_polelt_plugins++] = plugin;           \
     }
 
-/* users must define these: */
-extern void ERROR(const char *fmt, ...);
-extern void LOG(const char *fmt, ...);
-extern void DISPLAY(const char *fmt, ...);
-
 #endif    /* __POLELT_PLUGIN_H__ */
 
 

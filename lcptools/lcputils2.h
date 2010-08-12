@@ -36,18 +36,19 @@
 #ifndef __LCPUTILS2_H__
 #define __LCPUTILS2_H__
 
-#define MAJOR_VER(v)      ((v) >> 8)
-#define MINOR_VER(v)      ((v) & 0xff)
-
 #define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
 
 #define MAX_PATH           256
 
 extern bool verbose;
 
-extern void ERROR(const char *fmt, ...);
-extern void LOG(const char *fmt, ...);
-extern void DISPLAY(const char *fmt, ...);
+extern void __ERROR(const char *fmt, ...);
+extern void __LOG(const char *fmt, ...);
+extern void __DISPLAY(const char *fmt, ...);
+
+#define ERROR   __ERROR
+#define LOG     __LOG
+#define DISPLAY __DISPLAY
 
 extern size_t strlcpy(char *dst, const char *src, size_t siz);
 
@@ -61,9 +62,6 @@ extern bool write_file(const char *file, const void *data, size_t size);
 extern bool parse_line_hashes(const char *line, tb_hash_t *hash);
 extern bool parse_file(const char *filename,
 		       bool (*parse_line)(const char *line));
-
-extern const char *hash_alg_to_str(uint8_t alg);
-extern size_t get_lcp_hash_size(uint8_t hash_alg);
 
 extern bool verify_signature(const uint8_t *data, size_t data_size,
                              const uint8_t *pubkey, size_t pubkey_size,

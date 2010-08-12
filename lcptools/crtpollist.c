@@ -53,9 +53,10 @@
 #include "../include/uuid.h"
 #include "../include/lcp2.h"
 #include "polelt_plugin.h"
-#include "pollist.h"
 #include "polelt.h"
+#include "pollist.h"
 #include "lcputils2.h"
+#include "../include/lcp2_fns.h"
 
 static const char help[] =
     "Usage: lcp_crtpollist <COMMAND> [OPTION]\n"
@@ -271,7 +272,7 @@ static int create(void)
             free(pollist);
             return 1;
         }
-        if ( !verify_policy_element(elt, len) ) {
+        if ( !verify_policy_element(elt, len, true, true) ) {
             free(pollist);
             return 1;
         }
@@ -413,7 +414,10 @@ static int show(void)
         return 1;
 
     DISPLAY("policy list file: %s\n", files[0]);
-    display_policy_list("", pollist, false);
+
+    /* this also displays it */
+    verify_policy_list(pollist, get_policy_list_size(pollist), NULL, true,
+                       false, false);
 
     if ( pollist->sig_alg == LCP_POLSALG_RSA_PKCS_15 && !no_sigblock_ok ) {
         if ( verify_pollist_sig(pollist) )

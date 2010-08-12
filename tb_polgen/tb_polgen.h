@@ -45,7 +45,7 @@ extern bool verbose;
 
 typedef enum {
     POLGEN_CMD_NONE, POLGEN_CMD_HELP, POLGEN_CMD_CREATE, POLGEN_CMD_ADD,
-    POLGEN_CMD_DEL, POLGEN_CMD_SHOW,
+    POLGEN_CMD_DEL, POLGEN_CMD_UNWRAP, POLGEN_CMD_SHOW,
 } polgen_cmd_t;
 
 typedef struct {
@@ -58,6 +58,7 @@ typedef struct {
     int            pos;
     char           cmdline[256];
     char           image_file[FILENAME_MAX];
+    char           elt_file[FILENAME_MAX];
     char           policy_file[FILENAME_MAX];
 } param_data_t;
 
@@ -70,9 +71,11 @@ extern void print_params(param_data_t *params);
 extern bool do_create(const param_data_t *params);
 extern bool do_add(const param_data_t *params);
 extern bool do_del(const param_data_t *params);
+extern bool do_unwrap(const param_data_t *params);
 extern bool do_show(const param_data_t *params);
 
 /* in policy.c */
+extern void *read_elt_file(const char *elt_filename, size_t *length);
 extern bool read_policy_file(const char *policy_filename, bool *file_exists);
 extern bool write_policy_file(const char *policy_filename);
 extern void new_policy(int policy_type, int policy_control);

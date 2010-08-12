@@ -36,6 +36,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -190,7 +191,7 @@ static lcp_policy_element_t *create(void)
         return NULL;
     }
 
-    size_t data_size =  sizeof(lcp_mle_element_t) + sizeof(uuid) + data_len;
+    size_t data_size = sizeof(uuid) + data_len;
 
     lcp_policy_element_t *elt = malloc(sizeof(*elt) + data_size);
     if ( elt == NULL ) {

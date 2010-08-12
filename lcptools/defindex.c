@@ -39,12 +39,13 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <getopt.h>
 #include <string.h>
 #include <trousers/tss.h>
 #include <trousers/trousers.h>
-
 #define PRINT   printf
+#include "../include/hash.h"
 #include "../include/uuid.h"
 #include "../include/lcp2.h"
 #include "lcptools.h"

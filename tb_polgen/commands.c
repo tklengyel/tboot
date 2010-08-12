@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -43,9 +44,15 @@
 #define PRINT   printf
 #include "../include/config.h"
 #include "../include/hash.h"
+#include "../include/uuid.h"
+#include "../include/lcp2.h"
 #include "../include/tb_error.h"
 #include "../include/tb_policy.h"
 #include "tb_polgen.h"
+#    define verify_pollist_sig(pollist)        (true)
+#    define display_policy_element(prefix,elt) do { } while (0)
+#    define print_hex(prefix,data,n)           do { } while (0)
+#include "../include/lcp2_fns.h"
 
 extern tb_policy_t *g_policy;
 
@@ -98,7 +105,7 @@ bool do_show(const param_data_t *params)
     }
 
     /* this also displays it */
-    verify_policy(g_policy, calc_policy_size(g_policy), true);
+    verify_tb_policy(g_policy, calc_policy_size(g_policy), true);
 
     return true;
 }
@@ -260,6 +267,50 @@ bool do_del(const param_data_t *params)
     return true;
 }
 
+bool do_unwrap(const param_data_t *params)
+{
+    bool ret = false;
+
+    /* read the elt file */
+    info_msg("reading existing elt file %s...\n", params->elt_file);
+    size_t file_len;
+    void *file = read_elt_file(params->elt_file, &file_len);
+    if ( file == NULL ) {
+        error_msg("Error reading elt file %s\n", params->elt_file);
+        return false;
+    }
+
+    if ( sizeof(lcp_policy_element_t) > file_len ) {
+        error_msg("data is too small\n");
+        goto exit;
+    }
+
+    lcp_policy_element_t *elt = (lcp_policy_element_t *)file;
+    if ( !verify_policy_element(elt, file_len, false, true) )
+        goto exit;
+
+    if ( elt->type != LCP_POLELT_TYPE_CUSTOM ) {
+        error_msg("Bad element type %u (i.e. non-custom)\n", elt->type);
+        goto exit;
+    }
+
+    lcp_custom_element_t *custom = (lcp_custom_element_t *)&elt->data;
+    tb_policy_t *pol = (tb_policy_t *)&custom->data;
+
+    memcpy(g_policy, pol, calc_policy_size(pol));
+
+    info_msg("writing/overwriting policy file...\n");
+    if ( !write_policy_file(params->policy_file) )
+        goto exit;
+
+    ret = true;
+exit:
+    free(file);
+    file = NULL;
+
+    return ret;
+}
+    
 /*
  * Local variables:
  * mode: C

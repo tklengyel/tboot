@@ -64,6 +64,9 @@ static const char *help[] = {
     "                   [--pos        <hash number>]\n",
     "                   [--verbose]\n",
     "                   <policy file name>\n",
+    "tb_polgen --unwrap --elt         <elt file name>\n",
+    "                   [--verbose]\n",
+    "                   <policy file name>\n",
     "tb_polgen --show   [--verbose]\n",
     "                   <policy file name>\n",
     "tb_polgen --help\n",
@@ -83,6 +86,7 @@ static struct option long_options[] =
     {"create",         no_argument,          NULL,    'C'},
     {"add",            no_argument,          NULL,    'A'},
     {"del",            no_argument,          NULL,    'D'},
+    {"unwrap",         no_argument,          NULL,    'U'},
     {"show",           no_argument,          NULL,    'S'},
 
     {"type",           required_argument,    NULL,    't'},
@@ -94,6 +98,7 @@ static struct option long_options[] =
     {"cmdline",        required_argument,    NULL,    'l'},
     {"image",          required_argument,    NULL,    'i'},
     {"pos",            required_argument,    NULL,    'o'},
+    {"elt",            required_argument,    NULL,    'e'},
 
     {"verbose",        no_argument,          (int*)&verbose, true},
     {0, 0, 0, 0}
@@ -181,6 +186,7 @@ void print_params(param_data_t *params)
     info_msg("\t pos = %d\n", params->pos);
     info_msg("\t cmdline = %s\n", params->cmdline);
     info_msg("\t image_file = %s\n", params->image_file);
+    info_msg("\t elt_file = %s\n", params->elt_file);
     info_msg("\t policy_file = %s\n", params->policy_file);
 }
 
@@ -258,6 +264,17 @@ static bool validate_params(param_data_t *params)
             }
             return true;
 
+        case POLGEN_CMD_UNWRAP:
+            if ( strlen(params->policy_file) == 0 ) {
+                msg = "Missing policy file\n";
+                goto error;
+            }
+            if ( strlen(params->elt_file) == 0 ) {
+                msg = "Missing elt file\n";
+                goto error;
+            }
+            return true;
+
         case POLGEN_CMD_SHOW:
             if ( strlen(params->policy_file) == 0 ) {
                 msg = "Missing policy file\n";
@@ -301,10 +318,11 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
     params->policy_file[0] = '\0';
     params->cmdline[0] = '\0';
     params->image_file[0] = '\0';
+    params->elt_file[0] = '\0';
 
     while ( true ) {
-        c = getopt_long_only(argc, argv, "HCADSt:c:n:p:h:l:i:o:", long_options,
-                             &option_index);
+        c = getopt_long_only(argc, argv, "HCADUSt:c:n:p:h:l:i:o:e:",
+                             long_options, &option_index);
         if ( c == -1 )     /* no more args */
             break;
 
@@ -325,6 +343,10 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
             case 'D':                       /* --del */
                 HANDLE_MULTIPLE_CMDS(params->cmd);
                 params->cmd = POLGEN_CMD_DEL;
+                break;
+            case 'U':                       /* --unwrap */
+                HANDLE_MULTIPLE_CMDS(params->cmd);
+                params->cmd = POLGEN_CMD_UNWRAP;
                 break;
             case 'S':                       /* --show */
                 HANDLE_MULTIPLE_CMDS(params->cmd);
@@ -387,6 +409,14 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
                 }
                 strncpy(params->cmdline, optarg, sizeof(params->cmdline));
                 params->cmdline[sizeof(params->cmdline)-1] = '\0';
+                break;
+            case 'e':                       /* --elt */
+                if ( optarg == NULL ) {
+                    error_msg("Missing filename for --elt option\n");
+                    return false;
+                }
+                strncpy(params->elt_file, optarg, sizeof(params->elt_file));
+                params->elt_file[sizeof(params->elt_file)-1] = '\0';
                 break;
             default:
                 break;

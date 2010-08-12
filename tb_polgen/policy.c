@@ -51,6 +51,40 @@ static uint8_t _policy_buf[MAX_TB_POLICY_SIZE];
 
 tb_policy_t *g_policy = (tb_policy_t *)_policy_buf;
 
+void *read_elt_file(const char *elt_filename, size_t *length)
+{
+    FILE *fp = fopen(elt_filename, "rb");
+    if ( fp == NULL ) {
+        error_msg("fopen %s failed, errno %s\n", elt_filename, strerror(errno));
+        return NULL;
+    }
+
+    /* find size */
+    fseek(fp, 0, SEEK_END);
+    long len = ftell(fp);
+    rewind(fp);
+
+    void *data = malloc(len);
+    if ( data == NULL ) {
+        error_msg("failed to allocate %ld bytes memory\n", len);
+        fclose(fp);
+        return NULL;
+    }
+
+    if ( fread(data, len, 1, fp) != 1 ) {
+        error_msg("reading file %s failed, errono %s\n",
+                  elt_filename, strerror(errno));
+        free(data);
+        fclose(fp);
+        return NULL;
+    }
+
+    fclose(fp);
+
+    if ( length != NULL )
+        *length = len;
+    return data;
+}
 
 bool read_policy_file(const char *policy_filename, bool *file_exists)
 {
@@ -81,7 +115,7 @@ bool read_policy_file(const char *policy_filename, bool *file_exists)
 
     fclose(f);
     
-    if ( !verify_policy(g_policy, read_cnt, verbose) ) {
+    if ( !verify_tb_policy(g_policy, read_cnt, verbose) ) {
         error_msg("Policy file %s is corrupt\n", policy_filename);
         return false;
     }
@@ -91,7 +125,7 @@ bool read_policy_file(const char *policy_filename, bool *file_exists)
 
 bool write_policy_file(const char *policy_filename)
 {
-    verify_policy(g_policy, sizeof(_policy_buf), verbose);
+    verify_tb_policy(g_policy, sizeof(_policy_buf), verbose);
 
     FILE *f = fopen(policy_filename, "w");
     if ( f == NULL ) {

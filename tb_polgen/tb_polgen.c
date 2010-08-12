@@ -65,6 +65,9 @@ int main (int argc, char *argv[])
         case POLGEN_CMD_DEL:
             ret = do_del(&params);
             break;
+        case POLGEN_CMD_UNWRAP:
+            ret = do_unwrap(&params);
+            break;
         case POLGEN_CMD_SHOW:
             ret = do_show(&params);
             break;

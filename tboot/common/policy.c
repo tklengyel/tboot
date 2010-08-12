@@ -54,9 +54,14 @@
 #include <loader.h>
 #include <tboot.h>
 #include <integrity.h>
+#    define LCP_TBOOT_ONLY
+#include <lcp2.h>
+#    define verify_pollist_sig(pollist)        (true)
+#    define display_policy_element(prefix,elt) do { } while (0)
+#include <lcp2_fns.h>
 #include <cmdline.h>
 #include <txt/mtrrs.h>
-
+#include <txt/txt.h>
 extern void shutdown(void);
 extern void s3_launch(void);
 
@@ -119,7 +124,11 @@ static const tb_policy_map_t g_policy_map[] = {
 };
 
 /* buffer for policy as read from TPM NV */
-static uint8_t _policy_index_buf[MAX_TB_POLICY_SIZE];
+#define MAX_POLICY_SIZE                             \
+    (( MAX_TB_POLICY_SIZE > MAX_LCP_POLICY_SIZE )   \
+        ? MAX_TB_POLICY_SIZE                        \
+        : MAX_LCP_POLICY_SIZE )
+static uint8_t _policy_index_buf[MAX_POLICY_SIZE];
 
 /* default policy */
 static const tb_policy_t _def_policy = {
@@ -153,7 +162,8 @@ static const tb_policy_t* g_policy = &_def_policy;
  *
  * policy_index_size is in/out
  */
-static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
+static bool read_policy_from_tpm(tpm_nv_index_t index,
+                void* policy_index, size_t *policy_index_size)
 {
 #define NV_READ_SEG_SIZE    256
     unsigned int offset = 0;
@@ -165,14 +175,14 @@ static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
         return false;
     }
 
-    ret = tpm_get_nvindex_size(0, TB_POLICY_INDEX, &index_size);
+    ret = tpm_get_nvindex_size(0, index, &index_size);
     if ( ret != TPM_SUCCESS ) {
-        printk("failed to get actual policy size in TPM NV\n");
+        printk("failed to get actual policy size in TPM NV %x\n", index);
         return false;
     }
 
     if ( index_size > *policy_index_size ) {
-        printk("policy in TPM NV was too big for buffer\n");
+        printk("policy in TPM NV %x was too big for buffer\n", index);
         index_size = *policy_index_size;
     }
 
@@ -185,7 +195,7 @@ static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
             data_size = (uint32_t)(index_size - offset);
 
         /* read! */
-        ret = tpm_nv_read_value(0, TB_POLICY_INDEX, offset,
+        ret = tpm_nv_read_value(0, index, offset,
                                 (uint8_t *)policy_index + offset, &data_size);
         if ( ret != TPM_SUCCESS || data_size == 0 )
             break;
@@ -195,7 +205,7 @@ static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
     } while ( offset < index_size );
 
     if ( offset == 0 && ret != TPM_SUCCESS ) {
-        printk("Error: read TPM error: 0x%x.\n", ret);
+        printk("Error: read TPM error: 0x%x from Index %x.\n", ret, index);
         return false;
     }
 
@@ -205,22 +215,95 @@ static bool read_policy_from_tpm(void* policy_index, size_t *policy_index_size)
 }
 
 /*
+ * unwrap_lcp_policy
+ *
+ * unwrap custom element in lcp policy into tb policy
+ */
+static bool unwrap_lcp_policy(multiboot_info_t *mbi, const lcp_policy_t *pol)
+{
+    void *lcp_base = NULL;
+    size_t lcp_size = 0;
+    int i;
+
+    /* if lcp policy data version is 2+ */
+    if ( find_lcp_module(mbi, &lcp_base, &lcp_size) > 1 ) {
+        if ( verify_policy_data((lcp_policy_data_t *)lcp_base,
+                                 lcp_size, false, true) ) {
+            lcp_policy_data_t *poldata = (lcp_policy_data_t *)lcp_base;
+            lcp_hash_t hash;
+
+            /* verify the hash of policy data with policy hash */
+            calc_policy_data_hash(poldata, &hash, pol->hash_alg);
+            if ( are_hashes_equal(&hash, &pol->policy_hash, pol->hash_alg) ) {
+                lcp_policy_list_t *pollist = &poldata->policy_lists[0];
+
+                for ( i = 0; i < poldata->num_lists; i++ ) {
+                    lcp_policy_element_t *elt = pollist->policy_elements;
+                    uint32_t elts_size = 0;
+
+                    while ( elt ) {
+                        if ( elt->type == LCP_POLELT_TYPE_CUSTOM ) {
+                            lcp_custom_element_t *custom =
+                                (lcp_custom_element_t *)&elt->data;
+                            tb_policy_t *tb_pol = (tb_policy_t *)&custom->data;
+
+                            /* check tb policy */
+                            if ( verify_tb_policy(tb_pol,
+                                                  calc_policy_size(tb_pol),
+                                                  true) ) {
+                                memcpy(_policy_index_buf, tb_pol,
+                                       calc_policy_size(tb_pol));
+                                return true; /* find tb policy */
+                            }
+                        }
+                        elts_size += elt->size;
+                        if ( elts_size >= pollist->policy_elements_size )
+                            break;
+                        elt = (void *)elt + elt->size;
+                    }
+                    pollist = (void *)pollist + get_policy_list_size(pollist);
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+/*
  * set_policy
  *
  * load policy from TPM NV and validate it, else use default
  *
  */
-tb_error_t set_policy(void)
+tb_error_t set_policy(multiboot_info_t *mbi)
 {
-    /* try to read policy from TPM NV */
+    /* try to read tboot policy from TB_POLICY_INDEX in TPM NV */
     size_t policy_index_size = sizeof(_policy_index_buf);
-    if ( read_policy_from_tpm(_policy_index_buf, &policy_index_size) ) {
+    if ( read_policy_from_tpm(TB_POLICY_INDEX,
+             _policy_index_buf, &policy_index_size) ) {
         printk("read verified launch policy (%lu bytes) from TPM NV\n",
                policy_index_size);
-        if ( verify_policy((tb_policy_t *)_policy_index_buf,
-                           policy_index_size, true) ) {
+        if ( verify_tb_policy((tb_policy_t *)_policy_index_buf,
+                       policy_index_size, true) ) {
             g_policy = (tb_policy_t *)_policy_index_buf;
             return TB_ERR_NONE;
+        }
+    }
+
+    /* try to read lcp policy from INDEX_LCP_OWN in TPM NV and unwrap it */
+    if ( read_policy_from_tpm(INDEX_LCP_OWN,
+             _policy_index_buf, &policy_index_size) ) {
+        printk("read launch control policy (%lu bytes) from TPM NV\n",
+               policy_index_size);
+        if ( verify_lcp_policy((lcp_policy_t *)_policy_index_buf,
+                           policy_index_size, false, true) ) {
+            lcp_policy_t *pol = (lcp_policy_t *)_policy_index_buf;
+            if ( pol->policy_type == LCP_POLTYPE_LIST
+                 && unwrap_lcp_policy(mbi, pol) ) {
+                g_policy = (tb_policy_t *)_policy_index_buf;
+                return TB_ERR_NONE;
+            }
         }
     }
 
@@ -230,7 +313,7 @@ tb_error_t set_policy(void)
     policy_index_size = calc_policy_size(&_def_policy);
 
     /* sanity check; but if it fails something is really wrong */
-    if ( !verify_policy(g_policy, policy_index_size, true) )
+    if ( !verify_tb_policy(g_policy, policy_index_size, true) )
         return TB_ERR_FATAL;
     else
         return TB_ERR_POLICY_NOT_PRESENT;

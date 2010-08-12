@@ -1,5 +1,5 @@
 /*
- * Copyright 2001 - 2009 Intel Corporation. All Rights Reserved.
+ * Copyright 2001 - 2010 Intel Corporation. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,26 +35,13 @@
 #define __packed   __attribute__ ((packed))
 #endif
 
-/*--------- LCP UUID ------------*/
-#define LCP_POLICY_DATA_UUID   {0xab0d1925, 0xeee7, 0x48eb, 0xa9fc, \
-                               {0xb, 0xac, 0x5a, 0x26, 0x2d, 0xe}}
-
-/*--------- LCP FILE SIGNATURE ------------*/
-#define LCP_POLICY_DATA_FILE_SIGNATURE   "Intel(R) TXT LCP_POLICY_DATA\0\0\0\0"
-
-/* for clients that only need the UUID */
-#ifndef LCP_UUID_ONLY
-
-/*--------- LCP Policy Algorithm ------------*/
-#define LCP_POLHALG_SHA1    0
-
-/*--------- LCP Policy Type ------------*/
-#define LCP_POLTYPE_LIST    0
-#define LCP_POLTYPE_ANY     1
-
 /*--------- LCP reserved TPM NV Indices ------------*/
-#define INDEX_LCP_DEF   0x50000001
 #define INDEX_LCP_OWN   0x40000001
+
+/* for clients that only need the owner index */
+#ifndef LCP_TBOOT_ONLY
+
+#define INDEX_LCP_DEF   0x50000001
 #define INDEX_AUX       0x50000002
 
 /*------ Default Permission, size and locality for reserved Indices --------*/
@@ -68,15 +55,29 @@
 #define LOCALITY_DEFAULT  0x1f
 #define WR_LOCALITY_AUX   0x18
 
+#endif    /* LCP_TBOOT_ONLY */
 
-/*--------- Other data structures of LCP Policy ------------*/
-#define SHA1_LENGTH        20
-#define SHA256_LENGTH      32
 
-typedef union {
-    uint8_t    sha1[SHA1_LENGTH];
-    uint8_t    sha256[SHA256_LENGTH];
-} lcp_hash_t;
+
+
+
+
+/*--------- LCP UUID ------------*/
+#define LCP_POLICY_DATA_UUID   {0xab0d1925, 0xeee7, 0x48eb, 0xa9fc, \
+                               {0xb, 0xac, 0x5a, 0x26, 0x2d, 0xe}}
+
+/*--------- LCP FILE SIGNATURE ------------*/
+#define LCP_POLICY_DATA_FILE_SIGNATURE   "Intel(R) TXT LCP_POLICY_DATA\0\0\0\0"
+
+/*--------- Data structures of LCP Policy ------------*/
+typedef tb_hash_t lcp_hash_t;
+
+/*--------- LCP Policy Algorithm ------------*/
+#define LCP_POLHALG_SHA1    TB_HALG_SHA1
+
+/*--------- LCP Policy Type ------------*/
+#define LCP_POLTYPE_LIST    0
+#define LCP_POLTYPE_ANY     1
 
 #define LCP_DEFAULT_POLICY_VERSION     0x0202
 #define LCP_DEFAULT_POLICY_CONTROL     0x00
@@ -94,6 +95,9 @@ typedef struct __packed {
     uint32_t    reserved2[2];
     lcp_hash_t  policy_hash;
 } lcp_policy_t;
+
+#define MAX_LCP_POLICY_SIZE        sizeof(lcp_policy_t)
+
 
 #define LCP_POLSALG_NONE           0
 #define LCP_POLSALG_RSA_PKCS_15    1
@@ -140,6 +144,9 @@ typedef struct __packed {
 
 /*--------- LCP Element sub-types ------------*/
 
+/* for clients that don't need non-custom elements */
+#ifndef LCP_TBOOT_ONLY
+
 #define LCP_POLELT_TYPE_MLE     0
 
 typedef struct __packed {
@@ -175,6 +182,8 @@ typedef struct __packed {
     lcp_hash_t   hashes[];
 } lcp_sbios_element_t;
 
+#endif    /* LCP_TBOOT_ONLY */
+
 
 
 #define LCP_POLELT_TYPE_CUSTOM  3
@@ -184,6 +193,6 @@ typedef struct __packed {
     uint8_t      data[];
 } lcp_custom_element_t;
 
-#endif    /* LCP_UUID_ONLY */
+
 
 #endif    /*  __TXT_LCP2_H__ */
