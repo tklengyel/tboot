@@ -254,7 +254,7 @@ static inline bool verify_policy_list(const lcp_policy_list_t *pollist,
         return false;
 
     if ( size < sizeof(*pollist) ) {
-        ERROR("Error: data is too small (%lu)\n", size);
+        ERROR("Error: data is too small (%lu)\n", (unsigned long)size);
         return false;
     }
 
@@ -288,13 +288,15 @@ static inline bool verify_policy_list(const lcp_policy_list_t *pollist,
         if ( size_is_exact &&
              base_size + pollist->policy_elements_size != size ) {
             ERROR("Error: size incorrect (no sig): 0x%lx != 0x%lx\n",
-                  base_size + pollist->policy_elements_size, size);
+                  (unsigned long)(base_size + pollist->policy_elements_size),
+                  (unsigned long)size);
             return false;
         }
         else if ( !size_is_exact &&
                   base_size + pollist->policy_elements_size > size ) {
             ERROR("Error: size incorrect (no sig): 0x%lx > 0x%lx\n",
-                  base_size + pollist->policy_elements_size, size);
+                  (unsigned long)(base_size + pollist->policy_elements_size),
+                  (unsigned long)size);
             return false;
         }
     }
@@ -302,8 +304,9 @@ static inline bool verify_policy_list(const lcp_policy_list_t *pollist,
     else if ( base_size + sizeof(lcp_signature_t) +
               pollist->policy_elements_size  > size ) {
         ERROR("Error: size incorrect (sig min): 0x%lx > 0x%lx\n",
-              base_size + sizeof(lcp_signature_t) +
-              pollist->policy_elements_size, size);
+              (unsigned long)(base_size + sizeof(lcp_signature_t)
+                              + pollist->policy_elements_size),
+              (unsigned long)size);
         return false;
     }
 
@@ -350,8 +353,9 @@ static inline bool verify_policy_list(const lcp_policy_list_t *pollist,
         if ( !size_is_exact && base_size + pollist->policy_elements_size +
              get_signature_size(sig) > size + sig->pubkey_size ) {
             ERROR("Error: size incorrect (sig): 0x%lx > 0x%lx\n",
-                  base_size + pollist->policy_elements_size +
-                  get_signature_size(sig), size + sig->pubkey_size);
+                  (unsigned long)(base_size + pollist->policy_elements_size
+                                  + get_signature_size(sig)),
+                  (unsigned long)(size + sig->pubkey_size));
             return false;
         }
         else if ( size_is_exact && base_size + pollist->policy_elements_size +
@@ -360,8 +364,9 @@ static inline bool verify_policy_list(const lcp_policy_list_t *pollist,
             if ( base_size + pollist->policy_elements_size +
                  get_signature_size(sig) != size + sig->pubkey_size ) {
                 ERROR("Error: size incorrect (sig exact): 0x%lx != 0x%lx\n",
-                      base_size + pollist->policy_elements_size +
-                      get_signature_size(sig), size + sig->pubkey_size);
+                      (unsigned long)(base_size + pollist->policy_elements_size
+                                      + get_signature_size(sig)),
+                      (unsigned long)(size + sig->pubkey_size));
                 return false;
             }
             else {
@@ -476,6 +481,10 @@ static inline void calc_policy_data_hash(const lcp_policy_data_t *poldata,
                                          lcp_hash_t *hash, uint8_t hash_alg)
 {
     size_t hash_size = get_hash_size(hash_alg);
+
+    if ( hash_size == 0 )
+        return;
+
     uint8_t hash_list[hash_size * LCP_MAX_LISTS];
 
     memset(hash_list, 0, sizeof(hash_list));
