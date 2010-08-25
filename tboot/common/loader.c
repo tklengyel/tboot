@@ -284,6 +284,9 @@ bool launch_kernel(bool is_measured_launch)
                                &kernel_entry_point) )
             return false;
         printk("transfering control to kernel @%p...\n", kernel_entry_point);
+        /* (optionally) pause when transferring to kernel */
+        if ( g_vga_delay > 0 )
+            delay(g_vga_delay * 1000);
         return jump_elf_image(kernel_entry_point);
     }
     else if ( kernel_type == LINUX ) {
@@ -295,6 +298,9 @@ bool launch_kernel(bool is_measured_launch)
                            initrd_image, initrd_size,
                            &kernel_entry_point, is_measured_launch);
         printk("transfering control to kernel @%p...\n", kernel_entry_point);
+        /* (optionally) pause when transferring to kernel */
+        if ( g_vga_delay > 0 )
+            delay(g_vga_delay * 1000);
         return jump_linux_image(kernel_entry_point);
     }
 

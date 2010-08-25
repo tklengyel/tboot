@@ -101,10 +101,12 @@ static void vga_putc(int c)
         new_row = true;
     }
 
-    if ( new_row && cursor_y >= MAX_LINES ) {
-        scroll_screen();
+    if ( new_row ) {
         num_lines++;
-        cursor_y--;
+        if ( cursor_y >= MAX_LINES ) {
+            scroll_screen();
+            cursor_y--;
+        }
 
         /* (optionally) pause after every screenful */
         if ( (num_lines % (MAX_LINES - 1)) == 0 && g_vga_delay > 0 )

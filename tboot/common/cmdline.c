@@ -43,8 +43,6 @@
 #include <printk.h>
 #include <cmdline.h>
 
-extern bool g_no_usb;
-
 /*
  * copy of original command line
  * part of tboot measurement (hence in .text section)

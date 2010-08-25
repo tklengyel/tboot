@@ -36,6 +36,7 @@ extern uint8_t g_log_level;
 extern uint8_t g_log_targets;
 extern uint8_t g_vga_delay;
 extern serial_port_t g_com_port;
+extern bool g_no_usb;
 
 #define serial_init()         comc_init()
 #define serial_write(s, n)    comc_puts(s, n)

@@ -379,6 +379,10 @@ void s3_launch(void)
 
     print_tboot_shared(&_tboot_shared);
 
+    /* (optionally) pause when transferring kernel resume */
+    if ( g_vga_delay > 0 )
+        delay(g_vga_delay * 1000);
+
     _prot_to_real(g_post_k_s3_state.kernel_s3_resume_vector);
 }
 

@@ -523,6 +523,9 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
         return TB_ERR_FATAL;
 
     printk("executing GETSEC[SENTER]...\n");
+    /* (optionally) pause before executing GETSEC[SENTER] */
+    if ( g_vga_delay > 0 )
+        delay(g_vga_delay * 1000);
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
     printk("ERROR--we should not get here!\n");
     return TB_ERR_FATAL;
@@ -545,6 +548,9 @@ bool txt_s3_launch_environment(void)
     set_mtrrs_for_acmod(sinit);
 
     printk("executing GETSEC[SENTER]...\n");
+    /* (optionally) pause before executing GETSEC[SENTER] */
+    if ( g_vga_delay > 0 )
+        delay(g_vga_delay * 1000);
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
     printk("ERROR--we should not get here!\n");
     return false;

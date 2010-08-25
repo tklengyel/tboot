@@ -124,9 +124,9 @@ void printk_init(void)
 
 #define WRITE_LOGS(s, n) \
     do {                                                                 \
-        if (g_log_targets & TBOOT_LOG_TARGET_VGA) vga_write(s, n);       \
-        if (g_log_targets & TBOOT_LOG_TARGET_SERIAL) serial_write(s, n); \
         if (g_log_targets & TBOOT_LOG_TARGET_MEMORY) memlog_write(s, n); \
+        if (g_log_targets & TBOOT_LOG_TARGET_SERIAL) serial_write(s, n); \
+        if (g_log_targets & TBOOT_LOG_TARGET_VGA) vga_write(s, n);       \
     } while (0)
 
 void printk(const char *fmt, ...)

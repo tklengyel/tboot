@@ -33,11 +33,11 @@
  *
  */
 
+#include <stdbool.h>
 #include <types.h>
 #include <compiler.h>
 #include <printk.h>
 #include <processor.h>
-#include <stdbool.h>
 #include <tb_error.h>
 #include <paging.h>
 #include <misc.h>

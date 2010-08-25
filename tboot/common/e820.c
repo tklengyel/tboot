@@ -45,8 +45,6 @@
 #include <e820.h>
 #include <txt/config_regs.h>
 
-extern bool g_no_usb;
-
 /*
  * copy of bootloader/BIOS e820 table with adjusted entries
  * this version will replace original in mbi

@@ -33,9 +33,9 @@
  *
  */
 
+#include <stdbool.h>
 #include <types.h>
 #include <printk.h>
-#include <stdbool.h>
 #include <compiler.h>
 #include <processor.h>
 #include <io.h>
