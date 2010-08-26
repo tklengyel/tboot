@@ -54,38 +54,6 @@
 
 #define MAX_PCR_INFOS       32
 
-/*
- * TPM_PCR_INFO_SHORT
- * (from tboot/tpm.{h,c}
- */
-
-typedef struct __packed {
-    uint16_t    size_of_select;
-    uint8_t     pcr_select[3];
-} tpm_pcr_selection_t;
-
-typedef uint8_t tpm_locality_selection_t;
-
-#define TPM_DIGEST_SIZE          20
-typedef struct __packed {
-    uint8_t     digest[TPM_DIGEST_SIZE];
-} tpm_digest_t;
-
-typedef tpm_digest_t tpm_composite_hash_t;
-typedef tpm_digest_t tpm_pcrvalue_t;
-
-typedef struct __packed {
-    tpm_pcr_selection_t   select;
-    uint32_t              value_size;
-    tpm_pcrvalue_t        pcr_value[];
-} tpm_pcr_composite_t;
-
-typedef struct __packed {
-    tpm_pcr_selection_t         pcr_selection;
-    tpm_locality_selection_t    locality_at_release;
-    tpm_composite_hash_t        digest_at_release;
-} tpm_pcr_info_short_t;
-
 static unsigned int nr_pcr_infos;
 static tpm_pcr_info_short_t pcr_infos[MAX_PCR_INFOS];
 
@@ -177,6 +145,10 @@ static bool cmdline_handler(int c, const char *opt)
         ERROR("Error: unknown option for pconf type\n");
         return false;
     }
+
+    nr_pcrs = 0;
+    memset(&pcrs, 0, sizeof(pcrs));
+    memset(&digests, 0, sizeof(digests));
 
     /* pconf files */
     LOG("cmdline opt: pconf file: %s\n", opt);

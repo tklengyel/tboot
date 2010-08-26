@@ -160,13 +160,40 @@ typedef struct __packed {
 
 #define LCP_POLELT_TYPE_PCONF   1
 
-#ifndef __TPM_H__
-typedef uint8_t TPM_PCR_INFO_SHORT;
-#endif
+/*
+ * (from tboot/tpm.{h,c}
+ */
+
+typedef struct __packed {
+    uint16_t    size_of_select;
+    uint8_t     pcr_select[3];
+} tpm_pcr_selection_t;
+
+typedef uint8_t tpm_locality_selection_t;
+
+#define TPM_DIGEST_SIZE          20
+typedef struct __packed {
+    uint8_t     digest[TPM_DIGEST_SIZE];
+} tpm_digest_t;
+
+typedef tpm_digest_t tpm_composite_hash_t;
+typedef tpm_digest_t tpm_pcrvalue_t;
+
+typedef struct __packed {
+    tpm_pcr_selection_t   select;
+    uint32_t              value_size;
+    tpm_pcrvalue_t        pcr_value[];
+} tpm_pcr_composite_t;
+
+typedef struct __packed {
+    tpm_pcr_selection_t         pcr_selection;
+    tpm_locality_selection_t    locality_at_release;
+    tpm_composite_hash_t        digest_at_release;
+} tpm_pcr_info_short_t;
 
 typedef struct __packed {
     uint16_t             num_pcr_infos;
-    TPM_PCR_INFO_SHORT   pcr_infos[];
+    tpm_pcr_info_short_t pcr_infos[];
 } lcp_pconf_element_t;
 
 
