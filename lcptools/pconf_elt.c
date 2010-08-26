@@ -50,6 +50,18 @@
 #include "polelt_plugin.h"
 #include "lcputils2.h"
 
+/*
+ * (from tboot/tpm.{h,c}
+ */
+
+typedef tpm_digest_t tpm_pcrvalue_t;
+
+typedef struct __packed {
+    tpm_pcr_selection_t   select;
+    uint32_t              value_size;
+    tpm_pcrvalue_t        pcr_value[];
+} tpm_pcr_composite_t;
+
 #define NR_PCRS             24
 
 #define MAX_PCR_INFOS       32

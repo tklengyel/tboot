@@ -160,10 +160,6 @@ typedef struct __packed {
 
 #define LCP_POLELT_TYPE_PCONF   1
 
-/*
- * (from tboot/tpm.{h,c}
- */
-
 typedef struct __packed {
     uint16_t    size_of_select;
     uint8_t     pcr_select[3];
@@ -177,13 +173,6 @@ typedef struct __packed {
 } tpm_digest_t;
 
 typedef tpm_digest_t tpm_composite_hash_t;
-typedef tpm_digest_t tpm_pcrvalue_t;
-
-typedef struct __packed {
-    tpm_pcr_selection_t   select;
-    uint32_t              value_size;
-    tpm_pcrvalue_t        pcr_value[];
-} tpm_pcr_composite_t;
 
 typedef struct __packed {
     tpm_pcr_selection_t         pcr_selection;
