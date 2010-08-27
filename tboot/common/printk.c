@@ -68,7 +68,6 @@ static void memlog_init(void)
     /* initialize these post-launch as well, since bad/malicious values */
     /* could compromise environment */
     g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
-    g_log->buf = (char *)g_log + sizeof(*g_log);
     g_log->max_size = TBOOT_SERIAL_LOG_SIZE - sizeof(*g_log);
 
     /* if we're calling this post-launch, verify that curr_pos is valid */

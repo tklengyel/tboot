@@ -204,8 +204,8 @@ static void display_tboot_log(void *log_base)
     printf("\t curr_pos=%x\n", log->curr_pos);
     printf("\t buf:\n");
     /* log->buf is phys addr of buf, which will not match where mmap has */
-    /* map'ed us, but since it is always jsut past end of struct, use that */
-    char *log_buf = (char *)log + sizeof(*log);
+    /* map'ed us, but since it is always just past end of struct, use that */
+    char *log_buf = log->buf;
     /* log is too big for single printk(), so break it up */
     for ( unsigned int curr_pos = 0; curr_pos < log->curr_pos;
           curr_pos += sizeof(buf)-1 ) {
