@@ -50,15 +50,15 @@ dist : install
 install :
 	@set -e; for i in $(TPMNV_TARGETS) $(LCP1_TARGETS) $(LCP2_TARGETS);\
 	do \
-		$(MAKE) DISTDIR=$(DISTDIR) INST_TARGET=$(DISTDIR)/usr/bin/$$i do_install; \
+		$(MAKE) DISTDIR=$(DISTDIR) INST_TARGET=$(DISTDIR)/usr/sbin/$$i do_install; \
 	done
 
 .PHONY: do_install
 do_install : $(INST_TARGET)
 
 $(INST_TARGET) : $(notdir $(INST_TARGET))
-	[ -d $(DISTDIR)/usr/bin ] || $(INSTALL_DIR) $(DISTDIR)/usr/bin
-	$(INSTALL_PROG) -t $(DISTDIR)/usr/bin $^
+	[ -d $(DISTDIR)/usr/sbin ] || $(INSTALL_DIR) $(DISTDIR)/usr/sbin
+	$(INSTALL_PROG) -t $(DISTDIR)/usr/sbin $^
 
 
 clean :

@@ -29,11 +29,11 @@ build : $(TARGET)
 dist : install
 
 
-install : $(DISTDIR)/usr/bin/$(TARGET)
+install : $(DISTDIR)/usr/sbin/$(TARGET)
 
-$(DISTDIR)/usr/bin/$(TARGET) : $(TARGET)
-	[ -d $(DISTDIR)/usr/bin ] || $(INSTALL_DIR) $(DISTDIR)/usr/bin
-	$(INSTALL_PROG) -t $(DISTDIR)/usr/bin $(TARGET)
+$(DISTDIR)/usr/sbin/$(TARGET) : $(TARGET)
+	[ -d $(DISTDIR)/usr/sbin ] || $(INSTALL_DIR) $(DISTDIR)/usr/sbin
+	$(INSTALL_PROG) -t $(DISTDIR)/usr/sbin $(TARGET)
 
 
 clean :
