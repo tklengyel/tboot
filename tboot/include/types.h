@@ -74,7 +74,11 @@ typedef unsigned long long  uint64_t;
 typedef unsigned long long  u_int64_t;
 #define BYTES_PER_LONG 4
 
+#if __GNUC__ > 3
 #define offsetof(type, field) __builtin_offsetof(type, field)
+#else
+#define offsetof(type, member) ((size_t) &((type *)0)->member)
+#endif
 
 #endif    /* __TYPES_H__ */
 
