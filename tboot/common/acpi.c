@@ -51,7 +51,7 @@
 #define acpi_printk(...)    /* */
 #endif
 
-bool g_no_usb;
+bool g_no_usb = true;
 
 static struct acpi_rsdp *rsdp;
 static struct acpi_table_header *g_dmar_table;

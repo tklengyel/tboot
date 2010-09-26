@@ -67,8 +67,8 @@ typedef struct {
 /* global option array for command line */
 static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "loglvl",     "all" },     /* all|none */
-    { "logging",    "serial" },  /* vga,serial,memory|none */
-    { "serial",     "115200,8n1" },
+    { "logging",    "serial,vga" },  /* vga,serial,memory|none */
+    { "serial",     "115200,8n1,0x3f8" },
     /* serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
     { "vga_delay",  "0" },      /* # secs */
     { "no_usb",     "true" },   /* true|false */
