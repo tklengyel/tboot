@@ -1695,6 +1695,7 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
     uint32_t ret, offset, resp_size;
     uint8_t sub_cap[sizeof(index)];
     uint8_t resp[sizeof(tpm_nv_data_public_t)];
+    tpm_nv_index_t idx;
 
     if ( size == NULL ) {
         printk("TPM: tpm_get_nvindex_size() bad parameter\n");
@@ -1711,8 +1712,10 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
 #ifdef TPM_TRACE
     printk("TPM: get nvindex size, return value = %08X\n", ret);
 #endif
-    if ( ret != TPM_SUCCESS )
+    if ( ret != TPM_SUCCESS ) {
+        printk("TPM: fail to get public data of 0x%08X in TPM NV\n", index);
         return ret;
+    }
 
 #ifdef TPM_TRACE
     {
@@ -1720,6 +1723,25 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
         print_hex(NULL, resp, resp_size);
     }
 #endif
+
+    /* check size */
+    if ( resp_size == 0 ) {
+        printk("TPM: Index 0x%08X does not exist\n", index);
+        return TPM_BADINDEX;
+    }
+
+    /* check index */
+    offset = sizeof(tpm_structure_tag_t);
+    LOAD_INTEGER(resp, offset, idx);
+#ifdef TPM_TRACE
+    printk("TPM: get index value = %08X\n", idx);
+#endif
+
+    if ( idx != index ) {
+        printk("TPM: Index 0x%08X is not the one expected 0x%08X\n",
+               idx, index);
+        return TPM_BADINDEX;
+    }
 
     if ( resp_size != sizeof(resp) ) {
         printk("TPM: tpm_get_nvindex_size() response size incorrect\n");

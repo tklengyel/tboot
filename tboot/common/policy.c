@@ -176,10 +176,8 @@ static bool read_policy_from_tpm(tpm_nv_index_t index,
     }
 
     ret = tpm_get_nvindex_size(0, index, &index_size);
-    if ( ret != TPM_SUCCESS ) {
-        printk("failed to get actual policy size in TPM NV %x\n", index);
+    if ( ret != TPM_SUCCESS )
         return false;
-    }
 
     if ( index_size > *policy_index_size ) {
         printk("policy in TPM NV %x was too big for buffer\n", index);
@@ -280,22 +278,23 @@ tb_error_t set_policy(multiboot_info_t *mbi)
 {
     /* try to read tboot policy from TB_POLICY_INDEX in TPM NV */
     size_t policy_index_size = sizeof(_policy_index_buf);
+    printk("reading Verified Launch Policy from TPM NV...\n");
     if ( read_policy_from_tpm(TB_POLICY_INDEX,
              _policy_index_buf, &policy_index_size) ) {
-        printk("read verified launch policy (%lu bytes) from TPM NV\n",
-               policy_index_size);
+        printk("\t:%lu bytes read\n", policy_index_size);
         if ( verify_tb_policy((tb_policy_t *)_policy_index_buf,
                        policy_index_size, true) ) {
             g_policy = (tb_policy_t *)_policy_index_buf;
             return TB_ERR_NONE;
         }
     }
+    printk("\t:reading failed\n");
 
     /* try to read lcp policy from INDEX_LCP_OWN in TPM NV and unwrap it */
+    printk("reading Launch Control Policy from TPM NV...\n");
     if ( read_policy_from_tpm(INDEX_LCP_OWN,
              _policy_index_buf, &policy_index_size) ) {
-        printk("read launch control policy (%lu bytes) from TPM NV\n",
-               policy_index_size);
+        printk("\t:%lu bytes read\n", policy_index_size);
         if ( verify_lcp_policy((lcp_policy_t *)_policy_index_buf,
                            policy_index_size, false, true) ) {
             lcp_policy_t *pol = (lcp_policy_t *)_policy_index_buf;
@@ -306,6 +305,7 @@ tb_error_t set_policy(multiboot_info_t *mbi)
             }
         }
     }
+    printk("\t:reading failed\n");
 
     /* either no policy in TPM NV or policy is invalid, so use default */
     printk("failed to read policy from TPM NV, using default\n");
