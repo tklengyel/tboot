@@ -1744,7 +1744,8 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
     }
 
     if ( resp_size != sizeof(resp) ) {
-        printk("TPM: tpm_get_nvindex_size() response size incorrect\n");
+        printk("TPM: public data size of Index 0x%08X responsed incorrect\n",
+               index);
         return TPM_FAIL;
     }
 
