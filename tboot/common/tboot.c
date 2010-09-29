@@ -370,7 +370,9 @@ void s3_launch(void)
     /* remove DMAR table if necessary */
     remove_vtd_dmar_table();
 
-    if ( is_launched() ) {
+    if ( !is_launched() )
+        apply_policy(TB_ERR_S3_INTEGRITY);
+    else {
         /* this is being called post-measured launch */
         /* verify saved hash integrity and re-extend PCRs */
         if ( !verify_integrity() )
