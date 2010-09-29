@@ -370,9 +370,12 @@ void s3_launch(void)
     /* remove DMAR table if necessary */
     remove_vtd_dmar_table();
 
-    /* verify saved hash integrity and re-extend PCRs */
-    if ( !verify_integrity() )
-        apply_policy(TB_ERR_S3_INTEGRITY);
+    if ( is_launched() ) {
+        /* this is being called post-measured launch */
+        /* verify saved hash integrity and re-extend PCRs */
+        if ( !verify_integrity() )
+            apply_policy(TB_ERR_S3_INTEGRITY);
+    }
 
     /* need to re-initialize this */
     _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
