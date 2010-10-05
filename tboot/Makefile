@@ -27,10 +27,6 @@ TARGET_LDS := $(CURDIR)/common/tboot.lds
 $(TARGET).gz : $(TARGET)
 	gzip -f -9 < $< > $@
 
-ifeq ($(debug),n)
-LDFLAGS_STRIP = -s
-endif
-
 $(TARGET) : $(OBJS) $(TARGET_LDS)
 	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) -o $(@D)/.$(@F).0
 	$(NM) -n $(@D)/.$(@F).0 >$(TARGET)-syms

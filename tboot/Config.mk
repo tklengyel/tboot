@@ -9,8 +9,11 @@
 
 ROOTDIR ?= $(CURDIR)/..
 
-include $(ROOTDIR)/Config.mk
+# tboot needs too many customized compiler settings to use system CFLAGS,
+# so if environment wants to set any compiler flags, it must use TBOOT_CFLAGS
+CFLAGS		:= $(TBOOT_CFLAGS)
 
+include $(ROOTDIR)/Config.mk
 
 # if target arch is 64b, then convert -m64 to -m32 (tboot is always 32b)
 CFLAGS		:= $(shell echo $(CFLAGS) | sed -e s/-m64/-m32/)
@@ -27,16 +30,9 @@ CFLAGS		+= -msoft-float
 CFLAGS		+= $(call cc-option,$(CC),-nopie,)
 CFLAGS		+= $(call cc-option,$(CC),-fno-stack-protector,)
 CFLAGS		+= $(call cc-option,$(CC),-fno-stack-protector-all,)
-ifeq ($(TARGET_ARCH),x86_64)
-CFLAGS		+= -DTARGET_ARCH_x86_64
-endif
 
 # changeset variable for banner
 CFLAGS		+= -DTBOOT_CHANGESET=\""$(shell ((hg parents --template "{isodate|isodate} {rev}:{node|short}" >/dev/null && hg parents --template "{isodate|isodate} {rev}:{node|short}") || echo "unavailable") 2>/dev/null)"\"
-
-# uncomment to support logging to memory location
-#CFLAGS		+= -DMEM_LOGGING
-
 
 
 AFLAGS		+= -D__ASSEMBLY__

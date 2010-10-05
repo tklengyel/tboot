@@ -41,12 +41,6 @@ CFLAGS_WARN       = -Wall -Wformat-security -Werror -Wstrict-prototypes \
 	            -Wno-missing-field-initializers \
 	            -D_FORTIFY_SOURCE=2
 
-HOSTCC            = gcc
-HOSTCFLAGS        = $(CFLAGS_WARN) -O2 -std=gnu99 -fno-strict-aliasing
-
-HOSTCFLAGS_x86_32 = -m32
-HOSTCFLAGS_x86_64 = -m64
-
 AS         = as
 LD         = ld
 CC         = gcc
