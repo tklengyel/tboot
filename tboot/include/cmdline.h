@@ -55,7 +55,7 @@ extern bool get_linux_vga(int *vid_mode);
 extern bool get_linux_mem(uint64_t *initrd_max_mem);
 
 extern const char *skip_filename(const char *cmdline);
-
+extern uint8_t get_loglvl_prefix(char **pbuf, int *len);
 
 #endif    /* __CMDLINE_H__ */
 

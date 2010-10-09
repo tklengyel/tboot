@@ -39,6 +39,9 @@
 #include <vga.h>
 
 #define TBOOT_LOG_LEVEL_NONE    0x00
+#define TBOOT_LOG_LEVEL_ERR     0x01
+#define TBOOT_LOG_LEVEL_WARN    0x02
+#define TBOOT_LOG_LEVEL_INFO    0x04
 #define TBOOT_LOG_LEVEL_ALL     0xFF
 
 #define TBOOT_LOG_TARGET_NONE   0x00

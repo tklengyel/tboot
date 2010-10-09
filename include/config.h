@@ -91,6 +91,13 @@
 
 #define __packed   __attribute__ ((packed))
 
+/* tboot log level */
+#define TBOOT_NONE       "<0>"
+#define TBOOT_ERR        "<1>"
+#define TBOOT_WARN       "<2>"
+#define TBOOT_INFO       "<3>"
+#define TBOOT_ALL        "<4>"
+
 #endif /* __CONFIG_H__ */
 
 

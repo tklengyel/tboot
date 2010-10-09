@@ -66,12 +66,12 @@ typedef struct {
 
 /* global option array for command line */
 static const cmdline_option_t g_tboot_cmdline_options[] = {
-    { "loglvl",     "all" },     /* all|none */
+    { "loglvl",     "all" },         /* all|err,warn,info|none */
     { "logging",    "serial,vga" },  /* vga,serial,memory|none */
     { "serial",     "115200,8n1,0x3f8" },
     /* serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
-    { "vga_delay",  "0" },      /* # secs */
-    { "no_usb",     "true" },   /* true|false */
+    { "vga_delay",  "0" },           /* # secs */
+    { "no_usb",     "true" },        /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -82,6 +82,20 @@ static const cmdline_option_t g_linux_cmdline_options[] = {
     { NULL, NULL }
 };
 static char g_linux_param_values[ARRAY_SIZE(g_linux_cmdline_options)][MAX_VALUE_LEN];
+
+typedef struct {
+    const char *log_name;
+    uint8_t    log_val;
+} tb_loglvl_map_t;
+
+/* map */
+static const tb_loglvl_map_t g_loglvl_map[] = {
+    { "none",  TBOOT_LOG_LEVEL_NONE  },
+    { "err",   TBOOT_LOG_LEVEL_ERR   },
+    { "warn",  TBOOT_LOG_LEVEL_WARN  },
+    { "info",  TBOOT_LOG_LEVEL_INFO  },
+    { "all",   TBOOT_LOG_LEVEL_ALL   },
+};
 
 static const char* get_option_val(const cmdline_option_t *options,
                                   char vals[][MAX_VALUE_LEN],
@@ -160,6 +174,22 @@ void linux_parse_cmdline(char *cmdline)
     cmdline_parse(cmdline, g_linux_cmdline_options, g_linux_param_values);
 }
 
+uint8_t get_loglvl_prefix(char **pbuf, int *len)
+{
+    uint8_t log_level = TBOOT_LOG_LEVEL_ALL;
+
+    if ( *len > 2 && **pbuf == '<' && *(*pbuf+2) == '>'
+                  && isdigit(*(*pbuf+1)) ) {
+        unsigned int i = *(*pbuf+1) - '0';
+        if ( i < ARRAY_SIZE(g_loglvl_map) )
+            log_level = g_loglvl_map[i].log_val;
+        *pbuf += 3;
+        *len = *len - 3;
+    }
+
+    return log_level;
+}
+
 void get_tboot_loglvl(void)
 {
     const char *loglvl = get_option_val(g_tboot_cmdline_options,
@@ -167,8 +197,40 @@ void get_tboot_loglvl(void)
     if ( loglvl == NULL )
         return;
 
-    if ( strcmp(loglvl, "none") == 0 )
-        g_log_level = TBOOT_LOG_LEVEL_NONE; /* print nothing */
+    /* determine whether the target is set explicitly */
+    while ( isspace(*loglvl) )
+        loglvl++;
+
+    g_log_level = TBOOT_LOG_LEVEL_NONE;
+
+    while ( *loglvl != '\0' ) {
+        unsigned int i;
+
+        for ( i = 0; i < ARRAY_SIZE(g_loglvl_map); i++ ) {
+            if ( strncmp(loglvl, g_loglvl_map[i].log_name,
+                     strlen(g_loglvl_map[i].log_name)) == 0 ) {
+                loglvl += strlen(g_loglvl_map[i].log_name);
+
+                if ( g_loglvl_map[i].log_val == TBOOT_LOG_LEVEL_NONE ) {
+                    g_log_level = TBOOT_LOG_LEVEL_NONE;
+                    return;
+                }
+                else {
+                    g_log_level |= g_loglvl_map[i].log_val;
+                    break;
+                }
+            }
+        }
+
+        if ( i == ARRAY_SIZE(g_loglvl_map) )
+            break; /* unrecognized, end loop */
+
+        /* skip ',' */
+        if ( *loglvl == ',' )
+            loglvl++;
+        else
+            break; /* unrecognized, end loop */
+    }
 }
 
 void get_tboot_log_targets(void)

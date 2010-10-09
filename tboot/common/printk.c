@@ -131,25 +131,31 @@ void printk_init(void)
 void printk(const char *fmt, ...)
 {
     char buf[256];
+    char *pbuf = buf;
     int n;
     va_list ap;
+    uint8_t log_level;
     static bool last_line_cr = true;
-
-    if ( !g_log_level )
-        return;
 
     memset(buf, '\0', sizeof(buf));
     va_start(ap, fmt);
     n = vscnprintf(buf, sizeof(buf), fmt, ap);
+
+    log_level = get_loglvl_prefix(&pbuf, &n);
+
+    if ( !(g_log_level & log_level) )
+        goto exit;
+
     mtx_enter(&print_lock);
     /* prepend "TBOOT: " if the last line that was printed ended with a '\n' */
-    if ( last_line_cr ) {
+    if ( last_line_cr )
         WRITE_LOGS("TBOOT: ", 8);
-    }
 
-    last_line_cr = (n > 0 && buf[n-1] == '\n');
-    WRITE_LOGS(buf, n);
+    last_line_cr = (n > 0 && (*(pbuf+n-1) == '\n'));
+    WRITE_LOGS(pbuf, n);
     mtx_leave(&print_lock);
+
+exit:
     va_end(ap);
 }
 
