@@ -39,9 +39,6 @@
 #define LCP_POLICY_DATA_UUID   {0xab0d1925, 0xeee7, 0x48eb, 0xa9fc, \
                                {0xb, 0xac, 0x5a, 0x26, 0x2d, 0xe}}
 
-/* for clients that only need the UUID */
-#ifndef LCP_UUID_ONLY
-
 /*--------- LCP Policy Algorithm ------------*/
 #define LCP_POLHALG_SHA1    0
 
@@ -116,7 +113,5 @@ typedef struct __packed {
     uuid_t                      uuid;
     lcp_unsigned_policy_data_t  unsigned_data;
 } lcp_policy_data_t;
-
-#endif    /* LCP_UUID_ONLY */
 
 #endif    /*  __TXT_LCP_H__ */

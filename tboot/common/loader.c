@@ -68,7 +68,7 @@ extern bool expand_linux_image(const void *linux_image, size_t linux_size,
                                void **entry_point, bool is_measured_launch);
 extern bool jump_elf_image(void *entry_point);
 extern bool jump_linux_image(void *entry_point);
-extern bool is_sinit_acmod(void *acmod_base, size_t acmod_size, bool quiet);
+extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet);
 
 #if 0
 void print_mbi(multiboot_info_t *mbi)

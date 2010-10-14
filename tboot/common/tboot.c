@@ -64,7 +64,7 @@
 #include <cmdline.h>
 
 extern void _prot_to_real(uint32_t dist_addr);
-extern bool set_policy(multiboot_info_t *mbi);
+extern bool set_policy(void);
 extern void verify_all_modules(multiboot_info_t *mbi);
 extern void apply_policy(tb_error_t error);
 void s3_launch(void);
@@ -305,11 +305,8 @@ void begin_launch(multiboot_info_t *mbi)
     if ( !is_tpm_ready(0) )
         apply_policy(TB_ERR_TPM_NOT_READY);
 
-    /* read tboot policy from TPM-NV */
-    /* read from TB_POLICY_INDEX first, if none, then read from INDEX_LCP_OWN */
-    /* unwrap the custom element in lcp policy into tboot policy after that */
-    /* if none in both, will use default */
-    err = set_policy(mbi);
+    /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
+    err = set_policy();
     apply_policy(err);
 
     /* need to verify that platform supports TXT before we can check error */

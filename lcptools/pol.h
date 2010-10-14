@@ -1,5 +1,5 @@
 /*
- * lcputils2.h: LCP utility fns
+ * pol.h:
  *
  * Copyright (c) 2009, Intel Corporation
  * All rights reserved.
@@ -33,43 +33,17 @@
  *
  */
 
-#ifndef __LCPUTILS2_H__
-#define __LCPUTILS2_H__
+#ifndef __POL_H__
+#define __POL_H__
 
-#define MAJOR_VER(v)      ((v) >> 8)
-#define MINOR_VER(v)      ((v) & 0xff)
+extern size_t get_policy_size(const lcp_policy_t *pol);
+extern bool verify_policy(const lcp_policy_t *pol, size_t size, bool silent);
+extern void display_policy(const char *prefix, const lcp_policy_t *pol,
+                           bool brief);
 
-#define ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
+extern const char *policy_type_to_str(uint8_t type);
 
-#define MAX_PATH           256
-
-extern bool verbose;
-
-extern void ERROR(const char *fmt, ...);
-extern void LOG(const char *fmt, ...);
-extern void DISPLAY(const char *fmt, ...);
-
-extern size_t strlcpy(char *dst, const char *src, size_t siz);
-
-extern void print_hex(const char *prefix, const void *data, size_t n);
-extern void parse_comma_sep_ints(char *s, uint16_t ints[],
-                                 unsigned int *nr_ints);
-
-extern void *read_file(const char *file, size_t *length, bool fail_ok);
-extern bool write_file(const char *file, const void *data, size_t size);
-
-extern bool parse_line_hashes(const char *line, tb_hash_t *hash);
-extern bool parse_file(const char *filename,
-		       bool (*parse_line)(const char *line));
-
-extern const char *hash_alg_to_str(uint8_t alg);
-extern size_t get_lcp_hash_size(uint8_t hash_alg);
-
-extern bool verify_signature(const uint8_t *data, size_t data_size,
-                             const uint8_t *pubkey, size_t pubkey_size,
-                             const uint8_t *sig, bool is_sig_little_endian);
-
-#endif    /* __LCPUTILS2_H__ */
+#endif    /* __POL_H__ */
 
 
 /*

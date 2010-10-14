@@ -35,7 +35,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -49,10 +48,6 @@
 #include "../include/tb_error.h"
 #include "../include/tb_policy.h"
 #include "tb_polgen.h"
-#    define verify_pollist_sig(pollist)        (true)
-#    define display_policy_element(prefix,elt) do { } while (0)
-#    define print_hex(prefix,data,n)           do { } while (0)
-#include "../include/lcp2_fns.h"
 
 extern tb_policy_t *g_policy;
 
@@ -105,7 +100,7 @@ bool do_show(const param_data_t *params)
     }
 
     /* this also displays it */
-    verify_tb_policy(g_policy, calc_policy_size(g_policy), true);
+    verify_policy(g_policy, calc_policy_size(g_policy), true);
 
     return true;
 }
@@ -286,8 +281,10 @@ bool do_unwrap(const param_data_t *params)
     }
 
     lcp_policy_element_t *elt = (lcp_policy_element_t *)file;
-    if ( !verify_policy_element(elt, file_len, false, true) )
+    if ( file_len != elt->size ) {
+        error_msg("data is too small\n");
         goto exit;
+    }
 
     if ( elt->type != LCP_POLELT_TYPE_CUSTOM ) {
         error_msg("Bad element type %u (i.e. non-custom)\n", elt->type);
@@ -304,13 +301,15 @@ bool do_unwrap(const param_data_t *params)
         goto exit;
 
     ret = true;
+
 exit:
     free(file);
     file = NULL;
 
     return ret;
 }
-    
+
+
 /*
  * Local variables:
  * mode: C

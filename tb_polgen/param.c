@@ -347,7 +347,7 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
             case 'U':                       /* --unwrap */
                 HANDLE_MULTIPLE_CMDS(params->cmd);
                 params->cmd = POLGEN_CMD_UNWRAP;
-                break;
+                 break;
             case 'S':                       /* --show */
                 HANDLE_MULTIPLE_CMDS(params->cmd);
                 params->cmd = POLGEN_CMD_SHOW;

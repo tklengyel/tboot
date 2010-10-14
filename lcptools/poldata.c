@@ -44,12 +44,84 @@
 #include "../include/hash.h"
 #include "../include/uuid.h"
 #include "../include/lcp2.h"
+#include "../include/lcp_hlp.h"
 #include "polelt_plugin.h"
-#include "polelt.h"
 #include "poldata.h"
 #include "pollist.h"
 #include "lcputils2.h"
-#include "../include/lcp2_fns.h"
+
+size_t get_policy_data_size(const lcp_policy_data_t *poldata)
+{
+    size_t size = offsetof(lcp_policy_data_t, policy_lists);
+    const lcp_policy_list_t *pollist = &poldata->policy_lists[0];
+    for ( unsigned int i = 0; i < poldata->num_lists; i++ ) {
+        size += get_policy_list_size(pollist);
+        pollist = (void *)pollist + get_policy_list_size(pollist);
+    }
+
+    return size;
+}
+
+bool verify_policy_data(const lcp_policy_data_t *poldata, size_t size)
+{
+    if ( offsetof(lcp_policy_data_t, policy_lists) >= size ) {
+        ERROR("Error: policy data too small\n");
+        return false;
+    }
+
+    if ( strcmp(poldata->file_signature, LCP_POLICY_DATA_FILE_SIGNATURE) != 0 ) {
+        ERROR("Error: policy data file signature invalid (%s): \n",
+              poldata->file_signature);
+        return false;
+    }
+
+    if ( poldata->reserved[0] != 0 || poldata->reserved[1] != 0 ||
+         poldata->reserved[2] != 0 ) {
+        ERROR("Error: policy data reserved fields not 0: %u, %u, %u\n",
+              poldata->reserved[0], poldata->reserved[1], poldata->reserved[2]);
+        return false;
+    }
+
+    if ( poldata->num_lists == 0 || poldata->num_lists >= LCP_MAX_LISTS ) {
+        ERROR("Error: too many lists: %u\n", poldata->num_lists);
+        return false;
+    }
+
+    /* try to bound size as closely as possible */
+    size -= offsetof(lcp_policy_data_t, policy_lists);
+    const lcp_policy_list_t *pollist = &poldata->policy_lists[0];
+    for ( unsigned int i = 0; i < poldata->num_lists; i++ ) {
+        LOG("verifying list %u:\n", i);
+        if ( !verify_policy_list(pollist, size, NULL, false) )
+            return false;
+        size -= get_policy_list_size(pollist);
+        pollist = (void *)pollist + get_policy_list_size(pollist);
+    }
+
+    return true;
+}
+
+void display_policy_data(const char *prefix, const lcp_policy_data_t *poldata,
+                         bool brief)
+{
+    if ( poldata == NULL )
+        return;
+
+    if ( prefix == NULL )
+        prefix = "";
+
+    DISPLAY("%s file_signature: %s\n", prefix, poldata->file_signature);
+    DISPLAY("%s num_lists: %u\n", prefix, poldata->num_lists);
+
+    char new_prefix[strlen(prefix)+8];
+    sprintf(new_prefix, "%s    ", prefix);
+    const lcp_policy_list_t *pollist = &poldata->policy_lists[0];
+    for ( unsigned int i = 0; i < poldata->num_lists; i++ ) {
+        DISPLAY("%s list %u:\n", prefix, i);
+        display_policy_list(new_prefix, pollist, brief);
+        pollist = (void *)pollist + get_policy_list_size(pollist);
+    }
+}
 
 lcp_policy_data_t *add_policy_list(lcp_policy_data_t *poldata,
                                    const lcp_policy_list_t *pollist)
@@ -73,6 +145,30 @@ lcp_policy_data_t *add_policy_list(lcp_policy_data_t *poldata,
     new_poldata->num_lists++;
 
     return new_poldata;
+}
+
+void calc_policy_data_hash(const lcp_policy_data_t *poldata, lcp_hash_t *hash,
+                           uint8_t hash_alg)
+{
+    size_t hash_size = get_lcp_hash_size(hash_alg);
+    uint8_t hash_list[hash_size * LCP_MAX_LISTS];
+
+    memset(hash_list, 0, sizeof(hash_list));
+
+    /* accumulate each list's msmt to list */
+    lcp_hash_t *curr_hash = (lcp_hash_t *)hash_list;
+    const lcp_policy_list_t *pollist = &poldata->policy_lists[0];
+    for ( unsigned int i = 0; i < poldata->num_lists; i++ ) {
+        calc_policy_list_hash(pollist, curr_hash, hash_alg);
+        pollist = (void *)pollist + get_policy_list_size(pollist);
+        curr_hash = (void *)curr_hash + hash_size;
+    }
+
+    /* hash list */
+    hash_buffer(hash_list, hash_size * poldata->num_lists, (tb_hash_t *)hash,
+                hash_alg);
+
+    return;
 }
 
 /*

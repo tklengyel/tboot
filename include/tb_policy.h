@@ -247,23 +247,24 @@ static inline tb_policy_entry_t* find_policy_entry(const tb_policy_t *policy,
 /*
  * verify and display policy
  */
-static inline bool verify_tb_policy(const tb_policy_t *policy, size_t size,
-                                    bool print)
+static inline bool verify_policy(const tb_policy_t *policy, size_t size,
+                                 bool print)
 {
     if ( print ) PRINT("policy:\n");
 
     if ( policy == NULL ) {
-        PRINT("policy pointer is NULL\n");
+        if ( print ) PRINT("policy pointer is NULL\n");
         return false;
     }
 
     if ( size < sizeof(tb_policy_t) ) {
-        PRINT("size of policy is too small (%lu)\n", (unsigned long)size);
+        if ( print ) PRINT("size of policy is too small (%lu)\n",
+                           (unsigned long)size);
         return false;
     }
 
     if ( policy->version != 0x02 ) {
-        PRINT("unsupported version (%u)\n", policy->version);
+        if ( print ) PRINT("unsupported version (%u)\n", policy->version);
         return false;
     }
     if ( print ) PRINT("\t version: %u\n", policy->version);
@@ -289,8 +290,8 @@ static inline bool verify_tb_policy(const tb_policy_t *policy, size_t size,
         /* check header of policy entry */
         if ( ((void *)pol_entry - (void *)policy + sizeof(*pol_entry)) >
              size ) {
-            PRINT("size of policy entry is too small (%lu)\n",
-                  (unsigned long)size);
+            if ( print ) PRINT("size of policy entry is too small (%lu)\n",
+                               (unsigned long)size);
             return false;
         }
 
@@ -298,7 +299,7 @@ static inline bool verify_tb_policy(const tb_policy_t *policy, size_t size,
 
         if ( pol_entry->mod_num > TB_POL_MAX_MOD_NUM &&
              pol_entry->mod_num != TB_POL_MOD_NUM_ANY ) {
-            PRINT("mod_num invalid (%u)\n", pol_entry->mod_num);
+            if ( print ) PRINT("mod_num invalid (%u)\n", pol_entry->mod_num);
             return false;
         }
         if ( print ) PRINT("\t\t mod_num: ");
@@ -310,7 +311,7 @@ static inline bool verify_tb_policy(const tb_policy_t *policy, size_t size,
 
         if ( pol_entry->pcr > TB_POL_MAX_PCR &&
              pol_entry->pcr != TB_POL_PCR_NONE ) {
-            PRINT("pcr invalid (%u)\n", pol_entry->pcr);
+            if ( print ) PRINT("pcr invalid (%u)\n", pol_entry->pcr);
             return false;
         }
         if ( print ) PRINT("\t\t pcr: ");
@@ -331,8 +332,8 @@ static inline bool verify_tb_policy(const tb_policy_t *policy, size_t size,
         if ( ((void *)pol_entry - (void *)policy + sizeof(*pol_entry) +
               pol_entry->num_hashes * get_hash_size(policy->hash_alg))
              > size ) {
-            PRINT("size of policy entry is too small (%lu)\n",
-                  (unsigned long)size);
+            if ( print ) PRINT("size of policy entry is too small (%lu)\n",
+                               (unsigned long)size);
             return false;
         }
 

@@ -36,7 +36,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -70,9 +69,17 @@ static bool string_to_uuid(const char *s, uuid_t *uuid)
     int i;
     char *next;
 
-    *uuid = (uuid_t){ 0x3aa86d4a, 0xa35d, 0x453d, 0x7a9a,
-                      { 0x1b, 0xb4, 0xa3, 0xe3, 0xa4, 0x9f } };
+    *uuid = (uuid_t)NULL_UUID;
     s = skipspace(s);
+
+    /*
+     * users can input "tboot" to specify to use the default tb policy uuid
+     * for wrapping tb policy into lcp custom element
+     */
+    if ( strcmp(s, "tboot") == 0 ) {
+        *uuid = (uuid_t)LCP_CUSTOM_ELEMENT_TBOOT_UUID;
+        return true;
+    }
 
     /* Fetch data1 */
     if ( *s++ != '{' )
@@ -191,7 +198,7 @@ static lcp_policy_element_t *create(void)
         return NULL;
     }
 
-    size_t data_size = sizeof(uuid) + data_len;
+    size_t data_size = sizeof(lcp_custom_element_t) + data_len;
 
     lcp_policy_element_t *elt = malloc(sizeof(*elt) + data_size);
     if ( elt == NULL ) {
@@ -238,6 +245,7 @@ static polelt_plugin_t plugin = {
     "        --uuid <UUID>               UUID in format:\n"
     "                                    {0xaabbccdd, 0xeeff, 0xgghh, 0xiijj,\n"
     "                                    {0xkk 0xll, 0xmm, 0xnn, 0xoo, 0xpp}}\n"
+    "                                    or \"--uuid tboot\" to use default\n"
     "        <FILE>                      file containing element data\n",
     LCP_POLELT_TYPE_CUSTOM,
     &cmdline_handler,

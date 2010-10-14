@@ -35,7 +35,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -115,7 +114,7 @@ static void display(const char *prefix, const lcp_policy_element_t *elt)
     lcp_mle_element_t *mle = (lcp_mle_element_t *)elt->data;
 
     DISPLAY("%s sinit_min_version: 0x%x\n", prefix, mle->sinit_min_version);
-    DISPLAY("%s hash_alg: %s\n", prefix, hash_alg_to_string(mle->hash_alg));
+    DISPLAY("%s hash_alg: %s\n", prefix, hash_alg_to_str(mle->hash_alg));
     DISPLAY("%s num_hashes: %u\n", prefix, mle->num_hashes);
 
     uint8_t *hash = (uint8_t *)&mle->hashes;

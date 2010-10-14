@@ -36,6 +36,11 @@
 #ifndef __POLLIST_H__
 #define __POLLIST_H__
 
+extern bool verify_policy_list(const lcp_policy_list_t *pollist, size_t size,
+                               bool *no_sigblock, bool size_is_exact);
+extern void display_policy_list(const char *prefix,
+                                const lcp_policy_list_t *pollist, bool brief);
+
 extern lcp_policy_list_t *create_empty_policy_list(void);
 
 extern lcp_policy_list_t *add_policy_element(lcp_policy_list_t *pollist,
@@ -43,9 +48,14 @@ extern lcp_policy_list_t *add_policy_element(lcp_policy_list_t *pollist,
 extern bool del_policy_element(lcp_policy_list_t *pollist, uint32_t type);
 
 extern bool verify_pollist_sig(const lcp_policy_list_t *pollist);
+extern void display_signature(const char *prefix, const lcp_signature_t *sig,
+                              bool brief);
 extern lcp_policy_list_t *add_signature(lcp_policy_list_t *pollist,
                                         const lcp_signature_t *sig);
 extern unsigned char *get_sig_block(const lcp_policy_list_t *pollist);
+
+extern void calc_policy_list_hash(const lcp_policy_list_t *pollist,
+                                  lcp_hash_t *hash, uint8_t hash_alg);
 
 extern lcp_policy_list_t *read_policy_list_file(const char *file, bool fail_ok,
                                                 bool *no_sigblock_ok);

@@ -264,7 +264,7 @@ txt_caps_t get_sinit_capabilities(acm_hdr_t* hdr)
     return info_table->capabilities;
 }
 
-static bool is_acmod(void *acmod_base, size_t acmod_size, uint8_t *type,
+static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
                      bool quiet)
 {
     acm_hdr_t *acm_hdr;
@@ -276,7 +276,7 @@ static bool is_acmod(void *acmod_base, size_t acmod_size, uint8_t *type,
     if ( acmod_size < sizeof(acm_hdr_t) ) {
         if ( !quiet )
             printk("\t ACM size is too small: acmod_size=%x,"
-                   " sizeof(acm_hdr)=%x\n", (uint32_t)acmod_size,
+                   " sizeof(acm_hdr)=%x\n", acmod_size,
                    (uint32_t)sizeof(acm_hdr) );
         return false;
     }
@@ -292,8 +292,7 @@ static bool is_acmod(void *acmod_base, size_t acmod_size, uint8_t *type,
     if ( acmod_size != acm_hdr->size * 4 ) {
         if ( !quiet )
             printk("\t ACM size is too small: acmod_size=%x,"
-                   " acm_hdr->size*4=%x\n", (uint32_t)acmod_size,
-                   acm_hdr->size*4);
+                   " acm_hdr->size*4=%x\n", acmod_size, acm_hdr->size*4);
         return false;
     }
 
@@ -339,7 +338,7 @@ static bool is_acmod(void *acmod_base, size_t acmod_size, uint8_t *type,
     return true;
 }
 
-bool is_sinit_acmod(void *acmod_base, size_t acmod_size, bool quiet)
+bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet)
 {
     uint8_t type;
 

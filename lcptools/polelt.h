@@ -38,8 +38,9 @@
 
 extern polelt_plugin_t *find_polelt_plugin_by_type(uint32_t type);
 extern polelt_plugin_t *find_polelt_plugin_by_type_string(const char *type_str);
+extern bool verify_policy_element(const lcp_policy_element_t *elt, size_t size);
 extern void display_policy_element(const char *prefix,
-                                   const lcp_policy_element_t *elt);
+                                   const lcp_policy_element_t *elt, bool brief);
 
 #endif    /* __POLELT_H__ */
 

@@ -115,7 +115,7 @@ bool read_policy_file(const char *policy_filename, bool *file_exists)
 
     fclose(f);
     
-    if ( !verify_tb_policy(g_policy, read_cnt, verbose) ) {
+    if ( !verify_policy(g_policy, read_cnt, verbose) ) {
         error_msg("Policy file %s is corrupt\n", policy_filename);
         return false;
     }
@@ -125,7 +125,7 @@ bool read_policy_file(const char *policy_filename, bool *file_exists)
 
 bool write_policy_file(const char *policy_filename)
 {
-    verify_tb_policy(g_policy, sizeof(_policy_buf), verbose);
+    verify_policy(g_policy, sizeof(_policy_buf), verbose);
 
     FILE *f = fopen(policy_filename, "w");
     if ( f == NULL ) {

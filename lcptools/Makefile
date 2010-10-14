@@ -90,7 +90,7 @@ POLELT_PLUGINS := mle_elt.o pconf_elt.o custom_elt.o
 
 LCP2_LIB := liblcp.a
 
-$(LCP2_LIB) : poldata.o pollist.o polelt.o lcputils2.o hash.o
+$(LCP2_LIB) : pol.o poldata.o pollist.o polelt.o lcputils2.o hash.o
 	$(AR) rc $@ $^
 
 lcp_crtpolelt : crtpolelt.o $(POLELT_PLUGINS) $(LCP2_LIB)

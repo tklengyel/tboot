@@ -55,7 +55,7 @@
 #include "polelt_plugin.h"
 #include "lcputils2.h"
 
-void __ERROR(const char *fmt, ...)
+void ERROR(const char *fmt, ...)
 {
     va_list ap;
 
@@ -64,7 +64,7 @@ void __ERROR(const char *fmt, ...)
     va_end(ap);
 }
 
-void __LOG(const char *fmt, ...)
+void LOG(const char *fmt, ...)
 {
     va_list ap;
 
@@ -75,13 +75,21 @@ void __LOG(const char *fmt, ...)
     }
 }
 
-void __DISPLAY(const char *fmt, ...)
+void DISPLAY(const char *fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
     vprintf(fmt, ap);
     va_end(ap);
+}
+
+size_t strlcpy(char *dst, const char *src, size_t siz)
+{
+    strncpy(dst, src, siz-1);
+    if ( siz != 0 )
+        *(dst + siz-1) = '\0';
+    return strlen(src);
 }
 
 void print_hex(const char *prefix, const void *data, size_t n)
@@ -91,21 +99,13 @@ void print_hex(const char *prefix, const void *data, size_t n)
     while ( i < n ) {
         if ( i % NUM_CHARS_PER_LINE == 0 && prefix != NULL )
             DISPLAY("%s", prefix);
-        DISPLAY("%02x ", *(uint8_t *)data++);
+		DISPLAY("%02x ", *(uint8_t *)data++);
         i++;
         if ( i % NUM_CHARS_PER_LINE == 0 )
             DISPLAY("\n");
     }
     if ( i % NUM_CHARS_PER_LINE != 0 )
         DISPLAY("\n");
-}
-
-size_t strlcpy(char *dst, const char *src, size_t siz)
-{
-    strncpy(dst, src, siz-1);
-    if ( siz != 0 )
-        *(dst + siz-1) = '\0';
-    return strlen(src);
 }
 
 void parse_comma_sep_ints(char *s, uint16_t ints[], unsigned int *nr_ints)
@@ -237,6 +237,26 @@ bool parse_file(const char *filename, bool (*parse_line)(const char *line))
     return false;
 }
 
+const char *hash_alg_to_str(uint8_t alg)
+{
+    static const char *alg_str[] = { "LCP_POLHALG_SHA1" };
+    static char buf[32];
+
+    if ( alg > ARRAY_SIZE(alg_str) ) {
+        snprintf(buf, sizeof(buf), "unknown (%u)", alg);
+        return buf;
+    }
+    else
+        return alg_str[alg];
+}
+
+size_t get_lcp_hash_size(uint8_t hash_alg)
+{
+    if ( hash_alg != LCP_POLHALG_SHA1 )
+        return 0;
+    return SHA1_LENGTH;
+}
+
 bool verify_signature(const uint8_t *data, size_t data_size,
                       const uint8_t *pubkey, size_t pubkey_size,
                       const uint8_t *sig, bool is_sig_little_endian)
@@ -289,7 +309,7 @@ bool verify_signature(const uint8_t *data, size_t data_size,
         if ( RSA_public_decrypt(pubkey_size, sig, unsig, rsa_pubkey,
                                 RSA_NO_PADDING) == -1 ) {
             ERR_load_crypto_strings();
-            ERROR("Error: failed to decrypt sig: %s\n",
+            ERROR("Error: failed to decrypt sig: %s\n", 
                   ERR_error_string(ERR_get_error(), NULL));
             ERR_free_strings();
         }
@@ -304,7 +324,7 @@ bool verify_signature(const uint8_t *data, size_t data_size,
                      get_hash_size(TB_HALG_SHA1), (uint8_t *)sig, pubkey_size,
                      rsa_pubkey) ) {
         ERR_load_crypto_strings();
-        ERROR("Error: failed to verify list: %s\n",
+        ERROR("Error: failed to verify list: %s\n", 
               ERR_error_string(ERR_get_error(), NULL));
         ERR_free_strings();
         RSA_free(rsa_pubkey);
