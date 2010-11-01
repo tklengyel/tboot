@@ -106,6 +106,16 @@ static inline void do_cpuid(unsigned int ax, uint32_t *p)
                           :  "0" (ax));
 }
 
+static always_inline uint32_t cpuid_eax(unsigned int op)
+{
+     /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
+    uint32_t regs[4];
+
+    do_cpuid(op, regs);
+
+    return regs[0];
+}
+
 static always_inline uint32_t cpuid_ebx(unsigned int op)
 {
      /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */

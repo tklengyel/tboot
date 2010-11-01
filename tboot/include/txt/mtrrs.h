@@ -103,10 +103,8 @@ typedef union {
     struct {
         uint64_t type      : 8;
         uint64_t reserved1 : 4;
-        /* TBD: the end of base really depends on MAXPHYADDR, but since */
-        /* the MTRRs are set for SINIT and it must be <4GB, can use 24b */
-        uint64_t base      : 24;
-        uint64_t reserved2 : 28;
+        uint64_t base      : 52;     /* define as max width and mask w/ */
+                                     /* MAXPHYADDR when using */
     };
 } mtrr_physbase_t;
 
@@ -115,10 +113,8 @@ typedef union {
     struct {
         uint64_t reserved1 : 11;
         uint64_t v         : 1;      /* valid */
-        /* TBD: the end of mask really depends on MAXPHYADDR, but since */
-        /* the MTRRs are set for SINIT and it must be <4GB, can use 24b */
-        uint64_t mask      : 24;
-        uint64_t reserved2 : 28;
+        uint64_t mask      : 52;     /* define as max width and mask w/ */
+                                     /* MAXPHYADDR when using */
     };
 } mtrr_physmask_t;
 
@@ -127,7 +123,7 @@ typedef union {
 
 typedef struct {
     mtrr_def_type_t	    mtrr_def_type;
-    int	                num_var_mtrrs;
+    unsigned int        num_var_mtrrs;
     mtrr_physbase_t     mtrr_physbases[MAX_VARIABLE_MTRRS];
     mtrr_physmask_t     mtrr_physmasks[MAX_VARIABLE_MTRRS];
 } mtrr_state_t;
