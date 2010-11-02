@@ -46,9 +46,6 @@
 #include "../include/config.h"
 #include "../include/hash.h"
 #include "../include/uuid.h"
-#include "../include/lcp2.h"
-#include "polelt_plugin.h"
-#include "lcputils2.h"
 
 #define NR_PCRS             24
 
@@ -72,12 +69,12 @@ typedef struct __packed {
 } tpm_digest_t;
 
 typedef tpm_digest_t tpm_composite_hash_t;
-typedef tpm_digest_t tpm_pcrvalue_t;
+typedef tpm_digest_t tpm_pcr_value_t;
 
 typedef struct __packed {
     tpm_pcr_selection_t   select;
     uint32_t              value_size;
-    tpm_pcrvalue_t        pcr_value[];
+    tpm_pcr_value_t       pcr_value[];
 } tpm_pcr_composite_t;
 
 typedef struct __packed {
@@ -85,6 +82,12 @@ typedef struct __packed {
     tpm_locality_selection_t    locality_at_release;
     tpm_composite_hash_t        digest_at_release;
 } tpm_pcr_info_short_t;
+
+/* need to define TPM_PCR_INFO_SHORT before including lcp2.h */
+#define TPM_PCR_INFO_SHORT tpm_pcr_info_short_t
+#include "../include/lcp2.h"
+#include "polelt_plugin.h"
+#include "lcputils2.h"
 
 static unsigned int nr_pcr_infos;
 static tpm_pcr_info_short_t pcr_infos[MAX_PCR_INFOS];
@@ -144,13 +147,13 @@ static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
      * digest is hash of TPM_PCR_COMPOSITE
      */
     size_t pcr_comp_size = offsetof(tpm_pcr_composite_t, pcr_value) +
-                           nr_pcrs * sizeof(tpm_pcrvalue_t);
+                           nr_pcrs * sizeof(tpm_pcr_value_t);
     tpm_pcr_composite_t *pcr_comp = (tpm_pcr_composite_t *)malloc(pcr_comp_size);
                                       
     if ( pcr_comp == NULL )
         return false;
     memcpy(&pcr_comp->select, &pcr_info->pcr_selection, sizeof(pcr_comp->select));
-    pcr_comp->value_size = bswap_32(nr_pcrs * sizeof(tpm_pcrvalue_t));
+    pcr_comp->value_size = bswap_32(nr_pcrs * sizeof(tpm_pcr_value_t));
     /* concat specified digests */
     for ( i = 0; i < nr_pcrs; i++ ) {
         memcpy(&pcr_comp->pcr_value[i], &digests[i],

@@ -159,6 +159,10 @@ bool verify_policy_list(const lcp_policy_list_t *pollist, size_t size,
             }
         }
     }
+    else {
+        if ( no_sigblock != NULL )
+            *no_sigblock = false;
+    }
 
     return true;
 }
@@ -282,82 +286,6 @@ bool verify_pollist_sig(const lcp_policy_list_t *pollist)
                             sig->pubkey_value, sig->pubkey_size,
                             get_sig_block(pollist), true);
 }
-#if 0
-
-
-    unsigned int i;
-
-    /* policy key is little-endian and openssl wants big-endian, so reverse */
-    uint8_t key[sig->pubkey_size];
-    for ( i = 0; i < sig->pubkey_size; i++ )
-        key[i] = *( + (sig->pubkey_size - i - 1));
-
-    /* create RSA public key struct */
-    RSA *pubkey = RSA_new();
-    if ( pubkey == NULL ) {
-        ERROR("Error: failed to allocate key\n");
-        return false;
-    }
-    pubkey->n = BN_bin2bn(key, sig->pubkey_size, NULL);
-
-    /* uses fixed exponent (LCP_SIG_EXPONENT) */
-    char exp[32];
-    snprintf(exp, sizeof(exp), "%u", LCP_SIG_EXPONENT);
-    pubkey->e = NULL;
-    BN_dec2bn(&pubkey->e, exp);
-    pubkey->d = pubkey->p = pubkey->q = NULL;
-
-    /* first create digest of list (all except sig_block) */
-    tb_hash_t digest;
-    if ( !hash_buffer(
-                      
-                      &digest, TB_HALG_SHA1) ) {
-        ERROR("Error: failed to hash list\n");
-        RSA_free(pubkey);
-        return false;
-    }
-    if ( verbose ) {
-        LOG("digest: ");
-        print_hex("", &digest, get_hash_size(TB_HALG_SHA1));
-    }
-
-    /* sigblock is little-endian and openssl wants big-endian, so reverse */
-    uint8_t sigblock[sig->pubkey_size];
-    for ( i = 0; i < sig->pubkey_size; i++ )
-        sigblock[i] = *( + (sig->pubkey_size - i - 1));
-
-    if ( verbose ) {
-        /* raw decryption of sigblock */
-        uint8_t unsig[sig->pubkey_size];
-        if ( RSA_public_decrypt(sig->pubkey_size, sigblock, unsig, pubkey,
-                                RSA_NO_PADDING) == -1 ) {
-            ERR_load_crypto_strings();
-            ERROR("Error: failed to decrypt sig: %s\n", 
-                  ERR_error_string(ERR_get_error(), NULL));
-            ERR_free_strings();
-        }
-        else {
-            LOG("decrypted sig:\n");
-            print_hex("", unsig, sig->pubkey_size);
-        }
-    }
-
-    /* verify digest */
-    if ( !RSA_verify(NID_sha1, (const unsigned char *)&digest,
-                     get_hash_size(TB_HALG_SHA1), sigblock, sig->pubkey_size,
-                     pubkey) ) {
-        ERR_load_crypto_strings();
-        ERROR("Error: failed to verify list: %s\n", 
-              ERR_error_string(ERR_get_error(), NULL));
-        ERR_free_strings();
-        RSA_free(pubkey);
-        return false;
-    }
-
-    RSA_free(pubkey);
-    return true;
-}
-#endif
 
 void display_signature(const char *prefix, const lcp_signature_t *sig,
                        bool brief)

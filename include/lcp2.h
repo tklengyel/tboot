@@ -153,9 +153,15 @@ typedef struct __packed {
 
 
 #define LCP_POLELT_TYPE_PCONF   1
+
+/* clients that will use this type need a proper defintion
+   of TPM_PCR_INFO_SHORT */
+#ifndef TPM_PCR_INFO_SHORT
+#define TPM_PCR_INFO_SHORT uint8_t 
+#endif
 typedef struct __packed {
     uint16_t             num_pcr_infos;
-    uint8_t              pcr_infos[];
+    TPM_PCR_INFO_SHORT   pcr_infos[];
 } lcp_pconf_element_t;
 
 
