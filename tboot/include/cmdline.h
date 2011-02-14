@@ -47,7 +47,6 @@ extern bool get_tboot_serial(void);
 extern void get_tboot_baud(void);
 extern void get_tboot_fmt(void);
 extern void get_tboot_vga_delay(void);
-extern void get_tboot_no_usb(void);
 
 /* for parse cmdline of linux kernel, say vga and mem */
 extern void linux_parse_cmdline(char *cmdline);

@@ -558,86 +558,52 @@ bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
          min_hi_ram == NULL || max_hi_ram == NULL )
         return false;
 
-    /* true means we will disable USB SMIs, and thus can protect all RAM */
-    get_tboot_no_usb();
-    if ( g_no_usb ) {
-        uint64_t above_base, above_size;
+    *min_lo_ram = *min_hi_ram = ~0ULL;
+    *max_lo_ram = *max_hi_ram = 0;
+    bool found_reserved_region = false;
 
-        /* don't use TOLUD since that covers stolen regions; bottom of
-           DPR is the memory usable by OS and that needs DMA protection */
-        txt_dpr_t dpr;
-        dpr._raw = read_pub_config_reg(TXTCR_DPR);
-        uint64_t dpr_bottom = ((uint64_t)dpr.top << 20) - (dpr.size * 1024*1024);
-        /* round up to 2MB so that we don't have to truncate memory for VT-d
-           (this will still be within DPR, so no problems) */
-        dpr_bottom = (dpr_bottom + 0x200000ULL - 1) & ~0x1fffffULL;
-        /* we need to ensure that there are no RAM regions above max lo */
-        get_highest_sized_ram(1, 0x100000000ULL, &above_base, &above_size);
-        if ( above_base + above_size > dpr_bottom ) {
-            printk("e820 has RAM region above DPR (0x%Lx): 0x%Lx - 0x%Lx\n",
-                   dpr_bottom, above_base, above_base+above_size);
-            return false;
-        }
-        *min_lo_ram = 0;
-        *max_lo_ram = dpr_bottom;
+    for ( unsigned int i = 0; i < g_nr_map; i++ ) {
+        memory_map_t *entry = &g_copy_e820_map[i];
+        uint64_t base = e820_base_64(entry);
+        uint64_t limit = base + e820_length_64(entry);
 
-        /* get hi memory from e820 map */
-        get_highest_sized_ram(1, ~0ULL, &above_base, &above_size);
-        if ( above_base + above_size > 0x100000000ULL ) {
-            *min_hi_ram = 0x100000000ULL;
-            *max_hi_ram = above_base + above_size;
-        }
-        else
-            *min_hi_ram = *max_hi_ram = 0;
-    }
-    else {
-        *min_lo_ram = *min_hi_ram = ~0ULL;
-        *max_lo_ram = *max_hi_ram = 0;
-        bool found_reserved_region = false;
-
-        for ( unsigned int i = 0; i < g_nr_map; i++ ) {
-            memory_map_t *entry = &g_copy_e820_map[i];
-            uint64_t base = e820_base_64(entry);
-            uint64_t limit = base + e820_length_64(entry);
-
-            if ( entry->type == E820_RAM ) {
-                /* if range straddles 4GB boundary, that is an error */
-                if ( base < 0x100000000ULL && limit > 0x100000000ULL ) {
-                    printk("e820 memory range straddles 4GB boundary\n");
-                    return false;
-                }
-
-                /*
-                 * some BIOSes put legacy USB buffers in reserved regions <4GB,
-                 * which if DMA protected cause SMM to hang, so make sure that
-                 * we don't overlap any of these even if that wastes RAM
-                 */
-                if ( !found_reserved_region ) {
-                    if ( base < 0x100000000ULL && base < *min_lo_ram )
-                        *min_lo_ram = base;
-                    if ( limit <= 0x100000000ULL && limit > *max_lo_ram )
-                        *max_lo_ram = limit;
-                }
-                else {     /* need to reserve low RAM above reserved regions */
-                    if ( base < 0x100000000ULL ) {
-                        printk("discarding RAM above reserved regions: 0x%Lx - 0x%Lx\n", base, limit);
-                        if ( !e820_reserve_ram(base, limit - base) )
-                            return false;
-                    }
-                }
-
-                if ( base >= 0x100000000ULL && base < *min_hi_ram )
-                    *min_hi_ram = base;
-                if ( limit > 0x100000000ULL && limit > *max_hi_ram )
-                    *max_hi_ram = limit;
+        if ( entry->type == E820_RAM ) {
+            /* if range straddles 4GB boundary, that is an error */
+            if ( base < 0x100000000ULL && limit > 0x100000000ULL ) {
+                printk("e820 memory range straddles 4GB boundary\n");
+                return false;
             }
-            else {
-                /* parts of low memory may be reserved for cseg, ISA hole,
-                   etc. but these seem OK to DMA protect, so ignore reserved
-                   regions <0x100000 */
-                if ( *min_lo_ram != ~0ULL && limit > 0x100000ULL )
-                    found_reserved_region = true;
+
+            /*
+             * some BIOSes put legacy USB buffers in reserved regions <4GB,
+             * which if DMA protected cause SMM to hang, so make sure that
+             * we don't overlap any of these even if that wastes RAM
+             */
+            if ( !found_reserved_region ) {
+                if ( base < 0x100000000ULL && base < *min_lo_ram )
+                    *min_lo_ram = base;
+                if ( limit <= 0x100000000ULL && limit > *max_lo_ram )
+                    *max_lo_ram = limit;
             }
+            else {     /* need to reserve low RAM above reserved regions */
+                if ( base < 0x100000000ULL ) {
+                    printk("discarding RAM above reserved regions: 0x%Lx - 0x%Lx\n", base, limit);
+                    if ( !e820_reserve_ram(base, limit - base) )
+                        return false;
+                }
+            }
+
+            if ( base >= 0x100000000ULL && base < *min_hi_ram )
+                *min_hi_ram = base;
+            if ( limit > 0x100000000ULL && limit > *max_hi_ram )
+                *max_hi_ram = limit;
+        }
+        else {
+            /* parts of low memory may be reserved for cseg, ISA hole,
+               etc. but these seem OK to DMA protect, so ignore reserved
+               regions <0x100000 */
+            if ( *min_lo_ram != ~0ULL && limit > 0x100000ULL )
+                found_reserved_region = true;
         }
     }
 

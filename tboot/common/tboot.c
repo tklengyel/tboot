@@ -333,10 +333,6 @@ void begin_launch(multiboot_info_t *mbi)
     if ( !prepare_cpu() )
         apply_policy(TB_ERR_FATAL);
 
-    /* disable legacy USB #SMIs */
-    get_tboot_no_usb();
-    disable_smis();
-
     /* do s3 launch directly, if is a s3 resume */
     if ( s3_flag ) {
         txt_s3_launch_environment();

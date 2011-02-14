@@ -71,7 +71,6 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "serial",     "115200,8n1,0x3f8" },
     /* serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
     { "vga_delay",  "0" },           /* # secs */
-    { "no_usb",     "true" },        /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -429,16 +428,6 @@ void get_tboot_vga_delay(void)
         return;
 
     g_vga_delay = strtoul(vga_delay, NULL, 0);
-}
-
-void get_tboot_no_usb(void)
-{
-    const char *no_usb = get_option_val(g_tboot_cmdline_options,
-                                        g_tboot_param_values, "no_usb");
-    if ( no_usb == NULL )
-        return;
-
-    g_no_usb = ( strcmp(no_usb, "true") == 0 );
 }
 
 
