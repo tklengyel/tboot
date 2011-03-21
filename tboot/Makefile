@@ -11,15 +11,20 @@ include $(CURDIR)/Config.mk
 
 TARGET := $(CURDIR)/tboot
 
-C_SRCS := $(wildcard $(CURDIR)/common/*.c) $(wildcard $(CURDIR)/txt/*.c)
+# boot.o must be first
+obj-y := common/boot.o
+obj-y += common/acpi.o common/cmdline.o common/com.o common/e820.o
+obj-y += common/elf.o common/hash.o common/index.o common/integrity.o
+obj-y += common/linux.o common/loader.o common/memcmp.o common/memcpy.o
+obj-y += common/misc.o common/mutex.o common/paging.o common/pci_cfgreg.o
+obj-y += common/policy.o common/printk.o common/rijndael.o common/sha1.o
+obj-y += common/strcmp.o common/strlen.o common/strncmp.o common/strncpy.o
+obj-y += common/strtoul.o common/tb_error.o common/tboot.o common/tpm.o
+obj-y += common/vga.o common/vmac.o common/vsprintf.o
+obj-y += txt/acmod.o txt/errors.o txt/heap.o txt/mtrrs.o txt/txt.o
+obj-y += txt/verify.o txt/vmcs.o
 
-S_SRCS += $(wildcard $(CURDIR)/common/*.S) $(wildcard $(CURDIR)/txt/*.S)
-# exclude wakeup.S and shutdown.S because they're included in boot.S
-INCLUDED_S_SRCS = $(CURDIR)/common/wakeup.S $(CURDIR)/common/shutdown.S
-S_SRCS := $(filter-out $(INCLUDED_S_SRCS),$(S_SRCS))
-
-# for time being, ensure that boot.o is first module
-OBJS := $(S_SRCS:.S=.o) $(C_SRCS:.c=.o)
+OBJS := $(obj-y)
 
 
 TARGET_LDS := $(CURDIR)/common/tboot.lds
