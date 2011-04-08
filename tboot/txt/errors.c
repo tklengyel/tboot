@@ -1,7 +1,7 @@
 /*
  * errors.c: parse and return status of Intel(r) TXT error codes
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,12 +85,9 @@ static void display_errors(void)
 
     /*
      * display LT.E2STS error
-     * - only valid if LT.WAKE-ERROR.STS set in LT.STS reg
      */
-    if ( ests.txt_wake_error_sts ) {
-        e2sts = (txt_e2sts_t)read_pub_config_reg(TXTCR_E2STS);
-        printk("LT.E2STS=%Lx\n", e2sts._raw);
-    }
+    e2sts = (txt_e2sts_t)read_pub_config_reg(TXTCR_E2STS);
+    printk("LT.E2STS=%Lx\n", e2sts._raw);
 }
 
 bool txt_get_error(void)

@@ -2,7 +2,7 @@
  * txt-stat: Linux app that will display various information about
  *           the status of TXT.
  *
- * Copyright (c) 2006-2008, Intel Corporation
+ * Copyright (c) 2006-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,39 +93,46 @@ static inline const char * bit_to_str(uint64_t b)
     return b ? "TRUE" : "FALSE";
 }
 
+void print_hex(const char* prefix, const void *start, size_t len)
+{
+    const void *end = start + len;
+    while ( start < end ) {
+        printf("%s", prefix);
+        for ( int i = 0; i < 16; i++ ) {
+            if ( start < end )
+                printf("%02x ", *(uint8_t *)start);
+            start++;
+        }
+        printf("\n");
+    }
+}
+
 static void display_config_regs(void *txt_config_base)
 {
-    txt_sts_t sts;
-    txt_ests_t ests;
-    txt_e2sts_t e2sts;
-    txt_dpr_t dpr;
-
     printf("Intel(r) TXT Configuration Registers:\n");
 
     /* STS */
+    txt_sts_t sts;
     sts._raw = read_txt_config_reg(txt_config_base, TXTCR_STS);
     printf("\tSTS: 0x%08jx\n", sts._raw);
     printf("\t    senter_done: %s\n", bit_to_str(sts.senter_done_sts));
     printf("\t    sexit_done: %s\n", bit_to_str(sts.sexit_done_sts));
-    printf("\t    mem_unlock: %s\n", bit_to_str(sts.mem_unlock_sts));
     printf("\t    mem_config_lock: %s\n", bit_to_str(sts.mem_config_lock_sts));
     printf("\t    private_open: %s\n", bit_to_str(sts.private_open_sts));
-    printf("\t    mem_config_ok: %s\n", bit_to_str(sts.mem_config_ok_sts));
+    printf("\t    locality_1_open: %s\n", bit_to_str(sts.locality_1_open_sts));
+    printf("\t    locality_2_open: %s\n", bit_to_str(sts.locality_2_open_sts));
 
     /* ESTS */
+    txt_ests_t ests;
     ests._raw = read_txt_config_reg(txt_config_base, TXTCR_ESTS);
     printf("\tESTS: 0x%02jx\n", ests._raw);
     printf("\t    txt_reset: %s\n", bit_to_str(ests.txt_reset_sts));
-    printf("\t    txt_wake_error: %s\n", bit_to_str(ests.txt_wake_error_sts));
 
     /* E2STS */
+    txt_e2sts_t e2sts;
     e2sts._raw = read_txt_config_reg(txt_config_base, TXTCR_E2STS);
     printf("\tE2STS: 0x%016jx\n", e2sts._raw);
-    printf("\t    slp_entry_error: %s\n",
-           bit_to_str(e2sts.slp_entry_error_sts));
     printf("\t    secrets: %s\n", bit_to_str(e2sts.secrets_sts));
-    printf("\t    block_mem: %s\n", bit_to_str(e2sts.block_mem_sts));
-    printf("\t    reset: %s\n", bit_to_str(e2sts.reset_sts));
 
     /* ERRORCODE */
     printf("\tERRORCODE: 0x%08jx\n", read_txt_config_reg(txt_config_base,
@@ -138,6 +145,16 @@ static void display_config_regs(void *txt_config_base)
     printf("\t    vendor_id: 0x%x\n", didvid.vendor_id);
     printf("\t    device_id: 0x%x\n", didvid.device_id);
     printf("\t    revision_id: 0x%x\n", didvid.revision_id);
+
+    /* FSBIF */
+    uint64_t fsbif;
+    fsbif = read_txt_config_reg(txt_config_base, TXTCR_VER_FSBIF);
+    printf("\tFSBIF: 0x%016jx\n", fsbif);
+
+    /* QPIIF */
+    uint64_t qpiif;
+    qpiif = read_txt_config_reg(txt_config_base, TXTCR_VER_QPIIF);
+    printf("\tQPIIF: 0x%016jx\n", qpiif);
 
     /* SINIT.BASE/SIZE */
     printf("\tSINIT.BASE: 0x%08jx\n", read_txt_config_reg(txt_config_base,
@@ -154,11 +171,23 @@ static void display_config_regs(void *txt_config_base)
            read_txt_config_reg(txt_config_base, TXTCR_HEAP_SIZE));
 
     /* DPR.BASE/SIZE */
+    txt_dpr_t dpr;
     dpr._raw = read_txt_config_reg(txt_config_base, TXTCR_DPR);
     printf("\tDPR: 0x%016jx\n", dpr._raw);
     printf("\t    lock: %s\n", bit_to_str(dpr.lock));
     printf("\t    top: 0x%08x\n", dpr.top << 20);
     printf("\t    size: %uMB (%uB)\n", dpr.size, dpr.size*1024*1024);
+
+    /* PUBLIC.KEY */
+    uint8_t key[256/8];
+    unsigned int i = 0;
+    do {
+        *(uint64_t *)&key[i] = read_txt_config_reg(txt_config_base,
+                                                   TXTCR_PUBLIC_KEY + i);
+        i += sizeof(uint64_t);
+    } while ( i < sizeof(key) );
+    printf("\tPUBLIC.KEY:\n");
+    print_hex("\t    ", key, sizeof(key)); printf("\n");
 
     /* easy-to-see status of TXT and secrets */
     printf("***********************************************************\n");

@@ -447,11 +447,11 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
     /* get chipset fusing, device, and vendor id info */
     txt_didvid_t didvid;
     didvid._raw = read_pub_config_reg(TXTCR_DIDVID);
-    txt_ver_fsbif_emif_t ver;
+    txt_ver_fsbif_qpiif_t ver;
     ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
     if ( (ver._raw & 0xffffffff) == 0xffffffff ||
-         (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.EMIF */
-        ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
+         (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.QPIIF */
+        ver._raw = read_pub_config_reg(TXTCR_VER_QPIIF);
     if ( !printed_chipset_info ) {
         printk("chipset production fused: %x\n", ver.prod_fused );
         printk("chipset ids: vendor: 0x%x, device: 0x%x, revision: 0x%x\n",

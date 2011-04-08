@@ -1,7 +1,7 @@
 /*
  * config_regs.h: Intel(r) TXT configuration register -related definitions
  *
- * Copyright (c) 2003-2010, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@
 #define TXTCR_CMD_CLOSE_PRIVATE     0x0048
 #define TXTCR_VER_FSBIF             0x0100
 #define TXTCR_DIDVID                0x0110
-#define TXTCR_VER_EMIF              0x0200
+#define TXTCR_VER_QPIIF             0x0200
 #define TXTCR_CMD_UNLOCK_MEM_CONFIG 0x0218
 #define TXTCR_SINIT_BASE            0x0270
 #define TXTCR_SINIT_SIZE            0x0278
@@ -70,6 +70,7 @@
 #define TXTCR_CMD_CLOSE_LOCALITY1   0x0388
 #define TXTCR_CMD_OPEN_LOCALITY2    0x0390
 #define TXTCR_CMD_CLOSE_LOCALITY2   0x0398
+#define TXTCR_PUBLIC_KEY            0x0400
 #define TXTCR_CMD_SECRETS           0x08e0
 #define TXTCR_CMD_NO_SECRETS        0x08e8
 #define TXTCR_E2STS                 0x08f0
@@ -93,9 +94,6 @@ typedef union {
     uint64_t _raw;
     struct {
         uint64_t   txt_reset_sts      : 1;
-        uint64_t   reserved1          : 5;
-        uint64_t   txt_wake_error_sts : 1;
-        uint64_t   reserved2          : 1;
     };
 } txt_ests_t;
 
@@ -105,10 +103,8 @@ typedef union {
 typedef union {
     uint64_t _raw;
     struct {
-        uint64_t   slp_entry_error_sts  : 1;
+        uint64_t   reserved             : 1;
         uint64_t   secrets_sts          : 1;
-        uint64_t   block_mem_sts        : 1;
-        uint64_t   reset_sts            : 1;
     };
 } txt_e2sts_t;
 
@@ -120,13 +116,12 @@ typedef union {
     struct {
         uint64_t   senter_done_sts         : 1;
         uint64_t   sexit_done_sts          : 1;
-        uint64_t   reserved1               : 2;
-        uint64_t   mem_unlock_sts          : 1;
-        uint64_t   reserved2               : 1;
+        uint64_t   reserved1               : 4;
         uint64_t   mem_config_lock_sts     : 1;
         uint64_t   private_open_sts        : 1;
-        uint64_t   reserved3               : 3;
-        uint64_t   mem_config_ok_sts       : 1;
+        uint64_t   reserved2               : 7;
+        uint64_t   locality_1_open_sts     : 1;
+        uint64_t   locality_2_open_sts     : 1;
     };
 } txt_sts_t;
 
@@ -144,7 +139,7 @@ typedef union {
 } txt_didvid_t;
 
 /*
- * format of VER.FSBIF and VER.EMIF registers
+ * format of VER.FSBIF and VER.QPIIF registers
  */
 typedef union {
     uint64_t _raw;
@@ -152,7 +147,7 @@ typedef union {
         uint64_t  reserved       : 31;
         uint64_t  prod_fused     : 1;
     };
-} txt_ver_fsbif_emif_t;
+} txt_ver_fsbif_qpiif_t;
 
 /*
  * format of DPR register
