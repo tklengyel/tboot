@@ -2,7 +2,7 @@
  * acmod.c: support functions for use of Intel(r) TXT Authenticated
  *          Code (AC) Modules
  *
- * Copyright (c) 2003-2010, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -176,6 +176,13 @@ static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
     printk("\t type: 0x%x ", hdr->module_type);
     if ( hdr->module_type == ACM_TYPE_CHIPSET )
         printk("(ACM_TYPE_CHIPSET)\n");
+    else
+        printk("(unknown)\n");
+    printk("\t subtype: 0x%x ", hdr->module_subtype);
+    if ( hdr->module_subtype == ACM_SUBTYPE_RESET )
+        printk("(execute at reset)\n");
+    else if ( hdr->module_subtype == 0 )
+        printk("\n");
     else
         printk("(unknown)\n");
     printk("\t length: 0x%x (%u)\n", hdr->header_len, hdr->header_len);

@@ -2,7 +2,7 @@
  * acmod.c: support functions for use of Intel(r) TXT Authenticated
  *          Code (AC) Modules
  *
- * Copyright (c) 2003-2010, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,8 @@ typedef union {
 } acm_flags_t;
 
 typedef struct {
-    uint32_t     module_type;
+    uint16_t     module_type;
+    uint16_t     module_subtype;
     uint32_t     header_len;
     uint32_t     header_ver;          /* currently 0.0 */
     uint16_t     chipset_id;
@@ -78,6 +79,9 @@ typedef struct {
 
 /* value of module_type field */
 #define ACM_TYPE_CHIPSET        0x02
+
+/* value of module_subtype field */
+#define ACM_SUBTYPE_RESET       0x01
 
 /* value of module_vendor field */
 #define ACM_VENDOR_INTEL        0x8086
