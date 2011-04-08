@@ -1,7 +1,7 @@
 /*
  * heap.h: Intel(r) TXT heap definitions
  *
- * Copyright (c) 2003-2008, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,56 @@
 #define __TXT_HEAP_H__
 
 /*
+ * Extensible TXT heap data structure
+ */
+
+typedef struct __packed {
+    uint32_t   type;
+    uint32_t   size;
+    uint8_t    data[];
+} heap_ext_data_element_t;
+
+/*
+ * HEAP_END_ELEMENT
+ */
+#define HEAP_EXTDATA_TYPE_END             0
+
+/* size == 8; there is no data[] */
+
+/*
+ * HEAP_BIOS_SPEC_VER_ELEMENT
+ */
+#define HEAP_EXTDATA_TYPE_BIOS_SPEC_VER   1
+
+typedef struct __packed {
+    uint16_t   spec_ver_major;
+    uint16_t   spec_ver_minor;
+    uint16_t   spec_ver_rev;
+} heap_bios_spec_ver_elt_t;
+
+/*
+ * HEAP_ACM_ELEMENT
+ */
+#define HEAP_EXTDATA_TYPE_ACM             2
+
+typedef struct __packed {
+    uint32_t   num_acms;
+    uint64_t   acm_addrs[];
+} heap_acm_elt_t;
+
+/*
+ * HEAP_CUSTOM_ELEMENT
+ */
+#define HEAP_EXTDATA_TYPE_CUSTOM          3
+
+typedef struct __packed {
+    uuid_t     uuid;
+    uint8_t    data[];
+} heap_custom_elt_t;
+
+
+
+/*
  * data-passing structures contained in TXT heap:
  *   - BIOS
  *   - OS/loader to MLE
@@ -47,14 +97,16 @@
 /*
  * BIOS structure
  */
-typedef struct {
-    uint32_t  version;              /* WB = 2, current = 3 */
+typedef struct __packed {
+    uint32_t  version;              /* currently 2-4 */
     uint32_t  bios_sinit_size;
     uint64_t  lcp_pd_base;
     uint64_t  lcp_pd_size;
     uint32_t  num_logical_procs;
     /* versions >= 3 */
     uint64_t  flags;
+    /* versions >= 4 */
+    heap_ext_data_element_t  ext_data_elts[];
 } bios_data_t;
 
 /*
@@ -63,7 +115,7 @@ typedef struct {
  */
 #define MAX_LCP_PO_DATA_SIZE     64*1024  /* 64k */
 
-typedef struct {
+typedef struct __packed {
     uint32_t          version;           /* currently 2 */
     mtrr_state_t      saved_mtrr_state;  /* saved prior to changes for SINIT */
     multiboot_info_t* mbi;               /* needs to be restored to ebx */
@@ -75,7 +127,7 @@ typedef struct {
 /*
  * OS/loader to SINIT structure
  */
-typedef struct {
+typedef struct __packed {
     uint32_t    version;           /* currently 4, 5 */
     uint32_t    reserved;
     uint64_t    mle_ptab;
@@ -101,7 +153,7 @@ typedef struct {
 #define MDR_MEMTYPE_PCIE_CONFIG_SPACE   0x03
 #define MDR_MEMTYPE_PROTECTED           0x04
 
-typedef struct __attribute__ ((packed)) {
+typedef struct __packed {
     uint64_t  base;
     uint64_t  length;
     uint8_t   mem_type;
@@ -111,7 +163,7 @@ typedef struct __attribute__ ((packed)) {
 #define SHA1_SIZE      20
 typedef uint8_t   sha1_hash_t[SHA1_SIZE];
 
-typedef struct {
+typedef struct __packed {
     uint32_t     version;             /* currently 6-8 */
     sha1_hash_t  bios_acm_id;
     uint32_t     edx_senter_flags;

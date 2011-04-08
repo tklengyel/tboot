@@ -1,7 +1,7 @@
 /*
  * heap.c: fns for verifying and printing the Intel(r) TXT heap data structs
  *
- * Copyright (c) 2003-2010, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
  *
  */
 
+#ifndef IS_INCLUDED
 #include <config.h>
 #include <types.h>
 #include <stdbool.h>
@@ -47,25 +48,181 @@
 #include <txt/mtrrs.h>
 #include <txt/config_regs.h>
 #include <txt/heap.h>
+#endif
 
-static inline void print_heap_hash(sha1_hash_t hash)
+/*
+ * extended data elements
+ */
+
+/* HEAP_BIOS_SPEC_VER_ELEMENT */
+static void print_bios_spec_ver_elt(const heap_ext_data_element_t *elt)
 {
-    print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
+    const heap_bios_spec_ver_elt_t *bios_spec_ver_elt =
+        (const heap_bios_spec_ver_elt_t *)elt->data;
+
+    printk("\t\t BIOS_SPEC_VER:\n");
+    printk("\t\t     major: 0x%x\n", bios_spec_ver_elt->spec_ver_major);
+    printk("\t\t     minor: 0x%x\n", bios_spec_ver_elt->spec_ver_minor);
+    printk("\t\t     rev: 0x%x\n", bios_spec_ver_elt->spec_ver_rev);
 }
+
+static bool verify_bios_spec_ver_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_bios_spec_ver_elt_t *bios_spec_ver_elt =
+        (const heap_bios_spec_ver_elt_t *)elt->data;
+
+    if ( elt->size != sizeof(*elt) + sizeof(*bios_spec_ver_elt) ) {
+        printk("HEAP_BIOS_SPEC_VER element has wrong size (%u)\n", elt->size);
+        return false;
+    }
+
+    /* any values are allowed */
+    return true;
+}
+
+/* HEAP_ACM_ELEMENT */
+static void print_acm_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_acm_elt_t *acm_elt = (const heap_acm_elt_t *)elt->data;
+
+    printk("\t\t ACM:\n");
+    printk("\t\t     num_acms: %u\n", acm_elt->num_acms);
+    for ( unsigned int i = 0; i < acm_elt->num_acms; i++ )
+        printk("\t\t     acm_addrs[%u]: 0x%jx\n", i, acm_elt->acm_addrs[i]);
+}
+
+static bool verify_acm_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_acm_elt_t *acm_elt = (const heap_acm_elt_t *)elt->data;
+
+    if ( elt->size != sizeof(*elt) + sizeof(*acm_elt) +
+         acm_elt->num_acms*sizeof(uint64_t) ) {
+        printk("HEAP_ACM element has wrong size (%u)\n", elt->size);
+        return false;
+    }
+
+    /* no addrs is not error, but print warning */
+    if ( acm_elt->num_acms == 0 )
+        printk("HEAP_ACM element has no ACM addrs\n");
+
+    for ( unsigned int i = 0; i < acm_elt->num_acms; i++ ) {
+        if ( acm_elt->acm_addrs[i] == 0 ) {
+            printk("HEAP_ACM element ACM addr (%u) is NULL\n", i);
+            return false;
+        }
+
+        if ( acm_elt->acm_addrs[i] >= 0x100000000UL ) {
+            printk("HEAP_ACM element ACM addr (%u) is >4GB (0x%jx)\n", i,
+                   acm_elt->acm_addrs[i]);
+            return false;
+        }
+
+        /* not going to check if ACM addrs are valid ACMs */
+    }
+
+    return true;
+}
+
+/* HEAP_CUSTOM_ELEMENT */
+static void print_custom_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_custom_elt_t *custom_elt = (const heap_custom_elt_t *)elt->data;
+
+    printk("\t\t CUSTOM:\n");
+    printk("\t\t     size: %u\n", elt->size);
+    printk("\t\t     uuid: "); print_uuid(&custom_elt->uuid); printk("\n");
+}
+
+static bool verify_custom_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_custom_elt_t *custom_elt = (const heap_custom_elt_t *)elt->data;
+
+    if ( elt->size < sizeof(*elt) + sizeof(*custom_elt) ) {
+        printk("HEAP_CUSTOM element has wrong size (%u)\n", elt->size);
+        return false;
+    }
+
+    /* any values are allowed */
+    return true;
+}
+
+static void print_ext_data_elts(const heap_ext_data_element_t elts[])
+{
+    const heap_ext_data_element_t *elt = elts;
+
+    printk("\t ext_data_elts[]:\n");
+    while ( elt->type != HEAP_EXTDATA_TYPE_END ) {
+        switch ( elt->type ) {
+            case HEAP_EXTDATA_TYPE_BIOS_SPEC_VER:
+                print_bios_spec_ver_elt(elt);
+                break;
+            case HEAP_EXTDATA_TYPE_ACM:
+                print_acm_elt(elt);
+                break;
+            case HEAP_EXTDATA_TYPE_CUSTOM:
+                print_custom_elt(elt);
+                break;
+            default:
+                printk("\t\t unknown element:  type: %u, size: %u\n",
+                       elt->type, elt->size);
+                break;
+        }
+        elt = (void *)elt + elt->size;
+    }
+}
+
+static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
+                                 size_t elts_size)
+{
+    const heap_ext_data_element_t *elt = elts;
+
+    while ( true ) {
+        if ( elts_size < sizeof(*elt) ) {
+            printk("heap ext data elements too small\n");
+            return false;
+        }
+        switch ( elt->type ) {
+            case HEAP_EXTDATA_TYPE_END:
+                return true;
+            case HEAP_EXTDATA_TYPE_BIOS_SPEC_VER:
+                if ( !verify_bios_spec_ver_elt(elt) )
+                    return false;
+                break;
+            case HEAP_EXTDATA_TYPE_ACM:
+                if ( !verify_acm_elt(elt) )
+                    return false;
+                break;
+            case HEAP_EXTDATA_TYPE_CUSTOM:
+                if ( !verify_custom_elt(elt) )
+                    return false;
+                break;
+            default:
+                printk("unknown element:  type: %u, size: %u\n", elt->type,
+                       elt->size);
+                break;
+        }
+        elts_size -= elt->size;
+        elt = (void *)elt + elt->size;
+    }
+    return true;
+}
+
 
 static void print_bios_data(bios_data_t *bios_data)
 {
-    printk("bios_data (@%p, %Lx):\n", bios_data,
+    printk("bios_data (@%p, %jx):\n", bios_data,
            *((uint64_t *)bios_data - 1));
     printk("\t version: %u\n", bios_data->version);
     printk("\t bios_sinit_size: 0x%x (%u)\n", bios_data->bios_sinit_size,
            bios_data->bios_sinit_size);
-    printk("\t lcp_pd_base: 0x%Lx\n", bios_data->lcp_pd_base);
-    printk("\t lcp_pd_size: 0x%Lx (%Lu)\n", bios_data->lcp_pd_size,
+    printk("\t lcp_pd_base: 0x%jx\n", bios_data->lcp_pd_base);
+    printk("\t lcp_pd_size: 0x%jx (%ju)\n", bios_data->lcp_pd_size,
            bios_data->lcp_pd_size);
     printk("\t num_logical_procs: %u\n", bios_data->num_logical_procs);
     if ( bios_data->version >= 3 )
-        printk("\t flags: 0x%08Lx\n", bios_data->flags);
+        printk("\t flags: 0x%08jx\n", bios_data->flags);
+    if ( bios_data->version >= 4 )
+        print_ext_data_elts(bios_data->ext_data_elts);
 }
 
 bool verify_bios_data(txt_heap_t *txt_heap)
@@ -82,7 +239,7 @@ bool verify_bios_data(txt_heap_t *txt_heap)
     }
     if ( size > heap_size ) {
         printk("BIOS data size is larger than heap size "
-               "(%Lx, heap size=%Lx)\n", size, heap_size);
+               "(%jx, heap size=%jx)\n", size, heap_size);
         return false;
     }
 
@@ -94,7 +251,7 @@ bool verify_bios_data(txt_heap_t *txt_heap)
         return false;
     }
     /* we assume backwards compatibility but print a warning */
-    if ( bios_data->version > 3 )
+    if ( bios_data->version > 4 )
         printk("unsupported BIOS data version (%u)\n", bios_data->version);
 
     /* all TXT-capable CPUs support at least 2 cores */
@@ -109,9 +266,22 @@ bool verify_bios_data(txt_heap_t *txt_heap)
         return false;
     }
 
+    if ( bios_data->version >= 4 ) {
+        if ( !verify_ext_data_elts(bios_data->ext_data_elts,
+                                   size - sizeof(*bios_data)) )
+            return false;
+    }
+
     print_bios_data(bios_data);
 
     return true;
+}
+
+#ifndef IS_INCLUDED
+
+static inline void print_heap_hash(sha1_hash_t hash)
+{
+    print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
 }
 
 static void print_os_mle_data(os_mle_data_t *os_mle_data)
@@ -371,6 +541,7 @@ bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only)
     return true;
 }
 
+#endif
 
 /*
  * Local variables:

@@ -1,7 +1,7 @@
 /*
  * vsprintf.c:  provides string formatting fns
  *
- * Copyright (c) 2010, Intel Corporation
+ * Copyright (c) 2010-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -325,10 +325,10 @@ handle_width:
         }
 
         /* parsing qualifier: h l L;
-         * h is ignored here, and 'L' is treated as 'll'
+         * h is ignored here, and 'L' and 'j' are treated as 'll'
          */
         mods.flag_long = NORM;
-        if ( *fmt_ptr == 'L' ) {
+        if ( *fmt_ptr == 'L' || *fmt_ptr == 'j' ) {
             mods.flag_long = LONGLONG;
             fmt_ptr++;
         }
