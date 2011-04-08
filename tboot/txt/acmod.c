@@ -42,6 +42,7 @@
 #include <compiler.h>
 #include <string.h>
 #include <processor.h>
+#include <msr.h>
 #include <misc.h>
 #include <uuid.h>
 #include <multiboot.h>
@@ -156,6 +157,66 @@ static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
     return chipset_id_list;
 }
 
+static acm_processor_id_list_t *get_acmod_processor_list(acm_hdr_t* hdr)
+{
+    acm_info_table_t* info_table;
+    uint32_t size, id_list_off;
+    acm_processor_id_list_t *proc_id_list;
+
+    /* this fn assumes that the ACM has already passed the is_acmod() checks */
+
+    info_table = get_acmod_info_table(hdr);
+    if ( info_table == NULL )
+        return NULL;
+    id_list_off = info_table->processor_id_list;
+
+    size = hdr->size * 4;
+
+    /* overflow? */
+    if ( plus_overflow_u32(id_list_off, sizeof(acm_processor_id_t)) ) {
+        printk("id_list_off plus acm_processor_id_t size overflows\n");
+        return NULL;
+    }
+
+    /* check that processor id table is w/in ACM */
+    if ( id_list_off + sizeof(acm_processor_id_t) > size ) {
+        printk("ACM processor id list is too big: processor_id_list=%x\n",
+               id_list_off);
+        return NULL;
+    }
+
+    /* overflow? */
+    if ( plus_overflow_u32((unsigned long)hdr, id_list_off) ) {
+        printk("hdr plus id_list_off overflows\n");
+        return NULL;
+    }
+
+    proc_id_list = (acm_processor_id_list_t *)
+                             ((unsigned long)hdr + id_list_off);
+
+    /* overflow? */
+    if ( multiply_overflow_u32(proc_id_list->count,
+             sizeof(acm_processor_id_t)) ) {
+        printk("size of acm_processor_id_list overflows\n");
+        return NULL;
+    }
+    if ( plus_overflow_u32(id_list_off + sizeof(acm_processor_id_t),
+        proc_id_list->count * sizeof(acm_processor_id_t)) ) {
+        printk("size of all entries overflows\n");
+        return NULL;
+    }
+
+    /* check that all entries are w/in ACM */
+    if ( id_list_off + sizeof(acm_processor_id_t) +
+         proc_id_list->count * sizeof(acm_processor_id_t) > size ) {
+        printk("ACM processor id entries are too big:"
+               " proc_id_list->count=%x\n", proc_id_list->count);
+        return NULL;
+    }
+
+    return proc_id_list;
+}
+
 void print_txt_caps(const char *prefix, txt_caps_t caps)
 {
     printk("%scapabilities: 0x%08x\n", prefix, caps._raw);
@@ -167,7 +228,6 @@ void print_txt_caps(const char *prefix, txt_caps_t caps)
 static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
 {
     acm_info_table_t *info_table;
-    acm_chipset_id_list_t *chipset_id_list;
 
     printk("AC module header dump for %s:\n",
            (mod_name == NULL) ? "?" : mod_name);
@@ -231,7 +291,7 @@ static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
 
     /* chipset list */
     printk("\t chipset list:\n");
-    chipset_id_list = get_acmod_chipset_list(hdr);
+    acm_chipset_id_list_t *chipset_id_list = get_acmod_chipset_list(hdr);
     if ( chipset_id_list == NULL ) {
         printk("\t\t <invalid>\n");
         return;
@@ -246,6 +306,25 @@ static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
         printk("\t\t     revision_id: 0x%x\n",
                (uint32_t)chipset_id->revision_id);
         printk("\t\t     extended_id: 0x%x\n", chipset_id->extended_id);
+    }
+
+    if ( info_table->version >= 4 ) {
+        /* processor list */
+        printk("\t processor list:\n");
+        acm_processor_id_list_t *proc_id_list = get_acmod_processor_list(hdr);
+        if ( proc_id_list == NULL ) {
+            printk("\t\t <invalid>\n");
+            return;
+        }
+        printk("\t\t count: %u\n", proc_id_list->count);
+        for ( unsigned int i = 0; i < proc_id_list->count; i++ ) {
+            printk("\t\t entry %u:\n", i);
+            acm_processor_id_t *proc_id = &(proc_id_list->processor_ids[i]);
+            printk("\t\t     fms: 0x%x\n", proc_id->fms);
+            printk("\t\t     fms_mask: 0x%x\n", proc_id->fms_mask);
+            printk("\t\t     platform_id: 0x%Lx\n", (unsigned long long)proc_id->platform_id);
+            printk("\t\t     platform_mask: 0x%Lx\n", (unsigned long long)proc_id->platform_mask);
+        }
     }
 }
 
@@ -274,10 +353,7 @@ txt_caps_t get_sinit_capabilities(acm_hdr_t* hdr)
 static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
                      bool quiet)
 {
-    acm_hdr_t *acm_hdr;
-    acm_info_table_t *info_table;
-
-    acm_hdr = (acm_hdr_t *)acmod_base;
+    acm_hdr_t *acm_hdr = (acm_hdr_t *)acmod_base;
 
     /* first check size */
     if ( acmod_size < sizeof(acm_hdr_t) ) {
@@ -313,7 +389,7 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
         return false;
     }
 
-    info_table = get_acmod_info_table(acm_hdr);
+    acm_info_table_t *info_table = get_acmod_info_table(acm_hdr);
     if ( info_table == NULL )
         return false;
 
@@ -336,7 +412,7 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
         return false;
     }
     /* there is forward compatibility, so this is just a warning */
-    else if ( info_table->version > 3 ) {
+    else if ( info_table->version > 4 ) {
         if ( !quiet )
             printk("\t ACM info_table version mismatch (%u)\n",
                    (uint32_t)info_table->version);
@@ -360,33 +436,43 @@ bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet)
     return true;
 }
 
-bool does_acmod_match_chipset(acm_hdr_t* hdr)
+bool does_acmod_match_platform(acm_hdr_t* hdr)
 {
+    /* used to ensure we don't print chipset/proc info for each module */
+    static bool printed_chipset_info;
+    static bool printed_proc_info;
+
     /* this fn assumes that the ACM has already passed the is_acmod() checks */
 
-    /*
-     * check if fusing is same
-     */
+    /* get chipset fusing, device, and vendor id info */
+    txt_didvid_t didvid;
+    didvid._raw = read_pub_config_reg(TXTCR_DIDVID);
     txt_ver_fsbif_emif_t ver;
     ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
     if ( (ver._raw & 0xffffffff) == 0xffffffff ||
          (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.EMIF */
         ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
+    if ( !printed_chipset_info ) {
+        printk("chipset production fused: %x\n", ver.prod_fused );
+        printk("chipset ids: vendor: 0x%x, device: 0x%x, revision: 0x%x\n",
+               didvid.vendor_id, didvid.device_id, didvid.revision_id);
+        printed_chipset_info = true;
+    }
+
+    /*
+     * check if chipset fusing is same
+     */
     if ( ver.prod_fused != !hdr->flags.debug_signed ) {
         printk("\t production/debug mismatch between chipset and ACM\n");
         return false;
     }
 
     /*
-     * check if vendor/device/revision IDs match
+     * check if chipset vendor/device/revision IDs match
      */
     acm_chipset_id_list_t *chipset_id_list = get_acmod_chipset_list(hdr);
     if ( chipset_id_list == NULL )
         return false;
-
-    /* get chipset device and vendor id info */
-    txt_didvid_t didvid;
-    didvid._raw = read_pub_config_reg(TXTCR_DIDVID);
 
     printk("\t %x ACM chipset id entries:\n", chipset_id_list->count);
     for ( unsigned int i = 0; i < chipset_id_list->count; i++ ) {
@@ -406,12 +492,46 @@ bool does_acmod_match_chipset(acm_hdr_t* hdr)
             return true;
     }
 
-    printk("\t ACM does not match chipset\n");
+    /*
+     * check if processor family/model/stepping and platform IDs match
+     */
+    acm_info_table_t *info_table = get_acmod_info_table(hdr);
+    if ( info_table->version >= 4 ) {
+        /* get processor family/model/stepping and platform ID */
+        uint64_t platform_id;
+        uint32_t fms = cpuid_eax(1);
+        platform_id = rdmsr(MSR_IA32_PLATFORM_ID);
+        if ( !printed_proc_info ) {
+            printk("processor family/model/stepping: %x\n", fms );
+            printk("platform id: 0x%Lx\n", (unsigned long long)platform_id);
+            printed_proc_info = true;
+        }
+
+        acm_processor_id_list_t *proc_id_list = get_acmod_processor_list(hdr);
+        if ( proc_id_list == NULL )
+            return false;
+
+        printk("\t %x ACM processor id entries:\n", proc_id_list->count);
+        for ( unsigned int i = 0; i < proc_id_list->count; i++ ) {
+            acm_processor_id_t *proc_id = &(proc_id_list->processor_ids[i]);
+            printk("\t     fms: 0x%x, fms_mask: 0x%x, platform_id: 0x%Lx, "
+                   "platform_mask: 0x%Lx\n",
+                   proc_id->fms, proc_id->fms_mask,
+                   (unsigned long long)proc_id->platform_id,
+                   (unsigned long long)proc_id->platform_mask);
+
+            if ( (proc_id->fms == (fms & proc_id->fms_mask)) &&
+                 (proc_id->platform_id == (platform_id & proc_id->platform_mask)))
+                return true;
+        }
+    }
+
+    printk("\t ACM does not match platform\n");
 
     return false;
 }
 
-#ifndef IS_INCLUDED
+#ifndef IS_INCLUDED     /* defined in txt-test/dump-acm.c */
 acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
 {
     void *sinit_region_base;
@@ -434,7 +554,7 @@ acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
         printk("BIOS has already loaded an SINIT module\n");
         /* is it a valid SINIT module? */
         if ( is_sinit_acmod(sinit_region_base, bios_data->bios_sinit_size, false) &&
-             does_acmod_match_chipset((acm_hdr_t *)sinit_region_base) ) {
+             does_acmod_match_platform((acm_hdr_t *)sinit_region_base) ) {
             /* no other SINIT was provided so must use one BIOS provided */
             if ( sinit == NULL )
                 return (acm_hdr_t *)sinit_region_base;

@@ -28,7 +28,7 @@
  *
  */
 /*
- * Portions copyright (c) 2010, Intel Corporation
+ * Portions copyright (c) 2010-2011, Intel Corporation
  */
 
 
@@ -61,6 +61,7 @@ static inline void wrmsr(uint32_t msr, uint64_t newval)
  * $FreeBSD: src/sys/i386/include/specialreg.h,v 1.53.2.1.2.2 2009/11/06 17:09:04 attilio Exp $
  */
 
+#define MSR_IA32_PLATFORM_ID                   0x017
 #define MSR_APICBASE                           0x01b
 #define MSR_IA32_FEATURE_CONTROL               0x03a
 #define MSR_IA32_SMM_MONITOR_CTL               0x09b

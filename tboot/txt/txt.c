@@ -2,7 +2,7 @@
  * txt.c: Intel(r) TXT support functions, including initiating measured
  *        launch, post-launch, AP wakeup, etc.
  *
- * Copyright (c) 2003-2010, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -209,18 +209,6 @@ static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
         return false;
     }
 
-    /* display chipset fuse and device and vendor id info */
-    txt_didvid_t didvid;
-    didvid._raw = read_pub_config_reg(TXTCR_DIDVID);
-    printk("chipset ids: vendor: 0x%x, device: 0x%x, revision: 0x%x\n",
-           didvid.vendor_id, didvid.device_id, didvid.revision_id);
-    txt_ver_fsbif_emif_t ver;
-    ver._raw = read_pub_config_reg(TXTCR_VER_FSBIF);
-    if ( (ver._raw & 0xffffffff) == 0xffffffff ||
-         (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.EMIF */
-        ver._raw = read_pub_config_reg(TXTCR_VER_EMIF);
-    printk("chipset production fused: %x\n", ver.prod_fused );
-
     for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
         module_t *m = get_module(mbi, i);
 
@@ -229,7 +217,7 @@ static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
         void *base2 = (void *)m->mod_start;
         uint32_t size2 = m->mod_end - (unsigned long)(base2);
         if ( is_sinit_acmod(base2, size2, false) &&
-             does_acmod_match_chipset((acm_hdr_t *)base2) ) {
+             does_acmod_match_platform((acm_hdr_t *)base2) ) {
             if ( base != NULL )
                 *base = base2;
             if ( size != NULL )
