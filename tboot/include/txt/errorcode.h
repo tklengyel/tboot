@@ -1,7 +1,7 @@
 /*
  * errorcode.h: Intel(r) TXT error definitions for ERRORCODE config register
  *
- * Copyright (c) 2003-2007, Intel Corporation
+ * Copyright (c) 2003-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,14 +58,16 @@
 typedef union {
     uint32_t _raw;
     struct {
-        uint32_t  err1    : 15;     /* specific to src */
-        uint32_t  src     : 1;      /* 0=ACM, 1=other */
-        uint32_t  err2    : 14;     /* specific to src */
+        uint32_t  err1     : 15;     /* specific to src */
+        uint32_t  src      : 1;      /* 0=ACM, 1=other */
+        uint32_t  err2     : 14;     /* specific to src */
+        uint32_t  external : 1;      /* always 1 for this type */
+        uint32_t  valid    : 1;      /* always 1 */
     };
 } txt_errorcode_sw_t;
 
 /*
- * ACM errors (txt_errorcode_sw_t.src=0), format of err field
+ * ACM errors (txt_errorcode_sw_t.src=0), format of err1+src+err2 fields
  */
 typedef union {
     uint32_t _raw;
@@ -73,10 +75,16 @@ typedef union {
         uint32_t acm_type  : 4;  /* 0000=BIOS ACM, 0001=SINIT, */
                                  /* 0010-1111=reserved */
         uint32_t progress  : 6;
-        uint32_t error     : 4;
-        uint32_t reserved  : 1;
+        uint32_t error     : 5;
         uint32_t src       : 1;  /* above value */
-        uint32_t error2    : 14; /* sub-error */
+        union {
+            uint32_t     tpm_err    : 9;  /* progress=0x0d, error=1010 */
+            struct {                      /* progress=0x10 */
+                uint32_t lcp_minor  : 6;
+                uint32_t lcp_index  : 9;
+            };
+        }; /* sub-error */
+        uint32_t reserved  : 5;
     };
 } acmod_error_t;
 
