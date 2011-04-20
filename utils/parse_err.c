@@ -44,21 +44,9 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-/* tboot code assumes 4k pages */
-#ifdef PAGE_SHIFT
-#undef PAGE_SHIFT
-#endif
-#define PAGE_SHIFT       12
-#ifdef PAGE_SIZE
-#undef PAGE_SIZE
-#endif
-#define PAGE_SIZE        (1 << PAGE_SHIFT)
-
 #define printk   printf
 #include "../tboot/include/txt/config_regs.h"
 #include "../tboot/include/txt/errorcode.h"
-
-#define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
 
 static inline uint64_t read_txt_config_reg(void *config_regs_base,
                                            uint32_t reg)

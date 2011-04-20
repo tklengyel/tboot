@@ -744,7 +744,7 @@ tb_error_t txt_protect_mem_regions(void)
 
     /* TXT private space */
     base = TXT_PRIV_CONFIG_REGS_BASE;
-    size = NR_TXT_CONFIG_PAGES * PAGE_SIZE;
+    size = TXT_CONFIG_REGS_SIZE;
     printk("protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
            base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_RESERVED) )

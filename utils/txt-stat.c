@@ -47,16 +47,6 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-/* tboot code assumes 4k pages */
-#ifdef PAGE_SHIFT
-#undef PAGE_SHIFT
-#endif
-#define PAGE_SHIFT       12
-#ifdef PAGE_SIZE
-#undef PAGE_SIZE
-#endif
-#define PAGE_SIZE        (1 << PAGE_SHIFT)
-
 #define printk   printf
 #include "../include/config.h"
 #include "../include/uuid.h"
@@ -70,8 +60,6 @@ typedef uint8_t tb_hash_t;
 
 #define IS_INCLUDED    /* prevent #include's */
 #include "../tboot/txt/heap.c"
-
-#define TXT_CONFIG_REGS_SIZE        (NR_TXT_CONFIG_PAGES*PAGE_SIZE)
 
 static inline uint64_t read_txt_config_reg(void *config_regs_base,
                                            uint32_t reg)

@@ -264,7 +264,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
 
     /* mmio space for TXT private config space should be UC */
     if ( get_region_type(saved_state, TXT_PRIV_CONFIG_REGS_BASE,
-                         NR_TXT_CONFIG_PAGES)
+                         TXT_CONFIG_REGS_SIZE >> PAGE_SHIFT)
            != MTRR_TYPE_UNCACHABLE ) {
         printk("MMIO space for TXT private config space should be UC\n");
         return false;
@@ -272,7 +272,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
 
     /* mmio space for TXT public config space should be UC */
     if ( get_region_type(saved_state, TXT_PUB_CONFIG_REGS_BASE,
-                         NR_TXT_CONFIG_PAGES)
+                         TXT_CONFIG_REGS_SIZE >> PAGE_SHIFT)
            != MTRR_TYPE_UNCACHABLE ) {
         printk("MMIO space for TXT public config space should be UC\n");
         return false;

@@ -43,10 +43,8 @@
 #define TXT_PUB_CONFIG_REGS_BASE       0xfed30000
 #define TXT_PRIV_CONFIG_REGS_BASE      0xfed20000
 
-/* # pages for each config regs space - used by fixmap */
-#define NR_TXT_CONFIG_PAGES            ((TXT_PUB_CONFIG_REGS_BASE - \
-                                        TXT_PRIV_CONFIG_REGS_BASE) >>    \
-                                        PAGE_SHIFT)
+#define TXT_CONFIG_REGS_SIZE           (TXT_PUB_CONFIG_REGS_BASE - \
+                                        TXT_PRIV_CONFIG_REGS_BASE)
 
 /* offsets to config regs (from either public or private _BASE) */
 #define TXTCR_STS                   0x0000
