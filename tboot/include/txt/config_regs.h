@@ -190,11 +190,13 @@ typedef struct {
  * fns to read/write TXT config regs
  */
 
+#ifndef IS_INCLUDED
 static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg)
 {
     /* these are MMIO so make sure compiler doesn't optimize */
     return *(volatile uint64_t *)(unsigned long)(config_regs_base + reg);
 }
+#endif
 
 static inline void write_config_reg(uint32_t config_regs_base, uint32_t reg,
                                     uint64_t val)

@@ -51,6 +51,9 @@
 #include "../include/config.h"
 #include "../include/uuid.h"
 #include "../include/tboot.h"
+
+#define IS_INCLUDED    /* disable some codes in included files */
+static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg);
 #include "../tboot/include/txt/config_regs.h"
 typedef uint8_t mtrr_state_t;
 typedef uint8_t txt_caps_t;
@@ -58,7 +61,6 @@ typedef uint8_t multiboot_info_t;
 typedef uint8_t tb_hash_t;
 #include "../tboot/include/txt/heap.h"
 
-#define IS_INCLUDED    /* prevent #include's */
 #include "../tboot/txt/heap.c"
 
 static inline uint64_t read_txt_config_reg(void *config_regs_base,
@@ -214,9 +216,30 @@ static bool is_txt_supported(void)
     return true;
 }
 
+static int fd_mem;
+static void *buf_config_regs_read;
+static void *buf_config_regs_mmap;
+
+static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg)
+{
+    uint64_t reg_val;
+    void *buf;
+
+    (void)config_regs_base;
+
+    buf = buf_config_regs_read;
+    if ( buf == NULL )
+        buf = buf_config_regs_mmap;
+    if ( buf == NULL )
+        return 0;
+
+    reg_val = read_txt_config_reg(buf, reg);
+    return reg_val;
+}
+
 int main(int argc, char *argv[])
 {
-    txt_heap_t *heap = NULL;
+    uint64_t heap = 0;
     uint64_t heap_size = 0;
     void *buf = NULL;
     off_t seek_ret = -1;
@@ -229,7 +252,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    int fd_mem = open("/dev/mem", O_RDONLY);
+    fd_mem = open("/dev/mem", O_RDONLY);
     if ( fd_mem == -1 ) {
         printf("ERROR: cannot open /dev/mem\n");
         return 1;
@@ -240,27 +263,22 @@ int main(int argc, char *argv[])
      */
     seek_ret = lseek(fd_mem, TXT_PUB_CONFIG_REGS_BASE, SEEK_SET);
     if ( seek_ret == -1 )
-        printf("ERROR: seeking public config registers failed: %s\n",
+        printf("ERROR: seeking public config registers failed: %s, try mmap\n",
                strerror(errno));
     else {
         buf = malloc(TXT_CONFIG_REGS_SIZE);
         if ( buf == NULL )
-            printf("ERROR: out of memory\n");
+            printf("ERROR: out of memory, try mmap\n");
         else {
             read_ret = read(fd_mem, buf, TXT_CONFIG_REGS_SIZE);
             if ( read_ret != TXT_CONFIG_REGS_SIZE ) {
-                printf("ERROR: reading public config registers failed: %s\n",
-                       strerror(errno));
+                printf("ERROR: reading public config registers failed: %s,"
+                       "try mmap\n", strerror(errno));
                 free(buf);
+                buf = NULL;
             }
-            else {
-                display_config_regs(buf);
-                /* get this and save it before we unmap config regs */
-                heap = (txt_heap_t *)(uintptr_t)read_txt_config_reg(
-                                                buf, TXTCR_HEAP_BASE);
-                heap_size = read_txt_config_reg(buf, TXTCR_HEAP_SIZE);
-                free(buf);
-            }
+            else
+                buf_config_regs_read = buf;
         }
     }
 
@@ -268,46 +286,64 @@ int main(int argc, char *argv[])
      * try mmap to display public config regs,
      * since public config regs should be displayed always.
      */
-    if ( heap == NULL && heap_size == 0 ) {
-        void *txt_pub = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ,
-                             MAP_PRIVATE, fd_mem, TXT_PUB_CONFIG_REGS_BASE);
-        if ( txt_pub == MAP_FAILED )
+    if ( buf == NULL ) {
+        buf = mmap(NULL, TXT_CONFIG_REGS_SIZE, PROT_READ,
+                   MAP_PRIVATE, fd_mem, TXT_PUB_CONFIG_REGS_BASE);
+        if ( buf == MAP_FAILED ) {
             printf("ERROR: cannot map config regs by mmap()\n");
-        else {
-            display_config_regs(txt_pub);
-            /* get this and save it before we unmap config regs */
-            heap = (txt_heap_t *)(uintptr_t)read_txt_config_reg(
-                                            txt_pub, TXTCR_HEAP_BASE);
-            heap_size = read_txt_config_reg(txt_pub, TXTCR_HEAP_SIZE);
-            munmap(txt_pub, TXT_CONFIG_REGS_SIZE);
+            buf = NULL;
         }
+        else
+            buf_config_regs_mmap = buf;
+    }
+
+    if ( buf ) {
+        display_config_regs(buf);
+        heap = read_txt_config_reg(buf, TXTCR_HEAP_BASE);
+        heap_size = read_txt_config_reg(buf, TXTCR_HEAP_SIZE);
     }
 
     /*
      * display heap
      */
-    if ( heap != NULL && heap_size != 0 ) {
-        seek_ret = lseek(fd_mem, (off_t)heap, SEEK_SET);
+    if ( heap && heap_size ) {
+        seek_ret = lseek(fd_mem, heap, SEEK_SET);
         if ( seek_ret == -1 ) {
-            printf("ERROR: seeking TXT heap failed by lseek()\n");
-            goto try_display_log;
+            printf("ERROR: seeking TXT heap failed by lseek(), try mmap\n");
+            goto try_mmap_heap;
         }
         buf = malloc(heap_size);
         if ( buf == NULL ) {
-            printf("ERROR: out of memory\n");
-            goto try_display_log;
+            printf("ERROR: out of memory, try mmap\n");
+            goto try_mmap_heap;
         }
         read_ret = read(fd_mem, buf, heap_size);
         if ( read_ret != heap_size ) {
-            printf("ERROR: reading TXT heap failed by read()\n");
+            printf("ERROR: reading TXT heap failed by read(), try mmap\n");
             free(buf);
-            goto try_display_log;
+            goto try_mmap_heap;
         }
         display_heap((txt_heap_t *)buf);
         free(buf);
+        goto try_display_log;
+
+    try_mmap_heap:
+
+        buf = mmap(NULL, heap_size, PROT_READ, MAP_PRIVATE, fd_mem, heap);
+        if ( buf == MAP_FAILED )
+            printf("ERROR: cannot map TXT heap by mmap()\n");
+        else {
+            display_heap((txt_heap_t *)buf);
+            munmap(buf, heap_size);
+        }
     }
 
 try_display_log:
+    if ( buf_config_regs_read )
+        free(buf_config_regs_read);
+    if ( buf_config_regs_mmap )
+        munmap(buf_config_regs_mmap, TXT_CONFIG_REGS_SIZE);
+
     /*
      * display serial log from tboot memory (if exists)
      */
