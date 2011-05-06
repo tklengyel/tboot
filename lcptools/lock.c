@@ -120,6 +120,8 @@ main (int argc, char *argv[])
         do {
             log_info("Really want to lock TPM NV? (Y/N) ");
             dummy = scanf("%s", confirm_lock);
+            if ( dummy <= 0 )
+                return LCP_E_COMD_INTERNAL_ERR;
         } while (strcmp(confirm_lock, "N") && strcmp(confirm_lock, "n") &&
 		 strcmp(confirm_lock, "Y") && strcmp(confirm_lock, "y"));
         if ( !strcmp(confirm_lock, "N") || !strcmp(confirm_lock, "n") ) {

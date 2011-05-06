@@ -231,7 +231,7 @@ static int show(void)
 
     if ( poldata != NULL ) {
         DISPLAY("\npolicy data file: %s\n", poldata_file);
-        if ( verify_policy_data(poldata, len) ) {
+        if ( verify_policy_data(poldata, poldata_len) ) {
             display_policy_data("    ", poldata, brief);
 
             /* no use verifying hash if policy didn't validate or doesn't
