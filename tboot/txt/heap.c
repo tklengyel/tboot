@@ -227,12 +227,17 @@ static void print_bios_data(bios_data_t *bios_data)
 
 bool verify_bios_data(txt_heap_t *txt_heap)
 {
-    uint64_t size, heap_size;
-    bios_data_t *bios_data;
+    uint64_t heap_base = read_pub_config_reg(TXTCR_HEAP_BASE);
+    uint64_t heap_size = read_pub_config_reg(TXTCR_HEAP_SIZE);
+    printk("TXT.HEAP.BASE: 0x%jx\n", heap_base);
+    printk("TXT.HEAP.SIZE: 0x%jx (%ju)\n", heap_size, heap_size);
+
+    /* verify that heap base/size are valid */
+    if ( txt_heap == NULL || heap_base == 0 || heap_size == 0 )
+        return false;
 
     /* check size */
-    heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
-    size = get_bios_data_size(txt_heap);
+    uint64_t size = get_bios_data_size(txt_heap);
     if ( size == 0 ) {
         printk("BIOS data size is 0\n");
         return false;
@@ -243,7 +248,7 @@ bool verify_bios_data(txt_heap_t *txt_heap)
         return false;
     }
 
-    bios_data = get_bios_data_start(txt_heap);
+    bios_data_t *bios_data = get_bios_data_start(txt_heap);
 
     /* check version */
     if ( bios_data->version < 2 ) {
@@ -489,8 +494,6 @@ static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
 
 bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only)
 {
-    uint64_t size1, size2, size3, size4;
-
     /* verify BIOS to OS data */
     if ( !verify_bios_data(txt_heap) )
         return false;
@@ -499,10 +502,10 @@ bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only)
         return true;
 
     /* check that total size is within the heap */
-    size1 = get_bios_data_size(txt_heap);
-    size2 = get_os_mle_data_size(txt_heap);
-    size3 = get_os_sinit_data_size(txt_heap);
-    size4 = get_sinit_mle_data_size(txt_heap);
+    uint64_t size1 = get_bios_data_size(txt_heap);
+    uint64_t size2 = get_os_mle_data_size(txt_heap);
+    uint64_t size3 = get_os_sinit_data_size(txt_heap);
+    uint64_t size4 = get_sinit_mle_data_size(txt_heap);
 
     /* overflow? */
     if ( plus_overflow_u64(size1, size2) ) {

@@ -668,10 +668,10 @@ tb_error_t txt_post_launch(void)
     if ( err != TB_ERR_NONE )
         return err;
 
-    /* always set the LT.CMD.SECRETS flag */
+    /* always set the TXT.CMD.SECRETS flag */
     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
-    printk("set LT.CMD.SECRETS flag\n");
+    printk("set TXT.CMD.SECRETS flag\n");
 
     /* open TPM locality 1 */
     write_priv_config_reg(TXTCR_CMD_OPEN_LOCALITY1, 0x01);
@@ -780,7 +780,7 @@ void txt_shutdown(void)
             halt();
     }
 
-    /* set LT.CMD.NO-SECRETS flag (i.e. clear SECRETS flag) */
+    /* set TXT.CMD.NO-SECRETS flag (i.e. clear SECRETS flag) */
     write_priv_config_reg(TXTCR_CMD_NO_SECRETS, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* fence */
     printk("secrets flag cleared\n");

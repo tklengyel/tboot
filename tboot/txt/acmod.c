@@ -531,43 +531,53 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
     return false;
 }
 
-#ifndef IS_INCLUDED     /* defined in txt-test/dump-acm.c */
+#ifndef IS_INCLUDED
+acm_hdr_t *get_bios_sinit(void *sinit_region_base)
+{
+    txt_heap_t *txt_heap = get_txt_heap();
+    bios_data_t *bios_data = get_bios_data_start(txt_heap);
+
+    if ( bios_data->bios_sinit_size == 0 )
+        return NULL;
+
+    /* BIOS has loaded an SINIT module, so verify that it is valid */
+    printk("BIOS has already loaded an SINIT module\n");
+
+    /* is it a valid SINIT module? */
+    if ( !is_sinit_acmod(sinit_region_base, bios_data->bios_sinit_size, false) ||
+         !does_acmod_match_platform((acm_hdr_t *)sinit_region_base) )
+        return NULL;
+
+    return (acm_hdr_t *)sinit_region_base;
+}
+
 acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
 {
-    void *sinit_region_base;
-    uint32_t sinit_region_size;
-    txt_heap_t *txt_heap;
-    bios_data_t *bios_data;
-
-    /* get BIOS-reserved region from LT.SINIT.BASE config reg */
-    sinit_region_base =
+    /* get BIOS-reserved region from TXT.SINIT.BASE config reg */
+    void *sinit_region_base =
         (void*)(unsigned long)read_pub_config_reg(TXTCR_SINIT_BASE);
-    sinit_region_size = (uint32_t)read_pub_config_reg(TXTCR_SINIT_SIZE);
+    uint32_t sinit_region_size = (uint32_t)read_pub_config_reg(TXTCR_SINIT_SIZE);
+    printk("TXT.SINIT.BASE: %p\n", sinit_region_base);
+    printk("TXT.SINIT.SIZE: 0x%x (%u)\n", sinit_region_size, sinit_region_size);
 
     /*
      * check if BIOS already loaded an SINIT module there
      */
-    txt_heap = get_txt_heap();
-    bios_data = get_bios_data_start(txt_heap);
-    /* BIOS has loaded an SINIT module, so verify that it is valid */
-    if ( bios_data->bios_sinit_size != 0 ) {
-        printk("BIOS has already loaded an SINIT module\n");
-        /* is it a valid SINIT module? */
-        if ( is_sinit_acmod(sinit_region_base, bios_data->bios_sinit_size, false) &&
-             does_acmod_match_platform((acm_hdr_t *)sinit_region_base) ) {
-            /* no other SINIT was provided so must use one BIOS provided */
-            if ( sinit == NULL )
-                return (acm_hdr_t *)sinit_region_base;
-
-            /* is it newer than the one we've been provided? */
-            if ( ((acm_hdr_t *)sinit_region_base)->date >= sinit->date ) {
-                printk("BIOS-provided SINIT is newer, so using it\n");
-                return (acm_hdr_t *)sinit_region_base;    /* yes */
-            }
-            else
-                printk("BIOS-provided SINIT is older: date=%x\n",
-                       ((acm_hdr_t *)sinit_region_base)->date);
+    acm_hdr_t *bios_sinit = get_bios_sinit(sinit_region_base);
+    if ( bios_sinit != NULL ) {
+        /* no other SINIT was provided so must use one BIOS provided */
+        if ( sinit == NULL ) {
+            printk("no SINIT provided by bootloader; using BIOS SINIT\n");
+            return bios_sinit;
         }
+
+        /* is it newer than the one we've been provided? */
+        if ( bios_sinit->date >= sinit->date ) {
+            printk("BIOS-provided SINIT is newer, so using it\n");
+            return bios_sinit;    /* yes */
+        }
+        else
+            printk("BIOS-provided SINIT is older: date=%x\n", bios_sinit->date);
     }
     /* our SINIT is newer than BIOS's (or BIOS did not have one) */
 

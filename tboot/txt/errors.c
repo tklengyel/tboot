@@ -52,7 +52,7 @@ static void display_errors(void)
     acmod_error_t acmod_err;
 
     /*
-     * display LT.ERRORODE error
+     * display TXT.ERRORODE error
      */
     err = (txt_errorcode_t)read_pub_config_reg(TXTCR_ERRORCODE);
     printk("TXT.ERRORCODE: 0x%Lx\n", err._raw);
@@ -82,16 +82,16 @@ static void display_errors(void)
     }
 
     /*
-     * display LT.ESTS error
+     * display TXT.ESTS error
      */
     ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
-    printk("LT.ESTS=%Lx\n", ests._raw);
+    printk("TXT.ESTS: 0x%Lx\n", ests._raw);
 
     /*
-     * display LT.E2STS error
+     * display TXT.E2STS error
      */
     e2sts = (txt_e2sts_t)read_pub_config_reg(TXTCR_E2STS);
-    printk("LT.E2STS=%Lx\n", e2sts._raw);
+    printk("TXT.E2STS: 0x%Lx\n", e2sts._raw);
 }
 
 bool txt_get_error(void)
