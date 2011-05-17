@@ -309,7 +309,8 @@ int main(int argc, char *argv[])
     if ( heap && heap_size ) {
         seek_ret = lseek(fd_mem, heap, SEEK_SET);
         if ( seek_ret == -1 ) {
-            printf("ERROR: seeking TXT heap failed by lseek(), try mmap\n");
+            printf("ERROR: seeking TXT heap failed by lseek(): %s, try mmap\n",
+                   strerror(errno));
             goto try_mmap_heap;
         }
         buf = malloc(heap_size);
@@ -319,7 +320,8 @@ int main(int argc, char *argv[])
         }
         read_ret = read(fd_mem, buf, heap_size);
         if ( read_ret != heap_size ) {
-            printf("ERROR: reading TXT heap failed by read(), try mmap\n");
+            printf("ERROR: reading TXT heap failed by read(): %s, try mmap\n",
+                   strerror(errno));
             free(buf);
             goto try_mmap_heap;
         }
