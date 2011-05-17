@@ -1,7 +1,7 @@
 /*
  * crtpollist.c: Intel(R) TXT policy list (LCP_POLICY_LIST) creation tool
  *
- * Copyright (c) 2009, Intel Corporation
+ * Copyright (c) 2009-2011, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +64,7 @@ static const char help[] =
     "--create\n"
     "        [--ver <version>]        version\n"
     "        --out <FILE>             policy list file\n"
-    "        <FILE> [FILE]...         policy element files\n"
+    "        [FILE]...                policy element files\n"
     "--sign\n"
     "        --pub <key file>         PEM file of public key\n"
     "        [--priv <key file>]      PEM file of private key\n"
@@ -514,10 +514,6 @@ int main(int argc, char *argv[])
     else if ( cmd == 'C' ) {        /* --create */
         if ( *pollist_file == '\0' ) {
             ERROR("Error: no policy list output file specified\n");
-            return 1;
-        }
-        if ( nr_files == 0 ) {
-            ERROR("Error: no policy element files specified\n");
             return 1;
         }
         return create();
