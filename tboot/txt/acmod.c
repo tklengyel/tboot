@@ -439,8 +439,7 @@ bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet)
 bool does_acmod_match_platform(acm_hdr_t* hdr)
 {
     /* used to ensure we don't print chipset/proc info for each module */
-    static bool printed_chipset_info;
-    static bool printed_proc_info;
+    static bool printed_host_info;
 
     /* this fn assumes that the ACM has already passed the is_acmod() checks */
 
@@ -452,12 +451,21 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
     if ( (ver._raw & 0xffffffff) == 0xffffffff ||
          (ver._raw & 0xffffffff) == 0x00 )         /* need to use VER.QPIIF */
         ver._raw = read_pub_config_reg(TXTCR_VER_QPIIF);
-    if ( !printed_chipset_info ) {
+    if ( !printed_host_info ) {
         printk("chipset production fused: %x\n", ver.prod_fused );
         printk("chipset ids: vendor: 0x%x, device: 0x%x, revision: 0x%x\n",
                didvid.vendor_id, didvid.device_id, didvid.revision_id);
-        printed_chipset_info = true;
     }
+
+    /* get processor family/model/stepping and platform ID */
+    uint64_t platform_id;
+    uint32_t fms = cpuid_eax(1);
+    platform_id = rdmsr(MSR_IA32_PLATFORM_ID);
+    if ( !printed_host_info ) {
+        printk("processor family/model/stepping: 0x%x\n", fms );
+        printk("platform id: 0x%Lx\n", (unsigned long long)platform_id);
+    }
+    printed_host_info = true;
 
     /*
      * check if chipset fusing is same
@@ -475,7 +483,8 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
         return false;
 
     printk("\t %x ACM chipset id entries:\n", chipset_id_list->count);
-    for ( unsigned int i = 0; i < chipset_id_list->count; i++ ) {
+    unsigned int i;
+    for ( i = 0; i < chipset_id_list->count; i++ ) {
         acm_chipset_id_t *chipset_id = &(chipset_id_list->chipset_ids[i]);
         printk("\t     vendor: 0x%x, device: 0x%x, flags: 0x%x, "
                "revision: 0x%x, extended: 0x%x\n",
@@ -488,8 +497,12 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
              ( ( ( (chipset_id->flags & 0x1) == 0) &&
                  (didvid.revision_id == chipset_id->revision_id) ) ||
                ( ( (chipset_id->flags & 0x1) == 1) &&
-                 ((didvid.revision_id & chipset_id->revision_id) != 0 ) ) ) )
-            return true;
+                 ( (didvid.revision_id & chipset_id->revision_id) != 0 ) ) ) )
+            break;
+    }
+    if ( i >= chipset_id_list->count ) {
+        printk("\t chipset id mismatch\n");
+        return false;
     }
 
     /*
@@ -497,22 +510,12 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
      */
     acm_info_table_t *info_table = get_acmod_info_table(hdr);
     if ( info_table->version >= 4 ) {
-        /* get processor family/model/stepping and platform ID */
-        uint64_t platform_id;
-        uint32_t fms = cpuid_eax(1);
-        platform_id = rdmsr(MSR_IA32_PLATFORM_ID);
-        if ( !printed_proc_info ) {
-            printk("processor family/model/stepping: %x\n", fms );
-            printk("platform id: 0x%Lx\n", (unsigned long long)platform_id);
-            printed_proc_info = true;
-        }
-
         acm_processor_id_list_t *proc_id_list = get_acmod_processor_list(hdr);
         if ( proc_id_list == NULL )
             return false;
 
         printk("\t %x ACM processor id entries:\n", proc_id_list->count);
-        for ( unsigned int i = 0; i < proc_id_list->count; i++ ) {
+        for ( i = 0; i < proc_id_list->count; i++ ) {
             acm_processor_id_t *proc_id = &(proc_id_list->processor_ids[i]);
             printk("\t     fms: 0x%x, fms_mask: 0x%x, platform_id: 0x%Lx, "
                    "platform_mask: 0x%Lx\n",
@@ -521,14 +524,17 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
                    (unsigned long long)proc_id->platform_mask);
 
             if ( (proc_id->fms == (fms & proc_id->fms_mask)) &&
-                 (proc_id->platform_id == (platform_id & proc_id->platform_mask)))
-                return true;
+                 (proc_id->platform_id == (platform_id & proc_id->platform_mask))
+               )
+                break;
+        }
+        if ( i >= proc_id_list->count ) {
+            printk("\t processor mismatch\n");
+            return false;
         }
     }
 
-    printk("\t ACM does not match platform\n");
-
-    return false;
+    return true;
 }
 
 #ifndef IS_INCLUDED
