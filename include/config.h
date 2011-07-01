@@ -67,7 +67,7 @@
 
 
 #ifndef NR_CPUS
-#define NR_CPUS     64
+#define NR_CPUS     256
 #endif
 
 #ifdef __ASSEMBLY__
