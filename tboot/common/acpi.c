@@ -295,8 +295,6 @@ static bool write_to_reg(const tboot_acpi_generic_address_t *reg,
     if ( reg->space_id == GAS_SYSTEM_IOSPACE ) {
         switch ( reg->access_width ) {
             case GAS_ACCESS_BYTE:
-                outb(address, (uint8_t)val);
-                return true;
             case GAS_ACCESS_WORD:
             case GAS_ACCESS_UNDEFINED:
                 outw(address, (uint16_t)val);
@@ -343,8 +341,6 @@ static bool read_from_reg(const tboot_acpi_generic_address_t *reg,
     if ( reg->space_id == GAS_SYSTEM_IOSPACE ) {
         switch ( reg->access_width ) {
             case GAS_ACCESS_BYTE:
-                *val = inb(address);
-                return true;
             case GAS_ACCESS_WORD:
             case GAS_ACCESS_UNDEFINED:
                 *val = inw(address);
