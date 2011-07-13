@@ -293,34 +293,34 @@ static bool write_to_reg(const tboot_acpi_generic_address_t *reg,
     uint32_t address = (uint32_t)reg->address;
 
     if ( reg->space_id == GAS_SYSTEM_IOSPACE ) {
-        switch ( reg->access_width ) {
-            case GAS_ACCESS_BYTE:
-            case GAS_ACCESS_WORD:
-            case GAS_ACCESS_UNDEFINED:
+        switch ( reg->bit_width ) {
+            case 8:
+                outb(address, (uint8_t)val);
+                return true;
+            case 16:
                 outw(address, (uint16_t)val);
                 return true;
-            case GAS_ACCESS_DWORD:
+            case 32:
                 outl(address, val);
                 return true;
             default:
-                printk("unsupported GAS access width: %u\n", reg->access_width);
+                printk("unsupported GAS bit width: %u\n", reg->bit_width);
                 return false;
         }
     }
     else if ( reg->space_id == GAS_SYSTEM_MEMORY ) {
-        switch ( reg->access_width ) {
-            case GAS_ACCESS_BYTE:
+        switch ( reg->bit_width ) {
+            case 8:
                 writeb(address, (uint8_t)val);
                 return true;
-            case GAS_ACCESS_WORD:
-            case GAS_ACCESS_UNDEFINED:
+            case 16:
                 writew(address, (uint16_t)val);
                 return true;
-            case GAS_ACCESS_DWORD:
+            case 32:
                 writel(address, val);
                 return true;
             default:
-                printk("unsupported GAS access width: %u\n", reg->access_width);
+                printk("unsupported GAS bit width: %u\n", reg->bit_width);
                 return false;
         }
     }
@@ -339,34 +339,34 @@ static bool read_from_reg(const tboot_acpi_generic_address_t *reg,
     uint32_t address = (uint32_t)reg->address;
 
     if ( reg->space_id == GAS_SYSTEM_IOSPACE ) {
-        switch ( reg->access_width ) {
-            case GAS_ACCESS_BYTE:
-            case GAS_ACCESS_WORD:
-            case GAS_ACCESS_UNDEFINED:
+        switch ( reg->bit_width ) {
+            case 8:
+                *val = inb(address);
+                return true;
+            case 16:
                 *val = inw(address);
                 return true;
-            case GAS_ACCESS_DWORD:
+            case 32:
                 *val = inl(address);
                 return true;
             default:
-                printk("unsupported GAS access width: %u\n", reg->access_width);
+                printk("unsupported GAS bit width: %u\n", reg->bit_width);
                 return false;
         }
     }
     else if ( reg->space_id == GAS_SYSTEM_MEMORY ) {
-        switch ( reg->access_width ) {
-            case GAS_ACCESS_BYTE:
+        switch ( reg->bit_width ) {
+            case 8:
                 *val = readb(address);
                 return true;
-            case GAS_ACCESS_WORD:
-            case GAS_ACCESS_UNDEFINED:
+            case 16:
                 *val = readw(address);
                 return true;
-            case GAS_ACCESS_DWORD:
+            case 32:
                 *val = readl(address);
                 return true;
             default:
-                printk("unsupported GAS access width: %u\n", reg->access_width);
+                printk("unsupported GAS bit width: %u\n", reg->bit_width);
                 return false;
         }
     }
