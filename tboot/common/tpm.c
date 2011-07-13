@@ -1979,10 +1979,22 @@ bool is_tpm_ready(uint32_t locality)
          * if any timeout values are less than default values, set to default
          * value (due to bug with some TPMs)
          */
-        if ( g_timeout.timeout_a < TIMEOUT_A ) g_timeout.timeout_a = TIMEOUT_A;
-        if ( g_timeout.timeout_b < TIMEOUT_B ) g_timeout.timeout_b = TIMEOUT_B;
-        if ( g_timeout.timeout_c < TIMEOUT_C ) g_timeout.timeout_c = TIMEOUT_C;
-        if ( g_timeout.timeout_d < TIMEOUT_D ) g_timeout.timeout_d = TIMEOUT_D;
+        if ( g_timeout.timeout_a < TIMEOUT_A ) {
+            g_timeout.timeout_a = TIMEOUT_A;
+            printk("Wrong timeout A, fallback to %u\n", TIMEOUT_A);
+        }
+        if ( g_timeout.timeout_b < TIMEOUT_B ) {
+            g_timeout.timeout_b = TIMEOUT_B;
+            printk("Wrong timeout B, fallback to %u\n", TIMEOUT_B);
+        }
+        if ( g_timeout.timeout_c < TIMEOUT_C ) {
+            g_timeout.timeout_c = TIMEOUT_C;
+            printk("Wrong timeout C, fallback to %u\n", TIMEOUT_C);
+        }
+        if ( g_timeout.timeout_d < TIMEOUT_D ) {
+            g_timeout.timeout_d = TIMEOUT_D;
+            printk("Wrong timeout D, fallback to %u\n", TIMEOUT_D);
+        }
     }
 
     return true;
