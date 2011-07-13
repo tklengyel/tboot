@@ -347,7 +347,7 @@ tb_error_t txt_verify_platform(void)
     /* verify BIOS to OS data */
     txt_heap = get_txt_heap();
     if ( !verify_bios_data(txt_heap) )
-        return TB_ERR_FATAL;
+        return TB_ERR_TXT_NOT_SUPPORTED;
 
     return TB_ERR_NONE;
 }

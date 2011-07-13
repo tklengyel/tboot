@@ -491,7 +491,7 @@ tb_error_t txt_launch_environment(multiboot_info_t *mbi)
     /* initialize TXT heap */
     txt_heap = init_txt_heap(mle_ptab_base, sinit, mbi);
     if ( txt_heap == NULL )
-        return TB_ERR_FATAL;
+        return TB_ERR_TXT_NOT_SUPPORTED;
 
     /* save MTRRs before we alter them for SINIT launch */
     os_mle_data = get_os_mle_data_start(txt_heap);
