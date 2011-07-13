@@ -417,9 +417,11 @@ static void shutdown_system(uint32_t shutdown_type)
                 outb(0xcf9, 0x0e);
             }
             else {
-                /* soft reset by writing 0x06 to port 0xcf9 */
-                /* (supported by all TXT-capable chipsets) */
-                outb(0xcf9, 0x06);
+                /* soft reset by writing 0xfe to keyboard reset vector 0x64 */
+                /* BIOSes (that are not performing some special operation, */
+                /* such as update) will turn this into a platform reset as */
+                /* expected. */
+                outb(0x64, 0xfe);
             }
 
         case TB_SHUTDOWN_HALT:
