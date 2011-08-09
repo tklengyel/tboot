@@ -79,6 +79,25 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
            module /initrd-2.6.18-xen.img
            module /Q35_SINIT_17.BIN
 
+   GRUB2 does not pass the file name in the command line field of the multiboot
+   entry (module_t::string). Since the tboot code is expecting the file name as
+   the first part of the string, it tries to remove it to determine the command
+   line arguments, which will cause a verification error. The "official"
+   workaround for kernels/etc. that depend on the file name is to duplicate the 
+   file name in the grub.config file like below:
+       menuentry 'Xen w/ Intel(R) Trusted Execution Technology' {
+           recordfail
+           insmod part_msdos
+           insmod ext2
+           set root='(/dev/sda,msdos5)'
+           search --no-floppy --fs-uuid --set=root 4efb64c6-7e11-482e-8bab-07034a52de39
+           multiboot /tboot.gz /tboot.gz logging=vga,memory,serial
+           module /xen.gz /xen.gz iommu=required dom0_mem=524288 com1=115200,8n1
+           module /vmlinuz-2.6.18-xen /vmlinuz-2.6.18-xen root=/dev/VolGroup...
+           module /initrd-2.6.18-xen.img /initrd-2.6.18-xen.img
+           module /Q35_SINIT_17.BIN
+       }
+
 o  The appropriate SINIT AC Module can be downloaded from the tboot SourceForge
    project site.  The current version of tboot (both in the repository and
    .tar.gz) requires version 17 or greater of the SINIT AC module.  It will
