@@ -422,6 +422,9 @@ static void shutdown_system(uint32_t shutdown_type)
                 /* such as update) will turn this into a platform reset as */
                 /* expected. */
                 outb(0x64, 0xfe);
+                /* fall back to soft reset by writing 0x06 to port 0xcf9 */
+                /* (supported by all TXT-capable chipsets) */
+                outb(0xcf9, 0x06);
             }
 
         case TB_SHUTDOWN_HALT:
