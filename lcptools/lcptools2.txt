@@ -42,23 +42,28 @@ Combine the elements into an unsigned list:
 ------------------------------------------
 1.  lcp_crtpollist --create --out list_unsig.lst mle.elt pconf.elt
 
+The two blocks below are intended to be mutually exclusive.  The openssl
+signing is supported for cases where the signing environment is separate
+from the policy creation environment and the software allowed to run there
+is strictly controlled and already supports openssl.
+
 Use lcp_crtpollist to sign the list:
 -----------------------------------
 1.  openssl genrsa -out privkey.pem 2048
 2.  openssl rsa -pubout -in privkey.pem -out pubkey.pem
-3.  cp list_unsig.lst list_1_sig.lst
-4.  lcp_crtpollist --sign --pub pubkey.pem --priv privkey.pem --out list_1_sig.lst
+3.  cp list_unsig.lst list_sig.lst
+4.  lcp_crtpollist --sign --pub pubkey.pem --priv privkey.pem --out list_sig.lst
 
 Use openssl to sign the list:
 ----------------------------
 1.  openssl rsa -pubout -in privkey.pem -out pubkey.pem
-2.  cp list_unsig.lst list_2_sig.lst
-3.  lcp_crtpollist --sign --pub pubkey.pem --nosig --out list_2_sig.lst
+2.  cp list_unsig.lst list_sig.lst
+3.  lcp_crtpollist --sign --pub pubkey.pem --nosig --out list_sig.lst
 4.  openssl genrsa -out privkey.pem 2048
-5.  openssl dgst -sha1 -sign privkey.pem -out list_2.sig list_2_sig.lst
-6.  lcp_crtpollist --addsig --sig list_2.sig --out list_2_sig.lst
+5.  openssl dgst -sha1 -sign privkey.pem -out list.sig list_sig.lst
+6.  lcp_crtpollist --addsig --sig list.sig --out list_sig.lst
 
 Create policy and policy data files:
 ===================================
 1.  lcp_crtpol2 --create --type list --pol list.pol --data list.data
-    list_unsig.lst list_1_sig.lst list_2_sig.lst
+    list_{unsig,sig}.lst
