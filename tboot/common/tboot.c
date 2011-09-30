@@ -483,9 +483,12 @@ void shutdown(void)
         /* create and seal memory integrity measurement */
         if ( !seal_post_k_state() )
             apply_policy(TB_ERR_S3_INTEGRITY);
-
-        /* wipe S3 key from memory now that it is sealed */
-        memset(_tboot_shared.s3_key, 0, sizeof(_tboot_shared.s3_key));
+            /* OK to leave key in memory on failure since if user cared they
+               would have policy that doesn't continue for TB_ERR_S3_INTEGRITY
+               error */
+        else
+            /* wipe S3 key from memory now that it is sealed */
+            memset(_tboot_shared.s3_key, 0, sizeof(_tboot_shared.s3_key));
     }
 
     /* cap dynamic PCRs extended as part of launch (17, 18, ...) */
