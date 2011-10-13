@@ -147,8 +147,7 @@ static void post_launch(void)
 
     printk("measured launch succeeded\n");
 
-    err = txt_post_launch();
-    apply_policy(err);
+    txt_post_launch();
 
     /* backup DMAR table */
     save_vtd_dmar_table();

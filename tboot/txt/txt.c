@@ -630,7 +630,7 @@ bool txt_prepare_cpu(void)
     return true;
 }
 
-tb_error_t txt_post_launch(void)
+void txt_post_launch(void)
 {
     txt_heap_t *txt_heap;
     os_mle_data_t *os_mle_data;
@@ -664,9 +664,8 @@ tb_error_t txt_post_launch(void)
     /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
     restore_mtrrs(&(os_mle_data->saved_mtrr_state));
 
-    /* now, if there was an error, return it */
-    if ( err != TB_ERR_NONE )
-        return err;
+    /* now, if there was an error, apply policy */
+    apply_policy(err);
 
     /* always set the TXT.CMD.SECRETS flag */
     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);
@@ -677,8 +676,6 @@ tb_error_t txt_post_launch(void)
     write_priv_config_reg(TXTCR_CMD_OPEN_LOCALITY1, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
     printk("opened TPM locality 1\n");
-
-    return TB_ERR_NONE;
 }
 
 void txt_cpu_wakeup(void)
