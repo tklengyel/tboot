@@ -45,10 +45,17 @@
 #define MULTIBOOT_HEADER_WANT_MEMORY	0x2
 
 /* bit definitions of flags field of multiboot information */
-#define MBI_MEMLIMITS		(1<<0)
-#define MBI_CMDLINE			(1<<2)
-#define MBI_MODULES			(1<<3)
-#define MBI_MEMMAP			(1<<6)
+#define MBI_MEMLIMITS    (1<<0)
+#define MBI_CMDLINE      (1<<2)
+#define MBI_MODULES      (1<<3)
+#define MBI_AOUT         (1<<4)
+#define MBI_ELF          (1<<5)
+#define MBI_MEMMAP       (1<<6)
+#define MBI_DRIVES       (1<<7)
+#define MBI_CONFIG       (1<<8)
+#define MBI_BTLDNAME     (1<<9)
+#define MBI_APM          (1<<10)
+#define MBI_VBE          (1<<11)
 
 #ifndef __ASSEMBLY__
 

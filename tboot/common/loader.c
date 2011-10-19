@@ -248,6 +248,155 @@ bool remove_txt_modules(multiboot_info_t *mbi)
     return true;
 }
 
+extern unsigned long get_tboot_mem_end(void);
+
+static bool below_tboot(unsigned long addr)
+{
+    return addr >= 0x100000 && addr < TBOOT_START;
+}
+
+static unsigned long get_mbi_mem_end(multiboot_info_t *mbi)
+{
+    return ((unsigned long)mbi + 3*PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+}
+
+static void fixup_modules(multiboot_info_t *mbi, size_t offset)
+{
+    for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
+        module_t *m = get_module(mbi, i);
+        if ( below_tboot(m->mod_start) ) {
+            m->mod_start += offset;
+            m->mod_end += offset;
+        }
+        if ( below_tboot(m->string) )
+            m->string += offset;
+    }
+}
+
+/*
+ * fixup_mbi() fn is to be called after modules and/or mbi are moved from below
+ * tboot memory to above tboot. It will fixup all pointers in mbi if mbi was
+ * moved; fixup modules table if any modules are moved. If mbi was moved, return
+ * the new mbi address otherwise return the old one.
+ */
+static multiboot_info_t *fixup_mbi(multiboot_info_t *mbi, size_t offset)
+{
+    bool moving_mbi = below_tboot((unsigned long)mbi);
+
+    if ( moving_mbi ) {
+        printk("mbi was moved from %p to ", mbi);
+        mbi = (multiboot_info_t *)((unsigned long)mbi + offset);
+        printk("%p\n", mbi);
+    }
+
+    if ( mbi->flags & MBI_MODULES ) {
+        if ( below_tboot(mbi->mods_addr) )
+            mbi->mods_addr += offset;
+        fixup_modules(mbi, offset);
+    }
+
+    if ( !moving_mbi )
+        return mbi;
+
+    /* tboot replace mmap_addr w/ a copy, and make a copy of cmdline */
+    /* because we modify it. Those pointers don't need offset adjustment. */
+    /* To make it general and depend less on such kind of changes, just check */
+    /* whether we need to adjust offset before trying to do it for each field */
+    if ( (mbi->flags & MBI_CMDLINE) && below_tboot(mbi->cmdline) )
+        mbi->cmdline += offset;
+
+    if ( (mbi->flags & MBI_AOUT) && below_tboot(mbi->syms.aout_image.addr) )
+        mbi->syms.aout_image.addr += offset;
+
+    if ( (mbi->flags & MBI_ELF) && below_tboot(mbi->syms.elf_image.addr) )
+        mbi->syms.elf_image.addr += offset;
+
+    if ( (mbi->flags & MBI_MEMMAP) && below_tboot(mbi->mmap_addr) )
+        mbi->mmap_addr += offset;
+
+    if ( (mbi->flags & MBI_DRIVES) && below_tboot(mbi->drives_addr) )
+        mbi->drives_addr += offset;
+
+    if ( (mbi->flags & MBI_CONFIG) && below_tboot(mbi->config_table) )
+        mbi->config_table += offset;
+
+    if ( (mbi->flags & MBI_BTLDNAME) && below_tboot(mbi->boot_loader_name) )
+        mbi->boot_loader_name += offset;
+
+    if ( (mbi->flags & MBI_APM) && below_tboot(mbi->apm_table) )
+        mbi->apm_table += offset;
+
+    if ( mbi->flags & MBI_VBE ) {
+        if ( below_tboot(mbi->vbe_control_info) )
+            mbi->vbe_control_info += offset;
+        if ( below_tboot(mbi->vbe_mode_info) )
+            mbi->vbe_mode_info += offset;
+    }
+
+    return mbi;
+}
+
+static uint32_t get_lowest_mod_start(multiboot_info_t *mbi)
+{
+    uint32_t lowest = 0xffffffff;
+
+    for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
+        module_t *m = get_module(mbi, i);
+        if ( m->mod_start < lowest )
+            lowest = m->mod_start;
+    }
+
+    return lowest;
+}
+
+static uint32_t get_highest_mod_end(multiboot_info_t *mbi)
+{
+    uint32_t highest = 0;
+
+    for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
+        module_t *m = get_module(mbi, i);
+        if ( m->mod_end > highest )
+            highest = m->mod_end;
+    }
+
+    return highest;
+}
+
+/*
+ * Move any mbi components/modules/mbi that are below tboot to just above tboot
+ */
+static void move_modules(multiboot_info_t **mbi)
+{
+    unsigned long lowest = get_lowest_mod_start(*mbi);
+    unsigned long from = 0;
+
+    if ( below_tboot(lowest) )
+        from = lowest;
+    else if ( below_tboot((unsigned long)*mbi) )
+        from = (unsigned long)*mbi;
+    else
+        return;
+
+    unsigned long highest = get_highest_mod_end(*mbi);
+    unsigned long to = (highest + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+    if ( to < get_tboot_mem_end() )
+        to = get_tboot_mem_end();
+
+    /*
+     * assuming that all of the members of mbi (e.g. cmdline, 
+     * syms.aout_image.addr, etc.) are contiguous with the mbi structure
+     */
+    if ( to < get_mbi_mem_end(*mbi) )
+        to = get_mbi_mem_end(*mbi);
+
+    memcpy((void *)to, (void *)from, TBOOT_START - from);
+
+    printk("0x%lx bytes copied from 0x%lx to 0x%lx\n",
+           TBOOT_START - from, from, to);
+    *mbi = fixup_mbi(*mbi, to - from);
+}
+
 bool launch_kernel(bool is_measured_launch)
 {
     enum { ELF, LINUX } kernel_type;
@@ -267,11 +416,15 @@ bool launch_kernel(bool is_measured_launch)
     if ( is_elf_image(kernel_image, kernel_size) ) {
         printk("kernel is ELF format\n");
         kernel_type = ELF;
+        /* fix for GRUB2, which may load modules into memory before tboot */
+        move_modules(&g_mbi);
     }
     else {
         printk("assuming kernel is Linux format\n");
         kernel_type = LINUX;
     }
+
+    /* print_mbi(g_mbi); */
 
     kernel_image = remove_module(g_mbi, NULL);
     if ( kernel_image == NULL )
