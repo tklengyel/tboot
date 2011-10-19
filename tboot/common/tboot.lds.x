@@ -18,7 +18,7 @@ PHDRS
 }
 SECTIONS
 {
-  . = TBOOT_BASE_ADDR;		/* 0x1003000 */
+  . = TBOOT_START;		/* 0x803000 */
 
   _stext = .;	                /* text */
   _mle_start = .;               /* beginning of MLE pages */

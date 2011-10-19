@@ -40,10 +40,12 @@
  */
 
 /* address tboot will load and execute at */
-#define TBOOT_BASE_ADDR              0x0803000
+#define TBOOT_START              0x0803000
+//#define TBOOT_BASE_ADDR              0x0803000
 
 /* start address of tboot MLE page table, also the beginning of tboot memory */
-#define TBOOT_START ((unsigned long)&_start - 3*PAGE_SIZE)
+#define TBOOT_BASE_ADDR ((unsigned long)&_start - 3*PAGE_SIZE)
+//#define TBOOT_START ((unsigned long)&_start - 3*PAGE_SIZE)
 
 /* address that tboot will do s3 resume at */
 /* (must be in lower 1MB (real mode) and less than Xen trampoline @ 0x8c000) */

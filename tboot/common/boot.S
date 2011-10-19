@@ -351,18 +351,18 @@ idt_table:
 		.word	int_handler - _start
 		.word	cs_sel
 		.word	0x8e00   /* present, DPL=0, 32b, interrupt */
-		.word	(int_handler - _start + TBOOT_BASE_ADDR) >> 16
+		.word	(int_handler - _start + TBOOT_START) >> 16
 	.endr
 	/* for machine-check exception */
 		.word	int_handler - _start
 		.word	cs_sel
 		.word	0x8f00   /* present, DPL=0, 32b, trap */
-		.word	(int_handler - _start + TBOOT_BASE_ADDR) >> 16
+		.word	(int_handler - _start + TBOOT_START) >> 16
 	.rept 237
 		.word	int_handler - _start
 		.word	cs_sel
 		.word	0x8e00   /* present, DPL=0, 32b, interrupt */
-		.word	(int_handler - _start + TBOOT_BASE_ADDR) >> 16
+		.word	(int_handler - _start + TBOOT_START) >> 16
 	.endr
 idt_table_end:
 

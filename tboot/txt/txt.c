@@ -90,14 +90,14 @@ static __text const mle_hdr_t g_mle_hdr = {
     uuid              :  MLE_HDR_UUID,
     length            :  sizeof(mle_hdr_t),
     version           :  MLE_HDR_VER,
-    entry_point       :  (uint32_t)&_post_launch_entry - TBOOT_BASE_ADDR,
+    entry_point       :  (uint32_t)&_post_launch_entry - TBOOT_START,
     first_valid_page  :  0,
-    mle_start_off     :  (uint32_t)&_mle_start - TBOOT_BASE_ADDR,
-    mle_end_off       :  (uint32_t)&_mle_end - TBOOT_BASE_ADDR,
+    mle_start_off     :  (uint32_t)&_mle_start - TBOOT_START,
+    mle_end_off       :  (uint32_t)&_mle_end - TBOOT_START,
     capabilities      :  { MLE_HDR_CAPS },
-    cmdline_start_off :  (uint32_t)g_cmdline - TBOOT_BASE_ADDR,
+    cmdline_start_off :  (uint32_t)g_cmdline - TBOOT_START,
     cmdline_end_off   :  (uint32_t)g_cmdline + CMDLINE_SIZE - 1 -
-                                                       TBOOT_BASE_ADDR,
+                                                       TBOOT_START,
 };
 
 /*
@@ -483,7 +483,7 @@ tb_error_t txt_launch_environment(const multiboot_info_t *mbi)
 
     /* create MLE page table */
     mle_ptab_base = build_mle_pagetable(
-                             g_mle_hdr.mle_start_off + TBOOT_BASE_ADDR,
+                             g_mle_hdr.mle_start_off + TBOOT_START,
                              g_mle_hdr.mle_end_off - g_mle_hdr.mle_start_off);
     if ( mle_ptab_base == NULL )
         return TB_ERR_FATAL;

@@ -282,7 +282,7 @@ extern unsigned long get_tboot_mem_end(void);
 
 static bool below_tboot(unsigned long addr)
 {
-    return addr >= 0x100000 && addr < TBOOT_START;
+    return addr >= 0x100000 && addr < TBOOT_BASE_ADDR;
 }
 
 unsigned long get_mbi_mem_end(const multiboot_info_t *mbi)
@@ -420,10 +420,10 @@ static void move_modules(multiboot_info_t **mbi)
     if ( to < get_mbi_mem_end(*mbi) )
         to = get_mbi_mem_end(*mbi);
 
-    memcpy((void *)to, (void *)from, TBOOT_START - from);
+    memcpy((void *)to, (void *)from, TBOOT_BASE_ADDR - from);
 
     printk("0x%lx bytes copied from 0x%lx to 0x%lx\n",
-           TBOOT_START - from, from, to);
+           TBOOT_BASE_ADDR - from, from, to);
     *mbi = fixup_mbi(*mbi, to - from);
 }
 

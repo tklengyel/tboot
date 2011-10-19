@@ -169,7 +169,7 @@ static void post_launch(void)
     apply_policy(err);
 
     /* verify that tboot is in valid RAM (i.e. E820_RAM) */
-    base = (uint64_t)TBOOT_START;
+    base = (uint64_t)TBOOT_BASE_ADDR;
     size = (uint64_t)((unsigned long)&_end - base);
     printk("verifying tboot and its page table (%Lx - %Lx) in e820 table\n\t",
            base, (base + size - 1));
@@ -181,7 +181,7 @@ static void post_launch(void)
         printk(": succeeded.\n");
 
     /* protect ourselves, MLE page table, and MLE/kernel shared page */
-    base = (uint64_t)TBOOT_START;
+    base = (uint64_t)TBOOT_BASE_ADDR;
     size = (uint64_t)get_tboot_mem_end() - base;
     uint32_t mem_type = is_kernel_linux() ? E820_RESERVED : E820_UNUSABLE;
     printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
