@@ -46,6 +46,7 @@
 
 /* bit definitions of flags field of multiboot information */
 #define MBI_MEMLIMITS    (1<<0)
+#define MBI_BOOTDEV      (1<<1)
 #define MBI_CMDLINE      (1<<2)
 #define MBI_MODULES      (1<<3)
 #define MBI_AOUT         (1<<4)
