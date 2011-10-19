@@ -285,7 +285,7 @@ static bool below_tboot(unsigned long addr)
     return addr >= 0x100000 && addr < TBOOT_START;
 }
 
-static unsigned long get_mbi_mem_end(multiboot_info_t *mbi)
+unsigned long get_mbi_mem_end(multiboot_info_t *mbi)
 {
     return ((unsigned long)mbi + 3*PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 }

@@ -215,6 +215,12 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* else it may expand over top of tboot */
     if ( hdr->relocatable_kernel ) {
         protected_mode_base = (uint32_t)get_tboot_mem_end();
+        /* fix possible mbi overwrite in grub2 case */
+        /* assuming grub2 only used for relocatable kernel */
+        /* assuming mbi & components are contiguous */
+        unsigned long mbi_end = get_mbi_mem_end(g_mbi);
+        if ( mbi_end > protected_mode_base )
+            protected_mode_base = mbi_end;
         /* overflow? */
         if ( plus_overflow_u32(protected_mode_base,
                  hdr->kernel_alignment - 1) ) {
