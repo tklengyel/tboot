@@ -49,7 +49,7 @@ extern void get_tboot_fmt(void);
 extern void get_tboot_vga_delay(void);
 
 /* for parse cmdline of linux kernel, say vga and mem */
-extern void linux_parse_cmdline(char *cmdline);
+extern void linux_parse_cmdline(const char *cmdline);
 extern bool get_linux_vga(int *vid_mode);
 extern bool get_linux_mem(uint64_t *initrd_max_mem);
 

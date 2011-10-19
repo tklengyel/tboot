@@ -221,48 +221,48 @@ static inline txt_heap_t *get_txt_heap(void)
     return (txt_heap_t *)(unsigned long)read_pub_config_reg(TXTCR_HEAP_BASE);
 }
 
-static inline uint64_t get_bios_data_size(txt_heap_t *heap)
+static inline uint64_t get_bios_data_size(const txt_heap_t *heap)
 {
     return *(uint64_t *)heap;
 }
 
-static inline bios_data_t *get_bios_data_start(txt_heap_t *heap)
+static inline bios_data_t *get_bios_data_start(const txt_heap_t *heap)
 {
     return (bios_data_t *)((char*)heap + sizeof(uint64_t));
 }
 
-static inline uint64_t get_os_mle_data_size(txt_heap_t *heap)
+static inline uint64_t get_os_mle_data_size(const txt_heap_t *heap)
 {
     return *(uint64_t *)(heap + get_bios_data_size(heap));
 }
 
-static inline os_mle_data_t *get_os_mle_data_start(txt_heap_t *heap)
+static inline os_mle_data_t *get_os_mle_data_start(const txt_heap_t *heap)
 {
     return (os_mle_data_t *)(heap + get_bios_data_size(heap) +
                               sizeof(uint64_t));
 }
 
-static inline uint64_t get_os_sinit_data_size(txt_heap_t *heap)
+static inline uint64_t get_os_sinit_data_size(const txt_heap_t *heap)
 {
     return *(uint64_t *)(heap + get_bios_data_size(heap) +
                          get_os_mle_data_size(heap));
 }
 
-static inline os_sinit_data_t *get_os_sinit_data_start(txt_heap_t *heap)
+static inline os_sinit_data_t *get_os_sinit_data_start(const txt_heap_t *heap)
 {
     return (os_sinit_data_t *)(heap + get_bios_data_size(heap) +
                                get_os_mle_data_size(heap) +
                                sizeof(uint64_t));
 }
 
-static inline uint64_t get_sinit_mle_data_size(txt_heap_t *heap)
+static inline uint64_t get_sinit_mle_data_size(const txt_heap_t *heap)
 {
     return *(uint64_t *)(heap + get_bios_data_size(heap) +
                          get_os_mle_data_size(heap) +
                          get_os_sinit_data_size(heap));
 }
 
-static inline sinit_mle_data_t *get_sinit_mle_data_start(txt_heap_t *heap)
+static inline sinit_mle_data_t *get_sinit_mle_data_start(const txt_heap_t *heap)
 {
     return (sinit_mle_data_t *)(heap + get_bios_data_size(heap) +
                                 get_os_mle_data_size(heap) +
@@ -270,9 +270,9 @@ static inline sinit_mle_data_t *get_sinit_mle_data_start(txt_heap_t *heap)
                                 sizeof(uint64_t));
 }
 
-extern bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only);
-extern bool verify_bios_data(txt_heap_t *txt_heap);
-extern void print_os_sinit_data(os_sinit_data_t *os_sinit_data);
+extern bool verify_txt_heap(const txt_heap_t *txt_heap, bool bios_data_only);
+extern bool verify_bios_data(const txt_heap_t *txt_heap);
+extern void print_os_sinit_data(const os_sinit_data_t *os_sinit_data);
 
 #endif      /* __TXT_HEAP_H__ */
 

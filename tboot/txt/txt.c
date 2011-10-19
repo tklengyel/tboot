@@ -196,7 +196,7 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
  * will go through all modules to find an SINIT that matches the platform
  * (size can be NULL)
  */
-static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
+static bool find_platform_sinit_module(const multiboot_info_t *mbi, void **base,
                                        uint32_t *size)
 {
     if ( base != NULL )
@@ -231,7 +231,7 @@ static bool find_platform_sinit_module(multiboot_info_t *mbi, void **base,
     return false;
 }
 
-bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
+bool find_lcp_module(const multiboot_info_t *mbi, void **base, uint32_t *size)
 {
     size_t size2 = 0;
     void *base2 = NULL;
@@ -272,7 +272,7 @@ bool find_lcp_module(multiboot_info_t *mbi, void **base, uint32_t *size)
  * sets up TXT heap
  */
 static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
-                                 multiboot_info_t *mbi)
+                                 const multiboot_info_t *mbi)
 {
     txt_heap_t *txt_heap;
     uint64_t *size;
@@ -293,7 +293,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     *size = sizeof(*os_mle_data) + sizeof(uint64_t);
     memset(os_mle_data, 0, sizeof(*os_mle_data));
     os_mle_data->version = 0x02;
-    os_mle_data->mbi = mbi;
+    os_mle_data->mbi = (multiboot_info_t *)(unsigned long)mbi;
     os_mle_data->saved_misc_enable_msr = rdmsr(MSR_IA32_MISC_ENABLE);
 
     /*
@@ -457,7 +457,7 @@ bool txt_is_launched(void)
     return sts.senter_done_sts;
 }
 
-tb_error_t txt_launch_environment(multiboot_info_t *mbi)
+tb_error_t txt_launch_environment(const multiboot_info_t *mbi)
 {
     acm_hdr_t *sinit = NULL;
     void *mle_ptab_base;

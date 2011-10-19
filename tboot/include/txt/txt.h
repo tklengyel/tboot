@@ -43,14 +43,14 @@ extern bool txt_get_error(void);
 extern tb_error_t supports_txt(void);
 extern tb_error_t txt_verify_platform(void);
 extern bool txt_prepare_cpu(void);
-extern tb_error_t txt_launch_environment(multiboot_info_t *mbi);
+extern tb_error_t txt_launch_environment(const multiboot_info_t *mbi);
 extern void txt_post_launch(void);
 extern tb_error_t txt_protect_mem_regions(void);
 extern tb_error_t txt_post_launch_verify_platform(void);
 extern bool txt_s3_launch_environment(void);
 extern void txt_shutdown(void);
 extern bool txt_is_powercycle_required(void);
-extern bool find_lcp_module(multiboot_info_t *mbi, void **base,
+extern bool find_lcp_module(const multiboot_info_t *mbi, void **base,
                             uint32_t *size);
 
 #endif      /* __TXT_TXT_H__ */

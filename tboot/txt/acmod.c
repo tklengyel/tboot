@@ -55,7 +55,7 @@
 #endif    /* IS_INCLUDED */
 
 
-static acm_info_table_t *get_acmod_info_table(acm_hdr_t* hdr)
+static acm_info_table_t *get_acmod_info_table(const acm_hdr_t* hdr)
 {
     uint32_t user_area_off;
 
@@ -97,7 +97,7 @@ static acm_info_table_t *get_acmod_info_table(acm_hdr_t* hdr)
     return (acm_info_table_t *)((unsigned long)hdr + user_area_off);
 }
 
-static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
+static acm_chipset_id_list_t *get_acmod_chipset_list(const acm_hdr_t* hdr)
 {
     acm_info_table_t* info_table;
     uint32_t size, id_list_off;
@@ -157,7 +157,7 @@ static acm_chipset_id_list_t *get_acmod_chipset_list(acm_hdr_t* hdr)
     return chipset_id_list;
 }
 
-static acm_processor_id_list_t *get_acmod_processor_list(acm_hdr_t* hdr)
+static acm_processor_id_list_t *get_acmod_processor_list(const acm_hdr_t* hdr)
 {
     acm_info_table_t* info_table;
     uint32_t size, id_list_off;
@@ -225,7 +225,7 @@ void print_txt_caps(const char *prefix, txt_caps_t caps)
     printk("%s    ecx_pgtbl: %d\n", prefix, caps.ecx_pgtbl);
 }
 
-static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
+static void print_acm_hdr(const acm_hdr_t *hdr, const char *mod_name)
 {
     acm_info_table_t *info_table;
 
@@ -328,7 +328,7 @@ static void print_acm_hdr(acm_hdr_t *hdr, const char *mod_name)
     }
 }
 
-uint32_t get_supported_os_sinit_data_ver(acm_hdr_t* hdr)
+uint32_t get_supported_os_sinit_data_ver(const acm_hdr_t* hdr)
 {
     /* assumes that it passed is_sinit_acmod() */
 
@@ -339,7 +339,7 @@ uint32_t get_supported_os_sinit_data_ver(acm_hdr_t* hdr)
     return info_table->os_sinit_data_ver;
 }
 
-txt_caps_t get_sinit_capabilities(acm_hdr_t* hdr)
+txt_caps_t get_sinit_capabilities(const acm_hdr_t* hdr)
 {
     /* assumes that it passed is_sinit_acmod() */
 
@@ -350,7 +350,7 @@ txt_caps_t get_sinit_capabilities(acm_hdr_t* hdr)
     return info_table->capabilities;
 }
 
-static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
+static bool is_acmod(const void *acmod_base, uint32_t acmod_size, uint8_t *type,
                      bool quiet)
 {
     acm_hdr_t *acm_hdr = (acm_hdr_t *)acmod_base;
@@ -421,7 +421,7 @@ static bool is_acmod(void *acmod_base, uint32_t acmod_size, uint8_t *type,
     return true;
 }
 
-bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet)
+bool is_sinit_acmod(const void *acmod_base, uint32_t acmod_size, bool quiet)
 {
     uint8_t type;
 
@@ -436,7 +436,7 @@ bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet)
     return true;
 }
 
-bool does_acmod_match_platform(acm_hdr_t* hdr)
+bool does_acmod_match_platform(const acm_hdr_t* hdr)
 {
     /* used to ensure we don't print chipset/proc info for each module */
     static bool printed_host_info;
@@ -538,7 +538,7 @@ bool does_acmod_match_platform(acm_hdr_t* hdr)
 }
 
 #ifndef IS_INCLUDED
-acm_hdr_t *get_bios_sinit(void *sinit_region_base)
+acm_hdr_t *get_bios_sinit(const void *sinit_region_base)
 {
     txt_heap_t *txt_heap = get_txt_heap();
     bios_data_t *bios_data = get_bios_data_start(txt_heap);
@@ -557,7 +557,7 @@ acm_hdr_t *get_bios_sinit(void *sinit_region_base)
     return (acm_hdr_t *)sinit_region_base;
 }
 
-acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
+acm_hdr_t *copy_sinit(const acm_hdr_t *sinit)
 {
     /* get BIOS-reserved region from TXT.SINIT.BASE config reg */
     void *sinit_region_base =
@@ -620,7 +620,7 @@ acm_hdr_t *copy_sinit(acm_hdr_t *sinit)
  * an TXT.RESET.  Instead detect these, print a desriptive message,
  * and skip SENTER/ENTERACCS
  */
-bool verify_acmod(acm_hdr_t *acm_hdr)
+bool verify_acmod(const acm_hdr_t *acm_hdr)
 {
     getsec_parameters_t params;
     uint32_t size;

@@ -36,15 +36,16 @@
 #ifndef __LOADER_H__
 #define __LOADER_H__
 
-extern bool find_module_by_uuid(multiboot_info_t *mbi, void **base,
+extern bool find_module_by_uuid(const multiboot_info_t *mbi, void **base,
                                 size_t *size, const uuid_t *uuid);
-extern bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
-                                size_t *size, const char* file_signature);
+extern bool find_module_by_file_signature(const multiboot_info_t *mbi,
+                                          void **base, size_t *size,
+                                          const char* file_signature);
 extern bool is_kernel_linux(void);
 extern bool launch_kernel(bool is_measured_launch);
-extern bool verify_mbi(multiboot_info_t *mbi);
-extern bool verify_modules(multiboot_info_t *mbi);
-extern module_t *get_module(multiboot_info_t *mbi, unsigned int i);
+extern bool verify_mbi(const multiboot_info_t *mbi);
+extern bool verify_modules(const multiboot_info_t *mbi);
+extern module_t *get_module(const multiboot_info_t *mbi, unsigned int i);
 extern bool remove_txt_modules(multiboot_info_t *mbi);
 
 #endif /* __LOADER_H__ */

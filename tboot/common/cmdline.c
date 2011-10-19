@@ -108,7 +108,7 @@ static const char* get_option_val(const cmdline_option_t *options,
     return NULL;
 }
 
-static void cmdline_parse(char *cmdline, const cmdline_option_t *options,
+static void cmdline_parse(const char *cmdline, const cmdline_option_t *options,
                           char vals[][MAX_VALUE_LEN])
 {
     const char *p = cmdline;
@@ -168,7 +168,7 @@ void tboot_parse_cmdline(void)
     cmdline_parse(g_cmdline, g_tboot_cmdline_options, g_tboot_param_values);
 }
 
-void linux_parse_cmdline(char *cmdline)
+void linux_parse_cmdline(const char *cmdline)
 {
     cmdline_parse(cmdline, g_linux_cmdline_options, g_linux_param_values);
 }

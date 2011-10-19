@@ -66,12 +66,12 @@ extern bool expand_elf_image(const elf_header_t *elf, void **entry_point);
 extern bool expand_linux_image(const void *linux_image, size_t linux_size,
                                const void *initrd_image, size_t initrd_size,
                                void **entry_point, bool is_measured_launch);
-extern bool jump_elf_image(void *entry_point);
-extern bool jump_linux_image(void *entry_point);
-extern bool is_sinit_acmod(void *acmod_base, uint32_t acmod_size, bool quiet);
+extern bool jump_elf_image(const void *entry_point);
+extern bool jump_linux_image(const void *entry_point);
+extern bool is_sinit_acmod(const void *acmod_base, uint32_t acmod_size, bool quiet);
 
 #if 0
-void print_mbi(multiboot_info_t *mbi)
+void print_mbi(const multiboot_info_t *mbi)
 {
     /* print mbi for debug */
     unsigned int i;
@@ -105,12 +105,12 @@ void print_mbi(multiboot_info_t *mbi)
         }
     }
     if ( mbi->flags & MBI_AOUT ) {
-        aout_t *p = &(mbi->syms.aout_image);
+        const aout_t *p = &(mbi->syms.aout_image);
         printk("\t aout :: tabsize: 0x%x, strsize: 0x%x, addr: 0x%x\n",
                p->tabsize, p->strsize, p->addr);
     }
     if ( mbi->flags & MBI_ELF ) {
-        elf_t *p = &(mbi->syms.elf_image);
+        const elf_t *p = &(mbi->syms.elf_image);
         printk("\t elf :: num: %u, size: 0x%x, addr: 0x%x, shndx: 0x%x\n",
                p->num, p->size, p->addr, p->shndx);
     }
@@ -159,7 +159,7 @@ void print_mbi(multiboot_info_t *mbi)
 }
 #endif
 
-bool verify_mbi(multiboot_info_t *mbi)
+bool verify_mbi(const multiboot_info_t *mbi)
 {
     if ( mbi == NULL ) {
         printk("Error: Mbi pointer is zero.\n");
@@ -285,12 +285,12 @@ static bool below_tboot(unsigned long addr)
     return addr >= 0x100000 && addr < TBOOT_START;
 }
 
-unsigned long get_mbi_mem_end(multiboot_info_t *mbi)
+unsigned long get_mbi_mem_end(const multiboot_info_t *mbi)
 {
     return ((unsigned long)mbi + 3*PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 }
 
-static void fixup_modules(multiboot_info_t *mbi, size_t offset)
+static void fixup_modules(const multiboot_info_t *mbi, size_t offset)
 {
     for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
         module_t *m = get_module(mbi, i);
@@ -366,7 +366,7 @@ static multiboot_info_t *fixup_mbi(multiboot_info_t *mbi, size_t offset)
     return mbi;
 }
 
-static uint32_t get_lowest_mod_start(multiboot_info_t *mbi)
+static uint32_t get_lowest_mod_start(const multiboot_info_t *mbi)
 {
     uint32_t lowest = 0xffffffff;
 
@@ -379,7 +379,7 @@ static uint32_t get_lowest_mod_start(multiboot_info_t *mbi)
     return lowest;
 }
 
-static uint32_t get_highest_mod_end(multiboot_info_t *mbi)
+static uint32_t get_highest_mod_end(const multiboot_info_t *mbi)
 {
     uint32_t highest = 0;
 
@@ -491,7 +491,7 @@ bool launch_kernel(bool is_measured_launch)
     return false;
 }
 
-module_t *get_module(multiboot_info_t *mbi, unsigned int i)
+module_t *get_module(const multiboot_info_t *mbi, unsigned int i)
 {
     if ( mbi == NULL ) {
         printk("Error: mbi pointer is zero.\n");
@@ -506,7 +506,7 @@ module_t *get_module(multiboot_info_t *mbi, unsigned int i)
     return (module_t *)(mbi->mods_addr + i * sizeof(module_t));
 }
 
-static bool find_module(multiboot_info_t *mbi, void **base, size_t *size,
+static bool find_module(const multiboot_info_t *mbi, void **base, size_t *size,
                         const void *data, size_t len)
 {
     if ( mbi == NULL ) {
@@ -548,7 +548,7 @@ static bool find_module(multiboot_info_t *mbi, void **base, size_t *size,
  * find a module by its uuid
  *
  */
-bool find_module_by_uuid(multiboot_info_t *mbi, void **base, size_t *size,
+bool find_module_by_uuid(const multiboot_info_t *mbi, void **base, size_t *size,
                          const uuid_t *uuid)
 {
     return find_module(mbi, base, size, uuid, sizeof(*uuid));
@@ -560,13 +560,13 @@ bool find_module_by_uuid(multiboot_info_t *mbi, void **base, size_t *size,
  * find a module by its file signature
  *
  */
-bool find_module_by_file_signature(multiboot_info_t *mbi, void **base,
+bool find_module_by_file_signature(const multiboot_info_t *mbi, void **base,
                                    size_t *size, const char* file_signature)
 {
     return find_module(mbi, base, size, file_signature, strlen(file_signature));
 }
 
-bool verify_modules(multiboot_info_t *mbi)
+bool verify_modules(const multiboot_info_t *mbi)
 {
     uint64_t base, size;
     module_t *m;

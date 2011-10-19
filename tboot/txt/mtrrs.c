@@ -90,7 +90,7 @@ static uint64_t get_maxphyaddr_mask(void)
  * this must be done for each processor so that all have the same
  * memory types
  */
-bool set_mtrrs_for_acmod(acm_hdr_t *hdr)
+bool set_mtrrs_for_acmod(const acm_hdr_t *hdr)
 {
     unsigned long eflags;
     unsigned long cr0, cr4;
@@ -455,7 +455,7 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
     return true;
 }
 
-void restore_mtrrs(mtrr_state_t *saved_state)
+void restore_mtrrs(const mtrr_state_t *saved_state)
 {
     /* called by apply_policy() so use saved ptr */
     if ( saved_state == NULL )
@@ -483,7 +483,7 @@ void restore_mtrrs(mtrr_state_t *saved_state)
  * set the memory type for specified range (base to base+size)
  * to mem_type and everything else to UC
  */
-bool set_mem_type(void *base, uint32_t size, uint32_t mem_type)
+bool set_mem_type(const void *base, uint32_t size, uint32_t mem_type)
 {
     int num_pages;
     int ndx;

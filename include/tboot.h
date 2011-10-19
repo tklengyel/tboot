@@ -142,7 +142,7 @@ static inline bool tboot_in_measured_env(void)
     return (g_tboot_shared != NULL);
 }
 
-static inline void print_tboot_shared(tboot_shared_t *tboot_shared)
+static inline void print_tboot_shared(const tboot_shared_t *tboot_shared)
 {
     printk("tboot_shared data:\n");
     printk("\t version: %d\n", tboot_shared->version);

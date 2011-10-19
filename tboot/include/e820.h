@@ -68,7 +68,7 @@ typedef struct __packed {
     uint32_t type;    /* type of memory segment */
 } e820entry_t;
 
-extern bool copy_e820_map(multiboot_info_t *mbi);
+extern bool copy_e820_map(const multiboot_info_t *mbi);
 extern bool e820_protect_region(uint64_t addr, uint64_t size, uint32_t type);
 extern bool e820_reserve_ram(uint64_t base, uint64_t length);
 extern void print_e820_map(void);

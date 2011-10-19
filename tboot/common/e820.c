@@ -269,7 +269,7 @@ static bool is_overlapped(uint64_t base, uint64_t end, uint64_t e820_base,
  *
  * return:  false = error (no table or table too big for new space)
  */
-bool copy_e820_map(multiboot_info_t *mbi)
+bool copy_e820_map(const multiboot_info_t *mbi)
 {
     g_nr_map = 0;
 

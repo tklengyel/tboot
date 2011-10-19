@@ -208,7 +208,7 @@ static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
 }
 
 
-static void print_bios_data(bios_data_t *bios_data)
+static void print_bios_data(const bios_data_t *bios_data)
 {
     printk("bios_data (@%p, %jx):\n", bios_data,
            *((uint64_t *)bios_data - 1));
@@ -225,7 +225,7 @@ static void print_bios_data(bios_data_t *bios_data)
         print_ext_data_elts(bios_data->ext_data_elts);
 }
 
-bool verify_bios_data(txt_heap_t *txt_heap)
+bool verify_bios_data(const txt_heap_t *txt_heap)
 {
     uint64_t heap_base = read_pub_config_reg(TXTCR_HEAP_BASE);
     uint64_t heap_size = read_pub_config_reg(TXTCR_HEAP_SIZE);
@@ -284,12 +284,12 @@ bool verify_bios_data(txt_heap_t *txt_heap)
 
 #ifndef IS_INCLUDED
 
-static inline void print_heap_hash(sha1_hash_t hash)
+static inline void print_heap_hash(const sha1_hash_t hash)
 {
     print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
 }
 
-static void print_os_mle_data(os_mle_data_t *os_mle_data)
+static void print_os_mle_data(const os_mle_data_t *os_mle_data)
 {
     printk("os_mle_data (@%p, %Lx):\n", os_mle_data,
            *((uint64_t *)os_mle_data - 1));
@@ -298,7 +298,7 @@ static void print_os_mle_data(os_mle_data_t *os_mle_data)
     printk("\t mbi: %p\n", os_mle_data->mbi);
 }
 
-static bool verify_os_mle_data(txt_heap_t *txt_heap)
+static bool verify_os_mle_data(const txt_heap_t *txt_heap)
 {
     uint64_t size, heap_size;
     os_mle_data_t *os_mle_data;
@@ -343,7 +343,7 @@ static bool verify_os_mle_data(txt_heap_t *txt_heap)
     return true;
 }
 
-void print_os_sinit_data(os_sinit_data_t *os_sinit_data)
+void print_os_sinit_data(const os_sinit_data_t *os_sinit_data)
 {
     printk("os_sinit_data (@%p, %Lx):\n", os_sinit_data,
            *((uint64_t *)os_sinit_data - 1));
@@ -364,7 +364,7 @@ void print_os_sinit_data(os_sinit_data_t *os_sinit_data)
         printk("\t efi_rsdt_ptr: 0x%Lx\n", os_sinit_data->efi_rsdt_ptr);
 }
 
-static bool verify_os_sinit_data(txt_heap_t *txt_heap)
+static bool verify_os_sinit_data(const txt_heap_t *txt_heap)
 {
     uint64_t size, heap_size;
     os_sinit_data_t *os_sinit_data;
@@ -405,7 +405,7 @@ static bool verify_os_sinit_data(txt_heap_t *txt_heap)
     return true;
 }
 
-static void print_sinit_mdrs(sinit_mdr_t mdrs[], uint32_t num_mdrs)
+static void print_sinit_mdrs(const sinit_mdr_t mdrs[], uint32_t num_mdrs)
 {
     static const char *mem_types[] = {"GOOD", "SMRAM OVERLAY",
                                       "SMRAM NON-OVERLAY",
@@ -422,7 +422,7 @@ static void print_sinit_mdrs(sinit_mdr_t mdrs[], uint32_t num_mdrs)
     }
 }
 
-static void print_sinit_mle_data(sinit_mle_data_t *sinit_mle_data)
+static void print_sinit_mle_data(const sinit_mle_data_t *sinit_mle_data)
 {
     printk("sinit_mle_data (@%p, %Lx):\n", sinit_mle_data,
            *((uint64_t *)sinit_mle_data - 1));
@@ -452,7 +452,7 @@ static void print_sinit_mle_data(sinit_mle_data_t *sinit_mle_data)
                sinit_mle_data->proc_scrtm_status);
 }
 
-static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
+static bool verify_sinit_mle_data(const txt_heap_t *txt_heap)
 {
     uint64_t size, heap_size;
     sinit_mle_data_t *sinit_mle_data;
@@ -492,7 +492,7 @@ static bool verify_sinit_mle_data(txt_heap_t *txt_heap)
     return true;
 }
 
-bool verify_txt_heap(txt_heap_t *txt_heap, bool bios_data_only)
+bool verify_txt_heap(const txt_heap_t *txt_heap, bool bios_data_only)
 {
     /* verify BIOS to OS data */
     if ( !verify_bios_data(txt_heap) )

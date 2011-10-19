@@ -146,7 +146,7 @@ typedef struct {
 	uint32_t type;
 } memory_map_t;
 
-extern unsigned long get_mbi_mem_end(multiboot_info_t *mbi);
+extern unsigned long get_mbi_mem_end(const multiboot_info_t *mbi);
 
 #endif /* __ASSEMBLY__ */
 
