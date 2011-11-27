@@ -151,10 +151,10 @@ static struct acpi_table_header *find_table(const char *table_name)
     }
    
     struct acpi_table_header *table = NULL;
+    struct acpi_xsdt *xsdt = get_xsdt(); /* it is ok even on 1.0 tables */
+                                         /* because the value will be ignored */
 
-    if ( rsdp->rsdp1.revision == 2 ) { /*  ACPI 2.0 */
-        struct acpi_xsdt *xsdt = get_xsdt();
-
+    if ( rsdp->rsdp1.revision >= 2 && xsdt != NULL ) { /*  ACPI 2.0+ */
         for ( uint64_t *curr_table = xsdt->table_offsets;
               curr_table < (uint64_t *)((void *)xsdt + xsdt->hdr.length);
               curr_table++ ) {
@@ -166,6 +166,11 @@ static struct acpi_table_header *find_table(const char *table_name)
     }
     else {                             /* ACPI 1.0 */
         struct acpi_rsdt *rsdt = get_rsdt();
+
+        if ( rsdt == NULL ) {
+            printk("rsdt is invalid.\n");
+            return NULL;
+        }
 
         for ( uint32_t *curr_table = rsdt->table_offsets;
               curr_table < (uint32_t *)((void *)rsdt + rsdt->hdr.length);
