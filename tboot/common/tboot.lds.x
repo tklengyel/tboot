@@ -18,12 +18,14 @@ PHDRS
 }
 SECTIONS
 {
-  . = TBOOT_START;		/* 0x803000 */
+  . = TBOOT_BASE_ADDR;		/* 0x800000 */
+
+  .text : {
+	*(.mlept)
 
   _stext = .;	                /* text */
   _mle_start = .;               /* beginning of MLE pages */
 
-  .text : {
 	*(.text)
 	*(.fixup)
 	*(.gnu.warning)

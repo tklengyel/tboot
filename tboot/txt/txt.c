@@ -143,6 +143,8 @@ static void print_mle_hdr(const mle_hdr_t *mle_hdr)
 /* 1 ptable = 3 pages and just 1 loop loop for ptable MLE page table */
 /* can only contain 4k pages */
 
+static __mlept uint8_t g_mle_pt[3 * PAGE_SIZE];  /* pgdir ptr + pgdir + ptab = 3 */
+
 static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
 {
     void *ptab_base;
@@ -165,8 +167,8 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     }
 
     /* place ptab_base below MLE */
-    ptab_size = 3 * PAGE_SIZE;      /* pgdir ptr + pgdir + ptab = 3 */
-    ptab_base = (void *)((mle_start - ptab_size) & PAGE_MASK);
+    ptab_size = sizeof(g_mle_pt);
+    ptab_base = &g_mle_pt;
     memset(ptab_base, 0, ptab_size);
     printk("ptab_size=%x, ptab_base=%p\n", ptab_size, ptab_base);
 

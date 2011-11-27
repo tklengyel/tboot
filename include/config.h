@@ -41,11 +41,9 @@
 
 /* address tboot will load and execute at */
 #define TBOOT_START              0x0803000
-//#define TBOOT_BASE_ADDR              0x0803000
 
 /* start address of tboot MLE page table, also the beginning of tboot memory */
-#define TBOOT_BASE_ADDR ((unsigned long)&_start - 3*PAGE_SIZE)
-//#define TBOOT_START ((unsigned long)&_start - 3*PAGE_SIZE)
+#define TBOOT_BASE_ADDR          0x0800000
 
 /* address that tboot will do s3 resume at */
 /* (must be in lower 1MB (real mode) and less than Xen trampoline @ 0x8c000) */
@@ -95,6 +93,7 @@ extern char _end[];              /* end of tboot */
 
 #define __data     __attribute__ ((__section__ (".data")))
 #define __text     __attribute__ ((__section__ (".text")))
+#define __mlept    __attribute__ ((__section__ (".mlept")))
 
 #define __packed   __attribute__ ((packed))
 
