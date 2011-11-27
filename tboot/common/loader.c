@@ -338,7 +338,7 @@ unsigned long get_mbi_mem_end(const multiboot_info_t *mbi)
         end = max(end, mbi->vbe_mode_info + 256);
     }
 
-    return (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    return PAGE_UP(end);
 }
 
 static void fixup_modules(const multiboot_info_t *mbi, size_t offset)
@@ -459,7 +459,7 @@ static void move_modules(multiboot_info_t **mbi)
         return;
 
     unsigned long highest = get_highest_mod_end(*mbi);
-    unsigned long to = (highest + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    unsigned long to = PAGE_UP(highest);
 
     if ( to < get_tboot_mem_end() )
         to = get_tboot_mem_end();

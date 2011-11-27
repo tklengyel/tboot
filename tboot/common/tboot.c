@@ -95,7 +95,7 @@ static __data uint8_t g_saved_s3_wakeup_page[PAGE_SIZE];
 
 unsigned long get_tboot_mem_end(void)
 {
-    return ((unsigned long)&_end + PAGE_SIZE - 1ULL) & ~(PAGE_SIZE - 1);
+    return PAGE_UP((unsigned long)&_end);
 }
 
 static tb_error_t verify_platform(void)
