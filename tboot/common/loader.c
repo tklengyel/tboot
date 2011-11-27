@@ -254,6 +254,11 @@ bool is_kernel_linux(void)
  */
 bool remove_txt_modules(multiboot_info_t *mbi)
 {
+    if ( mbi->mods_count == 0 || mbi->mods_addr == 0 ) {
+        printk("Error: no module.\n");
+        return false;
+    }
+
     /* start at end of list so that we can remove w/in the loop */
     for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
         module_t *m = get_module(mbi, i);
@@ -522,6 +527,11 @@ static bool find_module(const multiboot_info_t *mbi, void **base, size_t *size,
     *base = NULL;
     if ( size != NULL )
         *size = 0;
+
+    if ( mbi->mods_count == 0 || mbi->mods_addr == 0 ) {
+        printk("Error: no module.\n");
+        return false;
+    }
 
     for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
         module_t *m = get_module(mbi, i);
