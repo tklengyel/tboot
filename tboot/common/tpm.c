@@ -386,6 +386,24 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
                           (tpm_reg_data_fifo_t *)&in[offset]);
     } while ( offset < in_size );
 
+    i = 0;
+    do {
+        read_tpm_reg(locality,TPM_REG_STS, &reg_sts);
+#ifdef TPM_TRACE
+        printk("Wait on Expect = 0, Status register %02x\n", reg_sts._raw[0]);
+#endif
+        if ( reg_sts.sts_valid == 1 && reg_sts.expect == 0 )
+            break;
+        else
+            cpu_relax();
+        i++;
+    } while ( i <= TPM_DATA_AVAIL_TIME_OUT );
+    if ( i > TPM_DATA_AVAIL_TIME_OUT ) {
+        printk("TPM: wait for expect becoming 0 timeout\n");
+        ret = TPM_FAIL;
+        goto RelinquishControl;
+    }
+
     /* command has been written to the TPM, it is time to execute it. */
     memset(&reg_sts, 0,  sizeof(reg_sts));
     reg_sts.tpm_go = 1;
@@ -395,6 +413,9 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     i = 0;
     do {
         read_tpm_reg(locality,TPM_REG_STS, &reg_sts);
+#ifdef TPM_TRACE
+        printk("Waiting for DA Flag, Status register %02x\n", reg_sts._raw[0]);
+#endif
         if ( reg_sts.sts_valid == 1 && reg_sts.data_avail == 1 )
             break;
         else
