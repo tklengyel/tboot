@@ -237,6 +237,8 @@ static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg)
     return reg_val;
 }
 
+bool display_heap_optin = false;
+
 int main(int argc, char *argv[])
 {
     uint64_t heap = 0;
@@ -306,7 +308,7 @@ int main(int argc, char *argv[])
     /*
      * display heap
      */
-    if ( heap && heap_size ) {
+    if ( heap && heap_size && display_heap_optin ) {
         seek_ret = lseek(fd_mem, heap, SEEK_SET);
         if ( seek_ret == -1 ) {
             printf("ERROR: seeking TXT heap failed by lseek(): %s, try mmap\n",
