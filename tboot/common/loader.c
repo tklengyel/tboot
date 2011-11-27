@@ -290,9 +290,55 @@ static bool below_tboot(unsigned long addr)
     return addr >= 0x100000 && addr < TBOOT_BASE_ADDR;
 }
 
+static unsigned long max(unsigned long a, unsigned long b)
+{
+    return (a > b) ? a : b;
+}
+
 unsigned long get_mbi_mem_end(const multiboot_info_t *mbi)
 {
-    return ((unsigned long)mbi + 3*PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    unsigned long end = (unsigned long)(mbi + 1);
+
+    if ( mbi->flags & MBI_CMDLINE )
+        end = max(end, mbi->cmdline + strlen((char *)mbi->cmdline) + 1);
+    if ( mbi->flags & MBI_MODULES ) {
+        end = max(end, mbi->mods_addr + mbi->mods_count * sizeof(module_t));
+        unsigned int i;
+        for ( i = 0; i < mbi->mods_count; i++ ) {
+            module_t *p = get_module(mbi, i);
+            end = max(end, p->string + strlen((char *)p->string) + 1);
+        }
+    }
+    if ( mbi->flags & MBI_AOUT ) {
+        const aout_t *p = &(mbi->syms.aout_image);
+        end = max(end, p->addr + p->tabsize
+                       + sizeof(unsigned long) + p->strsize);
+    }
+    if ( mbi->flags & MBI_ELF ) {
+        const elf_t *p = &(mbi->syms.elf_image);
+        end = max(end, p->addr + p->num * p->size);
+    }
+    if ( mbi->flags & MBI_MEMMAP )
+        end = max(end, mbi->mmap_addr + mbi->mmap_length);
+    if ( mbi->flags & MBI_DRIVES )
+        end = max(end, mbi->drives_addr + mbi->drives_length);
+    /* mbi->config_table field should contain */
+    /*  "the address of the rom configuration table returned by the */
+    /*  GET CONFIGURATION bios call", so skip it */
+    if ( mbi->flags & MBI_BTLDNAME )
+        end = max(end, mbi->boot_loader_name
+                       + strlen((char *)mbi->boot_loader_name) + 1);
+    if ( mbi->flags & MBI_APM )
+        /* per Grub-multiboot-Main Part2 Rev94-Structures, apm size is 20 */
+        end = max(end, mbi->apm_table + 20);
+    if ( mbi->flags & MBI_VBE ) {
+        /* VBE2.0, VBE Function 00 return 512 bytes*/
+        end = max(end, mbi->vbe_control_info + 512);
+        /* VBE2.0, VBE Function 01 return 256 bytes*/
+        end = max(end, mbi->vbe_mode_info + 256);
+    }
+
+    return (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 }
 
 static void fixup_modules(const multiboot_info_t *mbi, size_t offset)
