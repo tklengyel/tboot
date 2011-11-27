@@ -21,6 +21,8 @@ SECTIONS
   . = TBOOT_BASE_ADDR;		/* 0x800000 */
 
   .text : {
+	*(.tboot_multiboot_header)
+  . = ALIGN(4096);
 	*(.mlept)
 
   _stext = .;	                /* text */

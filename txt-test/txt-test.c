@@ -58,7 +58,7 @@
 static struct file_operations fops;
 static int dev_major;
 
-#define TBOOT_MEM_BASE      (TBOOT_START - 3*PAGE_SIZE)
+#define TBOOT_MEM_BASE      (TBOOT_START - 4*PAGE_SIZE)
                                /* 0x8c000 is Xen's start of trampoline code */
 #define TBOOT_MEM_SIZE      (0x4f000 + 3*PAGE_SIZE)
 

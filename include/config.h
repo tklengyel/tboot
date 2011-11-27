@@ -40,7 +40,7 @@
  */
 
 /* address tboot will load and execute at */
-#define TBOOT_START              0x0803000
+#define TBOOT_START              0x0804000
 
 /* start address of tboot MLE page table, also the beginning of tboot memory */
 #define TBOOT_BASE_ADDR          0x0800000

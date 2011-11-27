@@ -65,15 +65,8 @@
 /* errorcode for post-launch memory layout verfication failure */
 #define LAYOUT_ERR             0xc0008001
 
-	.text
-
-ENTRY(start)
-ENTRY(_start)
-ENTRY(_stext)
-        jmp __start
-
+.section ".tboot_multiboot_header","w"
         .align 4
-
 /* multiboot header */
 #define MULTIBOOT_HEADER_FLAGS (MULTIBOOT_HEADER_MODS_ALIGNED | \
                                 MULTIBOOT_HEADER_WANT_MEMORY)
@@ -83,6 +76,14 @@ ENTRY(_stext)
         .long MULTIBOOT_HEADER_FLAGS
         /* checksum: negated sum of above */
         .long -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+
+
+	.text
+
+ENTRY(start)
+ENTRY(_start)
+ENTRY(_stext)
+        jmp __start
 
 
 /* entry point post-launch, to verify memory layout */
