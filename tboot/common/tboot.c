@@ -457,13 +457,20 @@ static void cap_pcrs(void)
 
 void shutdown(void)
 {
+    static atomic_t ap_in_shutdown;
+
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
+        atomic_inc(&ap_in_shutdown);
         mtx_enter(&ap_lock);
         printk("shutdown(): TB_SHUTDOWN_WFS\n");
         handle_init_sipi_sipi(get_apicid());
         apply_policy(TB_ERR_FATAL);
     }
+
+    printk("wait until all APs ready for txt shutdown\n");
+    while( atomic_read(&ap_wfs_count) < atomic_read(&ap_in_shutdown) )
+        cpu_relax();
 
     /* ensure localities 0, 1 are inactive (in case kernel used them) */
     release_locality(0);
