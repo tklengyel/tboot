@@ -46,6 +46,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #define printk   printf
 #include "../include/config.h"
@@ -87,6 +88,18 @@ void print_hex(const char* prefix, const void *start, size_t len)
         }
         printf("\n");
     }
+}
+
+void print_help(const char *usage_str, const char *option_string[])
+{
+    uint16_t i = 0;
+    if ( usage_str == NULL || option_string == NULL )
+        return;
+
+    printf("\nUsage: %s\n", usage_str);
+
+    for ( ; option_string[i] != NULL; i++ )
+        printf("%s", option_string[i]);
 }
 
 static void display_config_regs(void *txt_config_base)
@@ -238,6 +251,18 @@ static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg)
 }
 
 bool display_heap_optin = false;
+static const char *short_option = "h";
+static struct option longopts[] = {
+    {"heap", 0, 0, 'p'},
+    {"help", 0, 0, 'h'},
+    {0, 0, 0, 0}
+};
+static const char *usage_string = "txt-stat [--heap] [-h]";
+static const char *option_strings[] = {
+    "--heap:\t\tprint out heap info.\n",
+    "-h, --help:\tprint out this help message.\n",
+    NULL
+};
 
 int main(int argc, char *argv[])
 {
@@ -247,7 +272,21 @@ int main(int argc, char *argv[])
     off_t seek_ret = -1;
     size_t read_ret = 0;
 
-    (void)argc; (void)argv;     /* portably quiet warning */
+    int c;
+    while ( (c = getopt_long(argc, (char **const)argv,
+                    short_option, longopts, NULL)) != -1 ) 
+        switch ( c ) {
+        case 'h':
+            print_help(usage_string, option_strings);
+            return 0;
+
+        case 'p':
+            display_heap_optin = true;
+            break;
+
+        default:
+            return 1;
+        }
 
     if ( !is_txt_supported() ) {
         printf("Intel(r) TXT is not supported\n");
