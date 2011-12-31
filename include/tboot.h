@@ -89,7 +89,7 @@ typedef struct __packed {
 typedef struct __packed {
     /* version 3+ fields: */
     uuid_t    uuid;              /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
-    uint32_t  version;           /* currently 0.4 */
+    uint32_t  version;           /* currently 0.6 */
     uint32_t  log_addr;          /* physical addr of log or NULL if none */
     uint32_t  shutdown_entry;    /* entry point for tboot shutdown */
     uint32_t  shutdown_type;     /* type of shutdown (TB_SHUTDOWN_*) */
@@ -106,6 +106,10 @@ typedef struct __packed {
     /* version 5+ fields: */
     uint8_t   reserved_align[3]; /* used to 4byte-align num_in_wfs */
     uint32_t  num_in_wfs;        /* number of processors in wait-for-SIPI */
+    /* version 6+ fields: */
+    uint32_t  flags;
+    uint64_t  ap_wake_addr;      /* phys addr of kernel/VMM SIPI vector */
+    uint32_t  ap_wake_trigger;   /* kernel/VMM writes APIC ID to wake AP */
 } tboot_shared_t;
 
 #define TB_SHUTDOWN_REBOOT      0
@@ -114,6 +118,9 @@ typedef struct __packed {
 #define TB_SHUTDOWN_S3          3
 #define TB_SHUTDOWN_HALT        4
 #define TB_SHUTDOWN_WFS         5
+
+#define TB_FLAG_AP_WAKE_SUPPORT   0x00000001  /* kernel/VMM use INIT-SIPI-SIPI
+                                                 if clear, ap_wake_* if set */
 
 /* {663C8DFF-E8B3-4b82-AABF-19EA4D057A08} */
 #define TBOOT_SHARED_UUID    {0x663c8dff, 0xe8b3, 0x4b82, 0xaabf, \
@@ -134,7 +141,6 @@ typedef struct {
 #define TBOOT_LOG_UUID   {0xc0192526, 0x6b30, 0x4db4, 0x844c, \
                              {0xa3, 0xe9, 0x53, 0xb8, 0x81, 0x74 }}
 
-
 extern tboot_shared_t *g_tboot_shared;
 
 static inline bool tboot_in_measured_env(void)
@@ -152,11 +158,12 @@ static inline void print_tboot_shared(const tboot_shared_t *tboot_shared)
     printk("\t tboot_base: 0x%08x\n", tboot_shared->tboot_base);
     printk("\t tboot_size: 0x%x\n", tboot_shared->tboot_size);
     printk("\t num_in_wfs: %u\n", tboot_shared->num_in_wfs);
+    printk("\t flags: 0x%8.8x\n", tboot_shared->flags);
+    printk("\t ap_wake_addr: 0x%Lx\n", tboot_shared->ap_wake_addr);
+    printk("\t ap_wake_trigger: %u\n", tboot_shared->ap_wake_trigger);
 }
 
-
 #endif    /* __TBOOT_H__ */
-
 
 /*
  * Local variables:

@@ -73,6 +73,8 @@ static inline bool multiply_overflow_u32(uint32_t x, uint32_t y)
 
 #define ARRAY_SIZE(a)    (sizeof(a) / sizeof(a[0]))
 
+#define AP_WAKE_TRIGGER_DEF   0xffffffff
+
 #endif    /* __MISC_H__ */
 
 

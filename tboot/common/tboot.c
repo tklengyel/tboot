@@ -53,9 +53,15 @@
 #include <uuid.h>
 #include <loader.h>
 #include <hash.h>
+#include <mle.h>
 #include <tb_error.h>
 #include <txt/txt.h>
 #include <txt/vmcs.h>
+#include <txt/smx.h>
+#include <txt/mtrrs.h>
+#include <txt/config_regs.h>
+#include <txt/heap.h>
+#include <txt/verify.h>
 #include <tb_policy.h>
 #include <tboot.h>
 #include <acpi.h>
@@ -221,7 +227,7 @@ static void post_launch(void)
      */
     memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
-    _tboot_shared.version = 5;
+    _tboot_shared.version = 6;
     _tboot_shared.log_addr = (uint32_t)g_log;
     _tboot_shared.shutdown_entry = (uint32_t)shutdown_entry;
     _tboot_shared.tboot_base = (uint32_t)&_start;
@@ -231,6 +237,14 @@ static void post_launch(void)
          key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
     _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
+    if ( use_mwait() ) {
+        _tboot_shared.flags |= TB_FLAG_AP_WAKE_SUPPORT;
+        _tboot_shared.ap_wake_trigger = AP_WAKE_TRIGGER_DEF;
+    }
+    else if ( get_tboot_mwait() ) {
+        printk("ap_wake_mwait specified but the CPU doesn't support it.\n");
+    }
+
     print_tboot_shared(&_tboot_shared);
 
     launch_kernel(true);
@@ -462,9 +476,13 @@ void shutdown(void)
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
         atomic_inc(&ap_in_shutdown);
+        _tboot_shared.ap_wake_trigger = 0;
         mtx_enter(&ap_lock);
         printk("shutdown(): TB_SHUTDOWN_WFS\n");
-        handle_init_sipi_sipi(get_apicid());
+        if ( use_mwait() )
+            ap_wait(get_apicid());
+        else
+            handle_init_sipi_sipi(get_apicid());
         apply_policy(TB_ERR_FATAL);
     }
 
@@ -511,26 +529,29 @@ void shutdown(void)
         /* we don't have any secrets to scrub, however */
         ;
 
-        /* force APs to exit mini-guests if any are in and wait until all */
-        /* are out before shutting down TXT */
-        printk("waiting for APs (%u) to exit guests...\n",
-               atomic_read(&ap_wfs_count));
-        force_aps_exit();
-        uint32_t timeout = AP_GUEST_EXIT_TIMEOUT;
-        do {
-            if ( timeout % 0x8000 == 0 )
-                printk(".");
+        /* in mwait "mode", APs will be in MONITOR/MWAIT and can be left there */
+        if ( !use_mwait() ) {
+            /* force APs to exit mini-guests if any are in and wait until */
+            /* all are out before shutting down TXT */
+            printk("waiting for APs (%u) to exit guests...\n",
+                   atomic_read(&ap_wfs_count));
+            force_aps_exit();
+            uint32_t timeout = AP_GUEST_EXIT_TIMEOUT;
+            do {
+                if ( timeout % 0x8000 == 0 )
+                    printk(".");
+                else
+                    cpu_relax();
+                if ( timeout % 0x200000 == 0 )
+                    printk("\n");
+                timeout--;
+            } while ( ( atomic_read(&ap_wfs_count) > 0 ) && timeout > 0 );
+            printk("\n");
+            if ( timeout == 0 )
+                printk("AP guest exit loop timed-out\n");
             else
-                cpu_relax();
-            if ( timeout % 0x200000 == 0 )
-                printk("\n");
-            timeout--;
-        } while ( ( atomic_read(&ap_wfs_count) > 0 ) && timeout > 0 );
-        printk("\n");
-        if ( timeout == 0 )
-            printk("AP guest exit loop timed-out\n");
-        else
-            printk("all APs exited guests\n");
+                printk("all APs exited guests\n");
+        }
 
         /* turn off TXT (GETSEC[SEXIT]) */
         txt_shutdown();

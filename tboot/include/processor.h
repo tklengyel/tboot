@@ -136,6 +136,7 @@ static always_inline uint32_t cpuid_ecx(unsigned int op)
     return regs[2];
 }
 
+#define CPUID_X86_FEATURE_XMM3   (1<<0)
 #define CPUID_X86_FEATURE_VMX    (1<<5)
 #define CPUID_X86_FEATURE_SMX    (1<<6)
 
@@ -227,7 +228,6 @@ static inline void wbinvd(void)
     __asm__ __volatile__ ("wbinvd");
 }
 
-
 static inline uint32_t bsrl(uint32_t mask)
 {
     uint32_t   result;
@@ -235,9 +235,25 @@ static inline uint32_t bsrl(uint32_t mask)
     __asm__ __volatile__ ("bsrl %1,%0" : "=r" (result) : "rm" (mask) : "cc");
     return (result);
 }
+
 static inline int fls(int mask)
 {
     return (mask == 0 ? mask : (int)bsrl((u_int)mask) + 1);
+}
+
+static always_inline void mb(void)
+{
+    __asm__ __volatile__ ("lock;addl $0,0(%%esp)" : : : "memory");
+}
+
+static inline void cpu_monitor(const void *addr, int extensions, int hints)
+{
+    __asm __volatile__ ("monitor;" : :"a" (addr), "c" (extensions), "d"(hints));
+}
+
+static inline void cpu_mwait(int extensions, int hints)
+{
+    __asm __volatile__ ("mwait;" : :"a" (hints), "c" (extensions));
 }
 
 #endif /* __ASSEMBLY__ */

@@ -80,7 +80,11 @@ extern long s3_flag;
 
 extern struct mutex ap_lock;
 
+/* MLE/kernel shared data page (in boot.S) */
+extern tboot_shared_t _tboot_shared;
+
 extern void apply_policy(tb_error_t error);
+extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 
 /*
  * this is the structure whose addr we'll put in TXT heap
@@ -662,6 +666,13 @@ void txt_post_launch(void)
     printk("saved IA32_MISC_ENABLE = 0x%08x\n",
            os_mle_data->saved_misc_enable_msr);
     wrmsr(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
+    if ( use_mwait() ) {
+        /* set MONITOR/MWAIT support */
+        uint64_t misc;
+        misc = rdmsr(MSR_IA32_MISC_ENABLE);
+        misc |= MSR_IA32_MISC_ENABLE_MONITOR_FSM;
+        wrmsr(MSR_IA32_MISC_ENABLE, misc);
+    }
 
     /* restore pre-SENTER MTRRs that were overwritten for SINIT launch */
     restore_mtrrs(&(os_mle_data->saved_mtrr_state));
@@ -678,6 +689,41 @@ void txt_post_launch(void)
     write_priv_config_reg(TXTCR_CMD_OPEN_LOCALITY1, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
     printk("opened TPM locality 1\n");
+}
+
+void ap_wait(unsigned int cpuid)
+{
+    if ( cpuid >= NR_CPUS ) {
+        printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
+        apply_policy(TB_ERR_FATAL);
+        mtx_leave(&ap_lock);
+        return;
+    }
+
+    /* ensure MONITOR/MWAIT support is set */
+    uint64_t misc;
+    misc = rdmsr(MSR_IA32_MISC_ENABLE);
+    misc |= MSR_IA32_MISC_ENABLE_MONITOR_FSM;
+    wrmsr(MSR_IA32_MISC_ENABLE, misc);
+
+    /* this is close enough to entering monitor/mwait loop, so inc counter */
+    atomic_inc(&ap_wfs_count);
+    atomic_inc((atomic_t *)&_tboot_shared.num_in_wfs);
+    mtx_leave(&ap_lock);
+
+    printk("cpu %u mwait'ing\n", cpuid);
+    while ( _tboot_shared.ap_wake_trigger != cpuid ) {
+        cpu_monitor(&_tboot_shared.ap_wake_trigger, 0, 0);
+        mb();
+        if ( _tboot_shared.ap_wake_trigger == cpuid )
+            break;
+        cpu_mwait(0, 0);
+    }
+
+    uint32_t sipi_vec = (uint32_t)_tboot_shared.ap_wake_addr;
+    atomic_dec(&ap_wfs_count);
+    atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);
+    cpu_wakeup(cpuid, sipi_vec);
 }
 
 void txt_cpu_wakeup(void)
@@ -705,14 +751,17 @@ void txt_cpu_wakeup(void)
     /* restore pre-SENTER IA32_MISC_ENABLE_MSR */
     wrmsr(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
 
-    if (!verify_stm(cpuid))
+    if ( !verify_stm(cpuid) )
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* enable SMIs */
     printk("enabling SMIs on cpu %u\n", cpuid);
     __getsec_smctrl();
 
-    handle_init_sipi_sipi(cpuid);
+    if ( use_mwait() )
+        ap_wait(cpuid);
+    else
+        handle_init_sipi_sipi(cpuid);
 }
 
 tb_error_t txt_protect_mem_regions(void)

@@ -69,6 +69,7 @@ static inline void wrmsr(uint32_t msr, uint64_t newval)
 #define MSR_MCG_CAP                            0x179
 #define MSR_MCG_STATUS                         0x17a
 #define MSR_IA32_MISC_ENABLE                   0x1a0
+#define MSR_IA32_MISC_ENABLE_MONITOR_FSM       (1<<18)
 #define MSR_MTRRdefType                        0x2ff
 #define MSR_MC0_STATUS                         0x401
 #define MSR_IA32_VMX_BASIC_MSR                 0x480

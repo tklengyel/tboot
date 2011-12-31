@@ -51,6 +51,7 @@
 #include <mle.h>
 #include <hash.h>
 #include <integrity.h>
+#include <cmdline.h>
 #include <txt/txt.h>
 #include <txt/smx.h>
 #include <txt/mtrrs.h>
@@ -162,6 +163,12 @@ static bool supports_smx(void)
     return true;
 }
 
+bool use_mwait(void)
+{
+    return get_tboot_mwait() && 
+           (g_cpuid_ext_feat_info & CPUID_X86_FEATURE_XMM3);
+}
+
 tb_error_t supports_txt(void)
 {
     capabilities_t cap;
@@ -171,8 +178,17 @@ tb_error_t supports_txt(void)
     /* processor must support SMX */
     if ( !supports_smx() )
         return TB_ERR_SMX_NOT_SUPPORTED;
-    if ( !supports_vmx() )
+
+    if ( use_mwait() ) {
+        /* set MONITOR/MWAIT support (SENTER will clear, so always set) */
+        uint64_t misc;
+        misc = rdmsr(MSR_IA32_MISC_ENABLE);
+        misc |= MSR_IA32_MISC_ENABLE_MONITOR_FSM;
+        wrmsr(MSR_IA32_MISC_ENABLE, misc);
+    }
+    else if ( !supports_vmx() ) {
         return TB_ERR_VMX_NOT_SUPPORTED;
+    }
 
     /* testing for chipset support requires enabling SMX on the processor */
     write_cr4(read_cr4() | CR4_SMXE);

@@ -71,6 +71,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "serial",     "115200,8n1,0x3f8" },
     /* serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
     { "vga_delay",  "0" },           /* # secs */
+    { "ap_wake_mwait", "false" },    /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -434,6 +435,15 @@ void get_tboot_vga_delay(void)
 /*
  * linux kernel command line parsing
  */
+
+bool get_tboot_mwait(void)
+{
+    const char *mwait = get_option_val(g_tboot_cmdline_options,
+                                       g_tboot_param_values, "ap_wake_mwait");
+    if ( mwait == NULL || strcmp(mwait, "false") == 0 )
+        return false;
+    return true;
+}
 
 bool get_linux_vga(int *vid_mode)
 {

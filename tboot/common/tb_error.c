@@ -71,7 +71,7 @@ void print_tb_error_msg(tb_error_t error)
         case TB_ERR_GENERIC:
             printk("non-fatal generic error.\n");
             break;
-       case TB_ERR_TPM_NOT_READY:
+        case TB_ERR_TPM_NOT_READY:
             printk("TPM not ready.\n");
             break;
         case TB_ERR_SMX_NOT_SUPPORTED:
