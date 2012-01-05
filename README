@@ -150,6 +150,19 @@ o  tboot will attempt to seal the module measurements using the TPM so that if
    will continue the boot.  However, for 'continue' or 'halt' policy types,
    tboot will halt the boot.
 
+o  tboot provides a better AP wakeup mechanism based on cpu MWAIT feature for
+   OS/VMM. This mechanism is defaultly disabled, and could be enabled with
+   tboot command line option:
+       ap_wake_mwait=true|false
+
+   Once this mechanism is enabled, system will boot faster and will NOT require
+   VT to be enabled. But before enabling this option, please make sure the
+   OS/VMM has already support it, otherwise system can never boot up. Confirm
+   it via finding lines like below in the OS/VMM booting log:
+       TBOOT: found shared page at ....
+         ...
+         flags: 0x0000000x
+   
 
 PCR Usage:
 ---------
@@ -184,11 +197,12 @@ o  Tboot will copy and alter the e820 table provided by GRUB to "reserve"
    measured launch fails for any reason.
 
 o  Tboot is always built 32bit and runs in protected mode without PAE or
-   paging enabled.  Tboot loads and executes at 0x803000 (8MB).
+   paging enabled.  Tboot loads and executes at 0x800000 (8MB).
 
 o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
-   order to trap on INIT-SIPI-SIPI.
+   order to trap on INIT-SIPI-SIPI. If OS/VMM support tboot's new AP wakeup
+   mechanism based on MWAIT, then VT is not required to be enabled.
 
 o  The tools/txt-stat project is a Linux application that reads some of
    the TXT registers and will display the tboot boot log if tboot was run
