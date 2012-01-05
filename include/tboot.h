@@ -159,7 +159,7 @@ static inline void print_tboot_shared(const tboot_shared_t *tboot_shared)
     printk("\t tboot_size: 0x%x\n", tboot_shared->tboot_size);
     printk("\t num_in_wfs: %u\n", tboot_shared->num_in_wfs);
     printk("\t flags: 0x%8.8x\n", tboot_shared->flags);
-    printk("\t ap_wake_addr: 0x%Lx\n", tboot_shared->ap_wake_addr);
+    printk("\t ap_wake_addr: 0x%08x\n", (uint32_t)tboot_shared->ap_wake_addr);
     printk("\t ap_wake_trigger: %u\n", tboot_shared->ap_wake_trigger);
 }
 
