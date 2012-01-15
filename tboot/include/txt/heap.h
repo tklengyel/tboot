@@ -77,14 +77,47 @@ typedef struct __packed {
 /*
  * HEAP_CUSTOM_ELEMENT
  */
-#define HEAP_EXTDATA_TYPE_CUSTOM          3
+#define HEAP_EXTDATA_TYPE_CUSTOM          4
 
 typedef struct __packed {
     uuid_t     uuid;
     uint8_t    data[];
 } heap_custom_elt_t;
 
+/*
+ * HEAP_EVENT_LOG_POINTER_ELEMENT
+ */
+#define HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR   5
 
+typedef struct __packed {
+    uint64_t   event_log_phys_addr;
+} heap_event_log_ptr_elt_t;
+
+typedef struct __packed {
+    uint32_t pcr_index;
+    uint32_t type;
+    sha1_hash_t digest;
+    uint32_t data_size;
+    uint8_t data[];
+} tpm12_pcr_event_t;
+
+#define EVTLOG_SIGNATURE "TXT Event Container\0"
+#define EVTLOG_CNTNR_MAJOR_VER 1
+#define EVTLOG_CNTNR_MINOR_VER 0
+#define EVTLOG_EVT_MAJOR_VER 1
+#define EVTLOG_EVT_MINOR_VER 0
+typedef struct __packed {
+    uint8_t signature[20];
+    uint8_t reserved[12];
+    uint8_t container_ver_major;
+    uint8_t container_ver_minor;
+    uint8_t pcr_event_ver_major;
+    uint8_t pcr_event_ver_minor;
+    uint32_t size;
+    uint32_t pcr_events_offset;
+    uint32_t next_event_offset;
+    tpm12_pcr_event_t pcr_events[];
+} event_log_container_t;
 
 /*
  * data-passing structures contained in TXT heap:
@@ -114,21 +147,26 @@ typedef struct __packed {
  *   - private to tboot (so can be any format we need)
  */
 #define MAX_LCP_PO_DATA_SIZE     64*1024  /* 64k */
+#define MAX_EVENT_LOG_SIZE       4*1024   /* 4k */
 
 typedef struct __packed {
-    uint32_t          version;           /* currently 2 */
+    uint32_t          version;           /* currently 3 */
     mtrr_state_t      saved_mtrr_state;  /* saved prior to changes for SINIT */
     multiboot_info_t* mbi;               /* needs to be restored to ebx */
     uint32_t          saved_misc_enable_msr;  /* saved prior to SENTER */
                                          /* PO policy data */
     uint8_t           lcp_po_data[MAX_LCP_PO_DATA_SIZE];
+                                         /* buffer for tpm event log */
+    uint8_t           event_log_buffer[MAX_EVENT_LOG_SIZE];
 } os_mle_data_t;
 
+#define MIN_OS_SINIT_DATA_VER    4
+#define MAX_OS_SINIT_DATA_VER    6
 /*
  * OS/loader to SINIT structure
  */
 typedef struct __packed {
-    uint32_t    version;           /* currently 4, 5 */
+    uint32_t    version;           /* currently 4-6 */
     uint32_t    reserved;
     uint64_t    mle_ptab;
     uint64_t    mle_size;
@@ -142,6 +180,8 @@ typedef struct __packed {
     txt_caps_t  capabilities;
     /* versions >= 5 */
     uint64_t    efi_rsdt_ptr;
+    /* versions >= 6 */
+    heap_ext_data_element_t  ext_data_elts[];
 } os_sinit_data_t;
 
 /*
@@ -159,9 +199,6 @@ typedef struct __packed {
     uint8_t   mem_type;
     uint8_t   reserved[7];
 } sinit_mdr_t;
-
-#define SHA1_SIZE      20
-typedef uint8_t   sha1_hash_t[SHA1_SIZE];
 
 typedef struct __packed {
     uint32_t     version;             /* currently 6-8 */
@@ -268,6 +305,23 @@ static inline sinit_mle_data_t *get_sinit_mle_data_start(const txt_heap_t *heap)
                                 get_os_mle_data_size(heap) +
                                 get_os_sinit_data_size(heap) +
                                 sizeof(uint64_t));
+}
+
+/*
+ * Make sure version is in [MIN_OS_SINIT_DATA_VER, MAX_OS_SINIT_DATA_VER]
+ * before calling calc_os_sinit_data_size
+ */
+static inline uint64_t calc_os_sinit_data_size(uint32_t version)
+{
+    uint64_t size[] = {
+        offsetof(os_sinit_data_t, efi_rsdt_ptr) + sizeof(uint64_t),
+        sizeof(os_sinit_data_t) + sizeof(uint64_t),
+        sizeof(os_sinit_data_t) + sizeof(uint64_t) +
+            2 * sizeof(heap_ext_data_element_t) +
+            sizeof(heap_event_log_ptr_elt_t)
+   };
+
+   return size[version - MIN_OS_SINIT_DATA_VER];
 }
 
 extern bool verify_txt_heap(const txt_heap_t *txt_heap, bool bios_data_only);

@@ -93,6 +93,8 @@ static unsigned long long rdmsr(unsigned int msr)
 static void *pub_config_base;
 #define read_pub_config_reg(reg)   *(volatile uint64_t *)(pub_config_base + \
                                                           reg);
+#define MIN_OS_SINIT_DATA_VER 4
+#define MAX_OS_SINIT_DATA_VER 6
 
 #define IS_INCLUDED    /* prevent acmod.c #include */
 #include "../tboot/txt/acmod.c"

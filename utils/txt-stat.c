@@ -59,7 +59,8 @@ static inline uint64_t read_config_reg(uint32_t config_regs_base, uint32_t reg);
 typedef uint8_t mtrr_state_t;
 typedef uint8_t txt_caps_t;
 typedef uint8_t multiboot_info_t;
-typedef uint8_t tb_hash_t;
+void print_hex(const char* prefix, const void *start, size_t len);
+#include "../include/hash.h"
 #include "../tboot/include/txt/heap.h"
 
 #include "../tboot/txt/heap.c"
@@ -87,6 +88,21 @@ void print_hex(const char* prefix, const void *start, size_t len)
             start++;
         }
         printf("\n");
+    }
+}
+
+void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
+{
+    if ( hash == NULL ) {
+        printk("NULL");
+        return;
+    }
+
+    if ( hash_alg == TB_HALG_SHA1 )
+        print_hex(NULL, (uint8_t *)hash->sha1, sizeof(hash->sha1));
+    else {
+        printk("unsupported hash alg (%u)\n", hash_alg);
+        return;
     }
 }
 

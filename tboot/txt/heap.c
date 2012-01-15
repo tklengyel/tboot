@@ -146,6 +146,104 @@ static bool verify_custom_elt(const heap_ext_data_element_t *elt)
     return true;
 }
 
+/* HEAP_EVENT_LOG_POINTER_ELEMENT */
+static inline void print_heap_hash(const sha1_hash_t hash)
+{
+    print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
+}
+
+static void print_event(const tpm12_pcr_event_t *evt)
+{
+    printk("\t\t\t Event:\n");
+    printk("\t\t\t     PCRIndex: %u\n", evt->pcr_index);
+    printk("\t\t\t         Type: 0x%x\n", evt->type);
+    printk("\t\t\t       Digest: ");
+    print_heap_hash(evt->digest);
+    printk("\t\t\t         Data: %u bytes", evt->data_size);
+    print_hex("\t\t\t         ", evt->data, evt->data_size);
+}
+
+static void print_evt_log(const event_log_container_t *elog)
+{
+    printk("\t\t\t Event Log Container:\n");
+    printk("\t\t\t     Signature: %s\n", elog->signature);
+    printk("\t\t\t  ContainerVer: %u.%u\n",
+           elog->container_ver_major, elog->container_ver_minor);
+    printk("\t\t\t   PCREventVer: %u.%u\n",
+           elog->pcr_event_ver_major, elog->pcr_event_ver_minor);
+    printk("\t\t\t          Size: %u\n", elog->size);
+    printk("\t\t\t  EventsOffset: [%u,%u)\n",
+           elog->pcr_events_offset, elog->next_event_offset);
+
+    const tpm12_pcr_event_t *curr, *next;
+    curr = (tpm12_pcr_event_t *)((void*)elog + elog->pcr_events_offset);
+    next = (tpm12_pcr_event_t *)((void*)elog + elog->next_event_offset);
+
+    while ( curr < next ) {
+        print_event(curr);
+        curr = (void *)curr + sizeof(*curr) + curr->data_size;
+    }
+}
+
+static bool verify_evt_log(const event_log_container_t *elog)
+{
+    if ( elog == NULL ) {
+        printk("Event log container pointer is NULL\n");
+        return false;
+    }
+
+    if ( memcmp(elog->signature, EVTLOG_SIGNATURE, sizeof(elog->signature)) ) {
+        printk("Bad event log container signature: %s\n", elog->signature);
+        return false;
+    }
+
+    if ( elog->size != MAX_EVENT_LOG_SIZE ) {
+        printk("Bad event log container size: 0x%x\n", elog->size);
+        return false;
+    }
+
+    /* no need to check versions */
+
+    if ( elog->pcr_events_offset < sizeof(*elog) ||
+         elog->next_event_offset < elog->pcr_events_offset ||
+         elog->next_event_offset > elog->size ) {
+        printk("Bad events offset range: [%u, %u)\n",
+               elog->pcr_events_offset, elog->next_event_offset);
+        return false;
+    }
+
+    return true;
+}
+
+static void print_evt_log_ptr_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_event_log_ptr_elt_t *elog_elt =
+              (const heap_event_log_ptr_elt_t *)elt->data;
+
+    printk("\t\t EVENT_LOG_POINTER:\n");
+    printk("\t\t       size: %u\n", elt->size);
+    printk("\t\t  elog_addr: 0x%jx\n", elog_elt->event_log_phys_addr);
+
+    if ( elog_elt->event_log_phys_addr )
+        print_evt_log((event_log_container_t *)(unsigned long)
+                      elog_elt->event_log_phys_addr);
+}
+
+static bool verify_evt_log_ptr_elt(const heap_ext_data_element_t *elt)
+{
+    const heap_event_log_ptr_elt_t *elog_elt =
+              (const heap_event_log_ptr_elt_t *)elt->data;
+
+    if ( elt->size != sizeof(*elt) + sizeof(*elog_elt) ) {
+        printk("HEAP_EVENT_LOG_POINTER element has wrong size (%u)\n",
+               elt->size);
+        return false;
+    }
+
+    return verify_evt_log((event_log_container_t *)(unsigned long)
+                          elog_elt->event_log_phys_addr);
+}
+
 static void print_ext_data_elts(const heap_ext_data_element_t elts[])
 {
     const heap_ext_data_element_t *elt = elts;
@@ -161,6 +259,9 @@ static void print_ext_data_elts(const heap_ext_data_element_t elts[])
                 break;
             case HEAP_EXTDATA_TYPE_CUSTOM:
                 print_custom_elt(elt);
+                break;
+            case HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR:
+                print_evt_log_ptr_elt(elt);
                 break;
             default:
                 printk("\t\t unknown element:  type: %u, size: %u\n",
@@ -194,6 +295,10 @@ static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
                 break;
             case HEAP_EXTDATA_TYPE_CUSTOM:
                 if ( !verify_custom_elt(elt) )
+                    return false;
+                break;
+            case HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR:
+                if ( !verify_evt_log_ptr_elt(elt) )
                     return false;
                 break;
             default:
@@ -284,11 +389,6 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
 
 #ifndef IS_INCLUDED
 
-static inline void print_heap_hash(const sha1_hash_t hash)
-{
-    print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
-}
-
 static void print_os_mle_data(const os_mle_data_t *os_mle_data)
 {
     printk("os_mle_data (@%p, %Lx):\n", os_mle_data,
@@ -326,7 +426,7 @@ static bool verify_os_mle_data(const txt_heap_t *txt_heap)
     /* check version */
     /* since this data is from our pre-launch to post-launch code only, it */
     /* should always be this */
-    if ( os_mle_data->version != 2 ) {
+    if ( os_mle_data->version != 3 ) {
         printk("unsupported OS to MLE data version (%u)\n",
                os_mle_data->version);
         return false;
@@ -362,6 +462,8 @@ void print_os_sinit_data(const os_sinit_data_t *os_sinit_data)
     print_txt_caps("\t ", os_sinit_data->capabilities);
     if ( os_sinit_data->version >= 5 )
         printk("\t efi_rsdt_ptr: 0x%Lx\n", os_sinit_data->efi_rsdt_ptr);
+    if ( os_sinit_data->version >= 6 )
+        print_ext_data_elts(os_sinit_data->ext_data_elts);
 }
 
 static bool verify_os_sinit_data(const txt_heap_t *txt_heap)
@@ -385,19 +487,23 @@ static bool verify_os_sinit_data(const txt_heap_t *txt_heap)
     os_sinit_data = get_os_sinit_data_start(txt_heap);
 
     /* check version (but since we create this, it should always be OK) */
-    if ( os_sinit_data->version < 4 || os_sinit_data->version > 5 ) {
+    if ( os_sinit_data->version < MIN_OS_SINIT_DATA_VER ||
+         os_sinit_data->version > MAX_OS_SINIT_DATA_VER ) {
         printk("unsupported OS to SINIT data version (%u)\n",
                os_sinit_data->version);
         return false;
     }
 
-    if ( (os_sinit_data->version == 4 &&
-          size != offsetof(os_sinit_data_t, efi_rsdt_ptr) + sizeof(uint64_t))
-         || (os_sinit_data->version == 5 &&
-             size != sizeof(os_sinit_data_t) + sizeof(uint64_t)) ) {
+    if ( size != calc_os_sinit_data_size(os_sinit_data->version) ) {
         printk("OS to SINIT data size (%Lx) does not match for version (%x)\n",
                size, sizeof(os_sinit_data_t));
         return false;
+    }
+
+    if ( os_sinit_data->version >= 6 ) {
+        if ( !verify_ext_data_elts(os_sinit_data->ext_data_elts,
+                                   size - sizeof(*os_sinit_data)) )
+            return false;
     }
 
     print_os_sinit_data(os_sinit_data);

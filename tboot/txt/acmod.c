@@ -47,6 +47,7 @@
 #include <uuid.h>
 #include <multiboot.h>
 #include <mle.h>
+#include <hash.h>
 #include <txt/acmod.h>
 #include <txt/config_regs.h>
 #include <txt/mtrrs.h>
@@ -725,13 +726,13 @@ bool verify_acmod(const acm_hdr_t *acm_hdr)
 
     /* check for version of OS to SINIT data */
     /* we don't support old versions */
-    if ( info_table->os_sinit_data_ver < 4 ) {
+    if ( info_table->os_sinit_data_ver < MIN_OS_SINIT_DATA_VER ) {
         printk("SINIT's os_sinit_data version unsupported (%u)\n",
                info_table->os_sinit_data_ver);
         return false;
     }
     /* only warn if SINIT supports more recent version than us */
-    else if ( info_table->os_sinit_data_ver > 5 ) {
+    else if ( info_table->os_sinit_data_ver > MAX_OS_SINIT_DATA_VER ) {
         printk("SINIT's os_sinit_data version unsupported (%u)\n",
                info_table->os_sinit_data_ver);
     }

@@ -274,6 +274,40 @@ bool find_lcp_module(const multiboot_info_t *mbi, void **base, uint32_t *size)
     return true;
 }
 
+/* should be called after os_mle_data initialized */
+static void *init_event_log(void)
+{
+    os_mle_data_t *os_mle_data = get_os_mle_data_start(get_txt_heap());
+    event_log_container_t *elog =
+        (event_log_container_t *)&os_mle_data->event_log_buffer;
+
+    memcpy((void *)elog->signature, EVTLOG_SIGNATURE, sizeof(elog->signature));
+    elog->container_ver_major = EVTLOG_CNTNR_MAJOR_VER;
+    elog->container_ver_minor = EVTLOG_CNTNR_MINOR_VER;
+    elog->pcr_event_ver_major = EVTLOG_EVT_MAJOR_VER;
+    elog->pcr_event_ver_minor = EVTLOG_EVT_MINOR_VER;
+    elog->size = sizeof(os_mle_data->event_log_buffer);
+    elog->pcr_events_offset = sizeof(*elog);
+    elog->next_event_offset = sizeof(*elog);
+
+    return (void *)elog;
+}
+
+static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
+{
+    heap_ext_data_element_t* elt = elts;
+    heap_event_log_ptr_elt_t *evt_log;
+
+    evt_log = (heap_event_log_ptr_elt_t *)elt->data;
+    evt_log->event_log_phys_addr = (uint64_t)(unsigned long)init_event_log();
+    elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR;
+    elt->size = sizeof(*elt) + sizeof(*evt_log);
+
+    elt = (void *)elt + elt->size;
+    elt->type = HEAP_EXTDATA_TYPE_END;
+    elt->size = sizeof(*elt);
+}
+
 /*
  * sets up TXT heap
  */
@@ -298,26 +332,28 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     size = (uint64_t *)((uint32_t)os_mle_data - sizeof(uint64_t));
     *size = sizeof(*os_mle_data) + sizeof(uint64_t);
     memset(os_mle_data, 0, sizeof(*os_mle_data));
-    os_mle_data->version = 0x02;
+    os_mle_data->version = 3;
     os_mle_data->mbi = (multiboot_info_t *)(unsigned long)mbi;
     os_mle_data->saved_misc_enable_msr = rdmsr(MSR_IA32_MISC_ENABLE);
 
     /*
      * OS/loader to SINIT data
      */
+    /* check sinit supported os_sinit_data version */
+    uint32_t version = get_supported_os_sinit_data_ver(sinit);
+    if ( version < MIN_OS_SINIT_DATA_VER ) {
+        printk("unsupported OS to SINIT data version(%u) in sinit\n", version);
+        return NULL;
+    }
+    if ( version > MAX_OS_SINIT_DATA_VER )
+        version = MAX_OS_SINIT_DATA_VER;
+
     os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
     size = (uint64_t *)((uint32_t)os_sinit_data - sizeof(uint64_t));
-    *size = sizeof(*os_sinit_data) + sizeof(uint64_t);
-    memset(os_sinit_data, 0, sizeof(*os_sinit_data));
-    /* we only support versions 4, 5 depending on what SINIT supports (and
-       use v5 if SINIT supports more recent version */
-    if ( get_supported_os_sinit_data_ver(sinit) == 4 ) {
-        os_sinit_data->version = 4;
-        /* need to make size exactly size of v4 fields or SINIT will fail */
-        *size = offsetof(os_sinit_data_t, efi_rsdt_ptr) + sizeof(uint64_t);
-    }
-    else
-        os_sinit_data->version = 5;
+    *size = calc_os_sinit_data_size(version);
+    memset(os_sinit_data, 0, *size);
+    os_sinit_data->version = version;
+
     /* this is phys addr */
     os_sinit_data->mle_ptab = (uint64_t)(unsigned long)ptab_base;
     os_sinit_data->mle_size = g_mle_hdr.mle_end_off - g_mle_hdr.mle_start_off;
@@ -362,6 +398,10 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
      */
     os_sinit_data->capabilities.ecx_pgtbl = 0;
     /* TODO: when tboot supports EFI then set efi_rsdt_ptr */
+
+    /* Event log initialization */
+    if ( os_sinit_data->version >= 6 )
+        init_os_sinit_ext_data(os_sinit_data->ext_data_elts);
 
     print_os_sinit_data(os_sinit_data);
 
