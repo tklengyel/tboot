@@ -152,6 +152,28 @@ static const tb_policy_t _def_policy = {
     }
 };
 
+/* default policy for Details/Authorities pcr mapping */
+static const tb_policy_t _def_policy_da = {
+    version        : 2,
+    policy_type    : TB_POLTYPE_CONT_NON_FATAL,
+    policy_control : TB_POLCTL_EXTEND_PCR17,
+    num_entries    : 2,
+    entries        : {
+        {   /* mod 0 is extended to PCR 17 by default, so don't re-extend it */
+            mod_num    : 0,
+            pcr        : TB_POL_PCR_NONE,
+            hash_type  : TB_HTYPE_ANY,
+            num_hashes : 0
+        },
+        {   /* all other modules are extended to PCR 17 */
+            mod_num    : TB_POL_MOD_NUM_ANY,
+            pcr        : 17,
+            hash_type  : TB_HTYPE_ANY,
+            num_hashes : 0
+        }
+    }
+};
+
 /* current policy */
 static const tb_policy_t* g_policy = &_def_policy;
 
@@ -317,8 +339,8 @@ tb_error_t set_policy(void)
 
     /* either no policy in TPM NV or policy is invalid, so use default */
     printk("failed to read policy from TPM NV, using default\n");
-    g_policy = &_def_policy;
-    policy_index_size = calc_policy_size(&_def_policy);
+    g_policy = g_using_da ? &_def_policy_da : &_def_policy;
+    policy_index_size = calc_policy_size(g_policy);
 
     /* sanity check; but if it fails something is really wrong */
     if ( !verify_policy(g_policy, policy_index_size, true) )
@@ -467,6 +489,9 @@ void apply_policy(tb_error_t error)
     shutdown();
 }
 
+#define VL_ENTRIES(i)    g_pre_k_s3_state.vl_entries[i]
+#define NUM_VL_ENTRIES   g_pre_k_s3_state.num_vl_entries
+
 /*
  * verify modules against Verified Launch policy and save hash
  * if pol_entry is NULL, assume it is for module 0, which gets extended
@@ -493,12 +518,13 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
        we'll just drop it if the list is full, but that will mean S3 resume
        PCRs won't match pre-S3
        NULL pol_entry means this is module 0 which is extended to PCR 18 */
-    if ( g_pre_k_s3_state.num_vl_entries >= MAX_VL_HASHES )
+    if ( NUM_VL_ENTRIES >= MAX_VL_HASHES )
         printk("\t too many hashes to save\n");
     else if ( pol_entry == NULL || pol_entry->pcr != TB_POL_PCR_NONE ) {
-        uint8_t pcr = (pol_entry == NULL ) ? 18 : pol_entry->pcr;
-        g_pre_k_s3_state.vl_entries[g_pre_k_s3_state.num_vl_entries].pcr = pcr;
-        g_pre_k_s3_state.vl_entries[g_pre_k_s3_state.num_vl_entries++].hash = hash;
+        uint8_t pcr = (pol_entry == NULL ) ?
+                          (g_using_da ? 17 : 18) : pol_entry->pcr;
+        VL_ENTRIES(NUM_VL_ENTRIES).pcr = pcr;
+        VL_ENTRIES(NUM_VL_ENTRIES++).hash = hash;
     }
 
     if ( pol_entry != NULL &&
@@ -531,11 +557,19 @@ void verify_all_modules(multiboot_info_t *mbi)
         }
     }
     if ( !hash_buffer(buf, get_hash_size(TB_HALG_SHA1) +
-           sizeof(g_policy->policy_control),
-           &g_pre_k_s3_state.vl_entries[g_pre_k_s3_state.num_vl_entries].hash,
-           TB_HALG_SHA1) )
+                           sizeof(g_policy->policy_control),
+                      &VL_ENTRIES(NUM_VL_ENTRIES).hash, TB_HALG_SHA1) )
         apply_policy(TB_ERR_MODULE_VERIFICATION_FAILED);
-    g_pre_k_s3_state.vl_entries[g_pre_k_s3_state.num_vl_entries++].pcr = 17;
+    VL_ENTRIES(NUM_VL_ENTRIES++).pcr = 17;
+    if ( g_using_da ) {
+        /* copying hash of policy_control into PCR 18 */
+        if ( NUM_VL_ENTRIES >= MAX_VL_HASHES )
+            printk("\t too many hashes to save for DA\n");
+        else {
+            VL_ENTRIES(NUM_VL_ENTRIES).hash = VL_ENTRIES(NUM_VL_ENTRIES-1).hash;
+            VL_ENTRIES(NUM_VL_ENTRIES++).pcr = 18;
+        }
+    }
 
     /* module 0 is always extended to PCR 18, so add entry for it */
     apply_policy(verify_module(get_module(mbi, 0), NULL, g_policy->hash_alg));
