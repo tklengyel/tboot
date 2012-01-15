@@ -163,9 +163,29 @@ o  tboot provides a better AP wakeup mechanism based on cpu MWAIT feature for
          ...
          flags: 0x0000000x
    
+o  tboot support a new PCR usage called Details / Authorities PCR Mapping(DA).
+   DA can be enabled by below tboot command line option (note: default is
+   legacy):
+       pcr_map=da|legacy
+
+   With DA PCR Mapping enabled it separates detailed measurements, stored in
+   PCR17, from authorities measurements stored in PCR18.
+
+   "Details" measurements include hashes of all components participating in
+   establishing of trusted execution environment and due to very nature of hash
+   algorithm change of any component entail change of final PCR17 value.
+
+   "Authorities" measurements include hashes of some unique identifying
+   properties of signing authorities such as public signature verification
+   keys. This enables authority issue an update of component without affecting
+   of final PCR18 value, because updated component is signed in the same way as
+   old one.
+
 
 PCR Usage:
 ---------
+o  Legacy PCR mapping
+
 PCR 17 :
    It will be extended with the following values (in this order):
        -  The values as documented in the MLE Developers Manual
@@ -181,6 +201,28 @@ PCR * : tboot policy may specify modules' measurements to be extended into
         PCRs specified in the policy
    The default tboot policy will extend, in order, the SHA-1 hashes of all
    modules (other than 0) into PCR 19.
+
+o  Details / Authorities PCR Mapping(DA)
+
+PCR 17 (Details):
+   It will be extended with the following values (in this order):
+       -  The values as documented in the MLE Developers Manual
+       -  SHA-1 hash of:  tboot policy control value (4 bytes) |
+                          SHA-1 hash of tboot policy (20 bytes)
+          : where the hash of the tboot policy will be 0s if
+            TB_POLCTL_EXTEND_PCR17 is clear
+       -  SHA-1 hash of first module in grub.conf (e.g. Xen or Linux kernel)
+PCR 18 (Authorities):
+   It will be extended with the following values (in this order):
+      -  The values as documented in the MLE Developers Manual
+      -  SHA-1 hash of:  tboot policy control value (4 bytes) |
+                         SHA-1 hash of tboot policy (20 bytes)
+         : where the hash of the tboot policy will be 0s if
+           TB_POLCTL_EXTEND_PCR17 is clear
+PCR * : tboot policy may specify modules' measurements to be extended into
+        PCRs specified in the policy
+   The default tboot policy will extend, in order, the SHA-1 hashes of all
+   modules (other than 0) into PCR 17.
 
 
 Interesting Items of Note:
