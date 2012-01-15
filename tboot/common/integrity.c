@@ -76,6 +76,9 @@ extern tboot_shared_t _tboot_shared;
 extern bool hash_policy(tb_hash_t *hash, uint8_t hash_alg);
 extern void apply_policy(tb_error_t error);
 
+#define EVTTYPE_TB_MEASUREMENT (0x400 + 0x101)
+extern bool evtlog_append(uint8_t pcr, tb_hash_t *hash, uint32_t type);
+
 typedef struct {
     uint8_t mac_key[VMAC_KEY_LEN/8];
     uint8_t shared_key[sizeof(_tboot_shared.s3_key)];
@@ -96,6 +99,10 @@ static bool extend_pcrs(void)
         if ( tpm_pcr_extend(2, g_pre_k_s3_state.vl_entries[i].pcr,
                      (tpm_pcr_value_t *)&g_pre_k_s3_state.vl_entries[i].hash,
                      NULL) != TPM_SUCCESS )
+            return false;
+        if ( !evtlog_append(g_pre_k_s3_state.vl_entries[i].pcr,
+                            &g_pre_k_s3_state.vl_entries[i].hash,
+                            EVTTYPE_TB_MEASUREMENT) )
             return false;
     }
 

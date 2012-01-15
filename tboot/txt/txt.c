@@ -85,6 +85,7 @@ extern tboot_shared_t _tboot_shared;
 
 extern void apply_policy(tb_error_t error);
 extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
+extern void print_event(const tpm12_pcr_event_t *evt);
 
 /*
  * this is the structure whose addr we'll put in TXT heap
@@ -274,23 +275,25 @@ bool find_lcp_module(const multiboot_info_t *mbi, void **base, uint32_t *size)
     return true;
 }
 
+static __data event_log_container_t *g_elog = NULL;
+
 /* should be called after os_mle_data initialized */
 static void *init_event_log(void)
 {
     os_mle_data_t *os_mle_data = get_os_mle_data_start(get_txt_heap());
-    event_log_container_t *elog =
-        (event_log_container_t *)&os_mle_data->event_log_buffer;
+    g_elog = (event_log_container_t *)&os_mle_data->event_log_buffer;
 
-    memcpy((void *)elog->signature, EVTLOG_SIGNATURE, sizeof(elog->signature));
-    elog->container_ver_major = EVTLOG_CNTNR_MAJOR_VER;
-    elog->container_ver_minor = EVTLOG_CNTNR_MINOR_VER;
-    elog->pcr_event_ver_major = EVTLOG_EVT_MAJOR_VER;
-    elog->pcr_event_ver_minor = EVTLOG_EVT_MINOR_VER;
-    elog->size = sizeof(os_mle_data->event_log_buffer);
-    elog->pcr_events_offset = sizeof(*elog);
-    elog->next_event_offset = sizeof(*elog);
+    memcpy((void *)g_elog->signature, EVTLOG_SIGNATURE,
+           sizeof(g_elog->signature));
+    g_elog->container_ver_major = EVTLOG_CNTNR_MAJOR_VER;
+    g_elog->container_ver_minor = EVTLOG_CNTNR_MINOR_VER;
+    g_elog->pcr_event_ver_major = EVTLOG_EVT_MAJOR_VER;
+    g_elog->pcr_event_ver_minor = EVTLOG_EVT_MINOR_VER;
+    g_elog->size = sizeof(os_mle_data->event_log_buffer);
+    g_elog->pcr_events_offset = sizeof(*g_elog);
+    g_elog->next_event_offset = sizeof(*g_elog);
 
-    return (void *)elog;
+    return (void *)g_elog;
 }
 
 static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
@@ -306,6 +309,28 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
     elt = (void *)elt + elt->size;
     elt->type = HEAP_EXTDATA_TYPE_END;
     elt->size = sizeof(*elt);
+}
+
+bool evtlog_append(uint8_t pcr, tb_hash_t *hash, uint32_t type)
+{
+    if ( g_elog == NULL )
+        return true;
+
+    tpm12_pcr_event_t *next = (tpm12_pcr_event_t *)
+                              ((void*)g_elog + g_elog->next_event_offset);
+    
+    if ( g_elog->next_event_offset + sizeof(*next) > g_elog->size )
+        return false;
+
+    next->pcr_index = pcr;
+    next->type = type;
+    memcpy(next->digest, hash, sizeof(*hash));
+    next->data_size = 0;
+
+    g_elog->next_event_offset += sizeof(*next) + next->data_size;
+
+    print_event(next);
+    return true;
 }
 
 __data uint32_t g_using_da = 0;

@@ -152,7 +152,7 @@ static inline void print_heap_hash(const sha1_hash_t hash)
     print_hash((const tb_hash_t *)hash, TB_HALG_SHA1);
 }
 
-static void print_event(const tpm12_pcr_event_t *evt)
+void print_event(const tpm12_pcr_event_t *evt)
 {
     printk("\t\t\t Event:\n");
     printk("\t\t\t     PCRIndex: %u\n", evt->pcr_index);
