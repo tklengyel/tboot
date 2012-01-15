@@ -224,6 +224,8 @@ void print_txt_caps(const char *prefix, txt_caps_t caps)
     printk("%s    rlp_wake_getsec: %d\n", prefix, caps.rlp_wake_getsec);
     printk("%s    rlp_wake_monitor: %d\n", prefix, caps.rlp_wake_monitor);
     printk("%s    ecx_pgtbl: %d\n", prefix, caps.ecx_pgtbl);
+    printk("%s    pcr_map_no_legacy: %d\n", prefix, caps.pcr_map_no_legacy);
+    printk("%s    pcr_map_da: %d\n", prefix, caps.pcr_map_da);
 }
 
 static void print_acm_hdr(const acm_hdr_t *hdr, const char *mod_name)

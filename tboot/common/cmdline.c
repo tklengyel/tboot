@@ -72,6 +72,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     /* serial=<baud>[/<clock_hz>][,<DPS>[,<io-base>[,<irq>[,<serial-bdf>[,<bridge-bdf>]]]]] */
     { "vga_delay",  "0" },           /* # secs */
     { "ap_wake_mwait", "false" },    /* true|false */
+    { "pcr_map", "legacy" },         /* legacy|da */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -431,6 +432,15 @@ void get_tboot_vga_delay(void)
     g_vga_delay = strtoul(vga_delay, NULL, 0);
 }
 
+bool get_tboot_prefer_da(void)
+{
+    const char *value = get_option_val(g_tboot_cmdline_options,
+                                       g_tboot_param_values, "pcr_map");
+    if ( value != NULL && strcmp(value, "da") == 0 )
+        return true;
+
+    return false;
+}
 
 /*
  * linux kernel command line parsing

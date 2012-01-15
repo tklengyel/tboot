@@ -308,6 +308,8 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
     elt->size = sizeof(*elt);
 }
 
+__data uint32_t g_using_da = 0;
+
 /*
  * sets up TXT heap
  */
@@ -382,7 +384,9 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /* capabilities : choose monitor wake mechanism first */
     txt_caps_t sinit_caps = get_sinit_capabilities(sinit);
     txt_caps_t caps_mask = { 0 };
-    caps_mask.rlp_wake_getsec = caps_mask.rlp_wake_monitor = 1;
+    caps_mask.rlp_wake_getsec = 1;
+    caps_mask.rlp_wake_monitor = 1;
+    caps_mask.pcr_map_da = 1;
     os_sinit_data->capabilities._raw = MLE_HDR_CAPS & ~caps_mask._raw;
     if ( sinit_caps.rlp_wake_monitor )
         os_sinit_data->capabilities.rlp_wake_monitor = 1;
@@ -398,6 +402,22 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
      */
     os_sinit_data->capabilities.ecx_pgtbl = 0;
     /* TODO: when tboot supports EFI then set efi_rsdt_ptr */
+    /* capabilities : choose DA/LG */
+    os_sinit_data->capabilities.pcr_map_no_legacy = 1;
+    if ( sinit_caps.pcr_map_da && get_tboot_prefer_da() )
+        os_sinit_data->capabilities.pcr_map_da = 1;
+    else if ( !sinit_caps.pcr_map_no_legacy )
+        os_sinit_data->capabilities.pcr_map_no_legacy = 0;
+    else if ( sinit_caps.pcr_map_da ) {
+        printk("DA is the only supported PCR mapping by SINIT, use it\n");
+        os_sinit_data->capabilities.pcr_map_da = 1;
+    }
+    else {
+        printk("SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
+        return NULL;
+    }
+    g_using_da = os_sinit_data->capabilities.pcr_map_da;
+        
 
     /* Event log initialization */
     if ( os_sinit_data->version >= 6 )

@@ -54,6 +54,7 @@ extern bool find_lcp_module(const multiboot_info_t *mbi, void **base,
                             uint32_t *size);
 extern void ap_wait(unsigned int cpuid);
 
+extern uint32_t g_using_da;
 #endif      /* __TXT_TXT_H__ */
 
 
