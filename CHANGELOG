@@ -1,3 +1,9 @@
+20120427: v1.7.1
+	Fix cmdline size in tb_polgen
+	Add description for option min_ram in README.
+	new tboot cmdline option "min_ram=0xXXXXXX"
+	Update test-patches/tpm-test.patch to fit in latest code.
+	
 20120115: v1.7.0
 	Print version number while changeset info unavailable
 	Document DA changes in README
