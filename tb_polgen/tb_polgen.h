@@ -56,7 +56,7 @@ typedef struct {
     int            pcr;
     int            hash_type;
     int            pos;
-    char           cmdline[256];
+    char           cmdline[TBOOT_KERNEL_CMDLINE_SIZE];
     char           image_file[FILENAME_MAX];
     char           elt_file[FILENAME_MAX];
     char           policy_file[FILENAME_MAX];

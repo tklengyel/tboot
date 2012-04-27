@@ -184,6 +184,7 @@ void print_params(param_data_t *params)
     info_msg("\t pcr = %d\n", params->pcr);
     info_msg("\t hash_type = %d\n", params->hash_type);
     info_msg("\t pos = %d\n", params->pos);
+    info_msg("\t cmdline length = %lu\n", strlen(params->cmdline));
     info_msg("\t cmdline = %s\n", params->cmdline);
     info_msg("\t image_file = %s\n", params->image_file);
     info_msg("\t elt_file = %s\n", params->elt_file);
@@ -407,6 +408,13 @@ bool parse_input_params(int argc, char **argv, param_data_t *params)
                     error_msg("Misssing string for --cmdline option\n");
                     return false;
                 }
+                if (strlen(optarg) > sizeof(params->cmdline) - 1) {
+                    error_msg("Command line length of %lu exceeds %d "
+                              "character maximum\n", 
+                              strlen(optarg), TBOOT_KERNEL_CMDLINE_SIZE-1);
+                    return false;
+                }
+                    
                 strncpy(params->cmdline, optarg, sizeof(params->cmdline));
                 params->cmdline[sizeof(params->cmdline)-1] = '\0';
                 break;
