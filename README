@@ -13,7 +13,7 @@ This version of tboot only supports both the Xen virtual machine monitor
 (versions >= 3.4) and Linux kernel versions >= 2.6.33.
 
 The mercurial source code repository for this project is located at:
-http://www.bughost.org/repos.hg/tboot.hg.
+http://tboot.hg.sourceforge.net:8000/hgroot/tboot/tboot.
 
 Updates to the mercurial repository are automatically sent to the mailing list
 tboot-changelog@lists.sourceforge.net.
