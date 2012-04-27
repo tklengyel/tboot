@@ -181,6 +181,27 @@ o  tboot support a new PCR usage called Details / Authorities PCR Mapping(DA).
    of final PCR18 value, because updated component is signed in the same way as
    old one.
 
+o  Previously tboot tried to avoid including any reserved e820 region (in 1M
+   ~4GB) into PMR low region to avoid possible SMM hang. So all e820 RAM regions
+   after the first reserved one(above 1MB) will be discarded.
+
+   It was found that some platforms reserve low memory regions to mitigate some
+   hardware issues. Including such kind of reserved e820 regions into PMR low
+   region does not cause SMM hang.
+
+   Below tboot command line option can be used to mitigate the cases that large
+   amount of RAM(sometime > 3GB) marked as reserved(discarded from OS/VMM usable
+   RAM size) by tboot because some reserved e820 regions occurred in very low
+   memory(notes: default is 0, means no mitigation for unwanted memory losing):
+       min_ram=0xXXXXXXXX
+
+   During 1MB~4GB, only the first RAM region with size less than <min_ram> byte
+   and all following RAM regions will be discarded.
+
+   The min_ram option gives a way to do fine-grain tuning on specific platforms. 
+
+   A suggested practical value for min_ram is 32M(0x2000000).
+
 
 PCR Usage:
 ---------
