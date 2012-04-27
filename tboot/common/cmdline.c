@@ -1,7 +1,7 @@
 /*
  * cmdline.c: command line parsing fns
  *
- * Copyright (c) 2006-2010, Intel Corporation
+ * Copyright (c) 2006-2012, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "vga_delay",  "0" },           /* # secs */
     { "ap_wake_mwait", "false" },    /* true|false */
     { "pcr_map", "legacy" },         /* legacy|da */
+    { "min_ram", "0" },              /* size in bytes | 0 for no min */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -441,6 +442,18 @@ bool get_tboot_prefer_da(void)
 
     return false;
 }
+
+extern uint32_t g_min_ram;
+void get_tboot_min_ram(void)
+{
+    const char *min_ram = get_option_val(g_tboot_cmdline_options,
+                                         g_tboot_param_values, "min_ram");
+    if ( min_ram == NULL )
+        return;
+
+    g_min_ram = strtoul(min_ram, NULL, 0);
+}
+
 
 /*
  * linux kernel command line parsing

@@ -1,7 +1,7 @@
 /*
  * e820.c: support functions for manipulating the e820 table
  *
- * Copyright (c) 2006-2010, Intel Corporation
+ * Copyright (c) 2006-2012, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,11 @@
 #include <pci_cfgreg.h>
 #include <e820.h>
 #include <txt/config_regs.h>
+
+/* minimum size of RAM (type 1) region that cannot be marked as resreved even
+   if it comes after a reserved region; 0 for no minimum (i.e. current
+   behavior) */
+uint32_t g_min_ram = 0;
 
 /*
  * copy of bootloader/BIOS e820 table with adjusted entries
@@ -271,6 +276,8 @@ static bool is_overlapped(uint64_t base, uint64_t end, uint64_t e820_base,
  */
 bool copy_e820_map(const multiboot_info_t *mbi)
 {
+    get_tboot_min_ram();
+
     g_nr_map = 0;
 
     if ( mbi->flags & MBI_MEMMAP ) {
@@ -561,6 +568,22 @@ bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
     *min_lo_ram = *min_hi_ram = ~0ULL;
     *max_lo_ram = *max_hi_ram = 0;
     bool found_reserved_region = false;
+    uint64_t last_min_ram_base = 0, last_min_ram_size = 0;
+
+    /* 
+     * if g_min_ram > 0, we will never mark a region > g_min_ram in size
+     * as reserved even if it is after a reserved region (effectively
+     * we ignore reserved regions below the last type 1 region
+     * > g_min_ram in size)
+     * so in order to reserve RAM regions above this last region, we need
+     * to find it first so that we can tell when we have passed it
+     */
+    if ( g_min_ram > 0 ) {
+        get_highest_sized_ram(g_min_ram, 0x100000000ULL, &last_min_ram_base,
+                              &last_min_ram_size);
+        printk("highest min_ram (0x%x) region found: base=0x%Lx, size=0x%Lx\n",
+               g_min_ram, last_min_ram_base, last_min_ram_size);
+    }
 
     for ( unsigned int i = 0; i < g_nr_map; i++ ) {
         memory_map_t *entry = &g_copy_e820_map[i];
@@ -578,8 +601,9 @@ bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
              * some BIOSes put legacy USB buffers in reserved regions <4GB,
              * which if DMA protected cause SMM to hang, so make sure that
              * we don't overlap any of these even if that wastes RAM
+             * ...unless min_ram was specified
              */
-            if ( !found_reserved_region ) {
+            if ( !found_reserved_region || base <= last_min_ram_base ) {
                 if ( base < 0x100000000ULL && base < *min_lo_ram )
                     *min_lo_ram = base;
                 if ( limit <= 0x100000000ULL && limit > *max_lo_ram )
