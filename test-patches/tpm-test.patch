@@ -1,8 +1,19 @@
-diff -r b581700ceda1 tboot/common/tpm.c
---- a/tboot/common/tpm.c	Fri Dec 21 11:47:16 2007 +0800
-+++ b/tboot/common/tpm.c	Fri Dec 21 11:49:18 2007 +0800
-@@ -1703,6 +1703,2815 @@ uint32_t tpm_save_state(uint32_t localit
+diff -r 950fec11ef90 tboot/common/tboot.c
+--- a/tboot/common/tboot.c	Sun Jan 15 23:21:20 2012 +0800
++++ b/tboot/common/tboot.c	Tue Apr 17 10:15:33 2012 +0800
+@@ -313,6 +313,7 @@ void begin_launch(multiboot_info_t *mbi)
+     /* has already been launched */
  
+     /* make TPM ready for measured launch */
++    tpm_unit_test_before_senter();
+     if ( !is_tpm_ready(0) )
+         apply_policy(TB_ERR_TPM_NOT_READY);
+ 
+diff -r 950fec11ef90 tboot/common/tpm.c
+--- a/tboot/common/tpm.c	Sun Jan 15 23:21:20 2012 +0800
++++ b/tboot/common/tpm.c	Tue Apr 17 10:13:40 2012 +0800
+@@ -2121,6 +2121,2815 @@ uint32_t tpm_get_random(uint32_t localit
+     return ret;
  }
  
 +#ifdef TPM_UNIT_TEST
@@ -2817,12 +2828,12 @@ diff -r b581700ceda1 tboot/common/tpm.c
  /*
   * Local variables:
   * mode: C
-diff -r b581700ceda1 tboot/include/tpm.h
---- a/tboot/include/tpm.h	Fri Dec 21 11:47:16 2007 +0800
-+++ b/tboot/include/tpm.h	Fri Dec 21 11:50:21 2007 +0800
-@@ -257,7 +257,18 @@ extern uint32_t tpm_get_nvindex_size(uin
-  */
- extern uint32_t tpm_save_state(uint32_t locality);
+diff -r 950fec11ef90 tboot/include/tpm.h
+--- a/tboot/include/tpm.h	Sun Jan 15 23:21:20 2012 +0800
++++ b/tboot/include/tpm.h	Tue Apr 17 10:13:40 2012 +0800
+@@ -272,7 +272,18 @@ extern uint32_t tpm_get_random(uint32_t 
+ extern uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
+                                uint32_t *data_size);
  
 +#define TPM_UNIT_TEST 1
 +
@@ -2839,23 +2850,15 @@ diff -r b581700ceda1 tboot/include/tpm.h
  
  /*
   * Local variables:
-diff -r b581700ceda1 tboot/txt/txt.c
---- a/tboot/txt/txt.c	Fri Dec 21 11:47:16 2007 +0800
-+++ b/tboot/txt/txt.c	Fri Dec 21 11:49:18 2007 +0800
-@@ -475,6 +475,7 @@ tb_error_t txt_launch_environment(multib
- 
- bool txt_prepare_platform(void)
- {
-+    tpm_unit_test_before_senter();
-     if ( is_tpm_ready(0) )
-         return true;
-     else
-@@ -578,6 +579,8 @@ tb_error_t txt_post_launch(void)
-     /* clear error config registers so that we start fresh */
+diff -r 950fec11ef90 tboot/txt/txt.c
+--- a/tboot/txt/txt.c	Sun Jan 15 23:21:20 2012 +0800
++++ b/tboot/txt/txt.c	Tue Apr 17 10:13:40 2012 +0800
+@@ -741,6 +741,8 @@ void txt_post_launch(void)
      write_priv_config_reg(TXTCR_ERRORCODE, 0x00000000);
      write_priv_config_reg(TXTCR_ESTS, 0xffffffff);  /* write 1's to clear */
-+
-+    tpm_unit_test_after_senter();
  
-     /* always set the LT.CMD.SECRETS flag */
-     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);
++    tpm_unit_test_after_senter();
++
+     /* bring RLPs into environment (do this before restoring MTRRs to ensure */
+     /* SINIT area is mapped WB for MONITOR-based RLP wakeup) */
+     txt_wakeup_cpus();
