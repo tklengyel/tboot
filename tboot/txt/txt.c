@@ -609,6 +609,11 @@ bool txt_s3_launch_environment(void)
     /* so don't re-create; this is OK because it was untrusted initially */
     /* and would be untrusted now */
 
+    /* initialize event log in os_sinit_data, so that events will not */
+    /* repeat when s3 */
+    if ( g_elog )
+        g_elog = (event_log_container_t *)init_event_log();
+
     /* get sinit binary loaded */
     sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
     if ( sinit == NULL )
