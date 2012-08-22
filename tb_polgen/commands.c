@@ -60,7 +60,7 @@ static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
     int read_cnt;
 
     if ( unzip )
-        f = gzopen(filename, "rb");
+        f = (FILE *)gzopen(filename, "rb");
     else
         f = fopen(filename, "rb");
 
@@ -73,7 +73,7 @@ static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
     EVP_DigestInit(&ctx, md);
     do {
         if ( unzip )
-            read_cnt = gzread(f, buf, sizeof(buf));
+            read_cnt = gzread((gzFile)f, buf, sizeof(buf));
         else
             read_cnt = fread(buf, 1, sizeof(buf), f);
         if ( read_cnt == 0 )
@@ -84,7 +84,7 @@ static bool hash_file(const char *filename, bool unzip, tb_hash_t *hash)
     EVP_DigestFinal(&ctx, hash->sha1, NULL);
 
     if ( unzip )
-        gzclose(f);
+        gzclose((gzFile)f);
     else
         fclose(f);
 

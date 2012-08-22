@@ -233,7 +233,7 @@ static void print_dump(uint32_t s, uint32_t e)
  */
 static bool read_file(const char *filename, void **buffer, size_t *length)
 {
-    FILE *fcompressed = NULL;
+    gzFile fcompressed = NULL;
     FILE *fdecompressed = NULL;
     struct stat filestat;
     char tmpbuffer[1024];
