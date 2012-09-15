@@ -151,6 +151,9 @@ static void post_launch(void)
 
     printk("measured launch succeeded\n");
 
+    /* init MLE/kernel shared data page early, .num_in_wfs used in ap wakeup*/
+    memset(&_tboot_shared, 0, PAGE_SIZE);
+
     txt_post_launch();
 
     /* backup DMAR table */
@@ -225,7 +228,6 @@ static void post_launch(void)
     /*
      * init MLE/kernel shared data page
      */
-    memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
     _tboot_shared.version = 6;
     _tboot_shared.log_addr = (uint32_t)g_log;
@@ -236,7 +238,6 @@ static void post_launch(void)
     if ( tpm_get_random(2, _tboot_shared.s3_key, &key_size) != TPM_SUCCESS ||
          key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
-    _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
     if ( use_mwait() ) {
         _tboot_shared.flags |= TB_FLAG_AP_WAKE_SUPPORT;
         _tboot_shared.ap_wake_trigger = AP_WAKE_TRIGGER_DEF;
@@ -383,9 +384,6 @@ void s3_launch(void)
             apply_policy(TB_ERR_S3_INTEGRITY);
     }
 
-    /* need to re-initialize this */
-    _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
-
     print_tboot_shared(&_tboot_shared);
 
     /* (optionally) pause when transferring kernel resume */
@@ -471,11 +469,9 @@ static void cap_pcrs(void)
 
 void shutdown(void)
 {
-    static atomic_t ap_in_shutdown;
-
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
-        atomic_inc(&ap_in_shutdown);
+        atomic_inc(&ap_wfs_count);
         _tboot_shared.ap_wake_trigger = 0;
         mtx_enter(&ap_lock);
         printk("shutdown(): TB_SHUTDOWN_WFS\n");
@@ -487,7 +483,8 @@ void shutdown(void)
     }
 
     printk("wait until all APs ready for txt shutdown\n");
-    while( atomic_read(&ap_wfs_count) < atomic_read(&ap_in_shutdown) )
+    while( atomic_read(&_tboot_shared.num_in_wfs)
+           < atomic_read(&ap_wfs_count) )
         cpu_relax();
 
     /* ensure localities 0, 1 are inactive (in case kernel used them) */

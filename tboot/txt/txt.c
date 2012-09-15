@@ -797,7 +797,6 @@ void ap_wait(unsigned int cpuid)
     wrmsr(MSR_IA32_MISC_ENABLE, misc);
 
     /* this is close enough to entering monitor/mwait loop, so inc counter */
-    atomic_inc(&ap_wfs_count);
     atomic_inc((atomic_t *)&_tboot_shared.num_in_wfs);
     mtx_leave(&ap_lock);
 
@@ -848,6 +847,7 @@ void txt_cpu_wakeup(void)
     printk("enabling SMIs on cpu %u\n", cpuid);
     __getsec_smctrl();
 
+    atomic_inc(&ap_wfs_count);
     if ( use_mwait() )
         ap_wait(cpuid);
     else
@@ -929,8 +929,8 @@ void txt_shutdown(void)
     printk("memory configuration unlocked\n");
 
     /* if some APs are still in wait-for-sipi then SEXIT will hang */
-    /* so TXT reset the platform instead */
-    if ( atomic_read(&ap_wfs_count) > 0 ) {
+    /* so TXT reset the platform instead, expect mwait case */
+    if ( (!use_mwait()) && atomic_read(&ap_wfs_count) > 0 ) {
         printk("exiting with some APs still in wait-for-sipi state (%u)\n",
                atomic_read(&ap_wfs_count));
         write_priv_config_reg(TXTCR_CMD_RESET, 0x01);

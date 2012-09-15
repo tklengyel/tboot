@@ -444,7 +444,6 @@ static void launch_mini_guest(unsigned int cpuid)
     printk("launching mini-guest for cpu %u\n", cpuid);
 
     /* this is close enough to entering wait-for-sipi, so inc counter */
-    atomic_inc(&ap_wfs_count);
     atomic_inc((atomic_t *)&_tboot_shared.num_in_wfs);
 
     __vmlaunch();
