@@ -152,7 +152,7 @@ static void post_launch(void)
     printk("measured launch succeeded\n");
 
     /* init MLE/kernel shared data page early, .num_in_wfs used in ap wakeup*/
-    memset(&_tboot_shared, 0, PAGE_SIZE);
+    _tboot_shared.num_in_wfs = 0;
 
     txt_post_launch();
 
@@ -228,6 +228,7 @@ static void post_launch(void)
     /*
      * init MLE/kernel shared data page
      */
+    memset(&_tboot_shared, 0, PAGE_SIZE);
     _tboot_shared.uuid = (uuid_t)TBOOT_SHARED_UUID;
     _tboot_shared.version = 6;
     _tboot_shared.log_addr = (uint32_t)g_log;
@@ -238,6 +239,7 @@ static void post_launch(void)
     if ( tpm_get_random(2, _tboot_shared.s3_key, &key_size) != TPM_SUCCESS ||
          key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
+    _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
     if ( use_mwait() ) {
         _tboot_shared.flags |= TB_FLAG_AP_WAKE_SUPPORT;
         _tboot_shared.ap_wake_trigger = AP_WAKE_TRIGGER_DEF;
@@ -548,6 +550,9 @@ void shutdown(void)
                 printk("AP guest exit loop timed-out\n");
             else
                 printk("all APs exited guests\n");
+        } else {
+            /* reset ap_wfs_count to avoid tboot hash changing in S3 case */
+            atomic_set(&ap_wfs_count, 0);
         }
 
         /* turn off TXT (GETSEC[SEXIT]) */
