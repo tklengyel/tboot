@@ -18,8 +18,13 @@ all : build
 debug ?= n
 
 # for dist targets
-DESTDIR     ?= $(ROOTDIR)/dist
+ifdef DESTDIR
+DISTDIR = $(DESTDIR)
+else
 DISTDIR     ?= /
+endif
+
+DESTDIR     ?= $(ROOTDIR)/dist
 
 dist : DISTDIR=$(DESTDIR)
 
