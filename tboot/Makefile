@@ -58,6 +58,8 @@ $(DISTIR)/boot/$(TARGET).gz : $(TARGET).gz
 	[ -d $(DISTDIR)/boot ] || $(INSTALL_DIR) $(DISTDIR)/boot
 	$(INSTALL_DATA) $(TARGET).gz $(DISTDIR)/boot/$(notdir $(TARGET)).gz
 	$(INSTALL_DATA) $(TARGET)-syms $(DISTDIR)/boot/$(notdir $(TARGET))-syms
+	[ -d $(DISTDIR)/etc/grub.d ] || $(INSTALL_DIR) $(DISTDIR)/etc/grub.d
+	$(INSTALL) -m755 -t $(DISTDIR)/etc/grub.d 20*
 
 
 clean :
