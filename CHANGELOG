@@ -1,3 +1,14 @@
+20120929: v1.7.2
+	Add Makefile for docs to install man pages.
+	Add man pages for tools
+	Add grub-mkconfig helper scripts for tboot case in GRUB2
+	Fix for deb build in ubuntu
+	Fix S3 issue brought by c/s 308
+	Fix a S4 hang issue and a potential shutdown reset issue
+	Fix build with new zlib 1.2.7.
+	Initialize event log when S3
+	Update README to change upstream repo url from bughost.org to sf.net.
+
 20120427: v1.7.1
 	Fix cmdline size in tb_polgen
 	Add description for option min_ram in README.
