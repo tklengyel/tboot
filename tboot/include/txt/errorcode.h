@@ -69,22 +69,25 @@ typedef union {
 /*
  * ACM errors (txt_errorcode_sw_t.src=0), format of err1+src+err2 fields
  */
-typedef union {
+typedef union __attribute__((packed)){
     uint32_t _raw;
-    struct {
+    struct __attribute__((packed)){
         uint32_t acm_type  : 4;  /* 0000=BIOS ACM, 0001=SINIT, */
                                  /* 0010-1111=reserved */
         uint32_t progress  : 6;
         uint32_t error     : 5;
         uint32_t src       : 1;  /* above value */
-        union {
-            uint32_t     tpm_err    : 9;  /* progress=0x0d, error=1010 */
-            struct {                      /* progress=0x10 */
+        union __attribute__((packed)){
+            struct __attribute__((packed)) {  /* progress=0x0d, error=1010 */
+                uint32_t tpm_err    : 9;
+                uint32_t reserved1  : 5;
+            };
+            struct __attribute__((packed)) {  /* progress=0x10 */
                 uint32_t lcp_minor  : 6;
-                uint32_t lcp_index  : 9;
+                uint32_t lcp_index  : 3;
+                uint32_t reserved2  : 5;
             };
         }; /* sub-error */
-        uint32_t reserved  : 5;
     };
 } acmod_error_t;
 
