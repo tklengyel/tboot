@@ -122,8 +122,8 @@ o  Progress of the launch process is indicated via debug printk's using three
    These three methods are not mutually exclusive - any combination can be
    enabled. Logging is enabled with command line parameters to tboot. The first
    parameter enables or disables logging levels (note that the default is all);
-   any combination of "err", "warn", "info" can be used:
-       loglvl=err,warn,info|all|none
+   any combination of "err", "warn", "info", "detail" can be used:
+       loglvl=err,warn,info,detail|all|none
    
    The next parameter is used to configure the various logging targets; any 
    combination can be used (note that when the parameter is not set, serial 
