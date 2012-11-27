@@ -102,7 +102,8 @@ extern char _end[];              /* end of tboot */
 #define TBOOT_ERR        "<1>"
 #define TBOOT_WARN       "<2>"
 #define TBOOT_INFO       "<3>"
-#define TBOOT_ALL        "<4>"
+#define TBOOT_DETA       "<4>"
+#define TBOOT_ALL        "<5>"
 
 #endif /* __CONFIG_H__ */
 

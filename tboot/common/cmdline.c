@@ -96,6 +96,7 @@ static const tb_loglvl_map_t g_loglvl_map[] = {
     { "err",   TBOOT_LOG_LEVEL_ERR   },
     { "warn",  TBOOT_LOG_LEVEL_WARN  },
     { "info",  TBOOT_LOG_LEVEL_INFO  },
+    { "detail",TBOOT_LOG_LEVEL_DETA  },
     { "all",   TBOOT_LOG_LEVEL_ALL   },
 };
 
