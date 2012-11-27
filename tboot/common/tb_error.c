@@ -63,55 +63,55 @@ void print_tb_error_msg(tb_error_t error)
 {
     switch( error ) {
         case TB_ERR_NONE:
-            printk("succeeded.\n");
+            printk(TBOOT_INFO"succeeded.\n");
             break;
         case TB_ERR_FIXED:
-            printk("previous error has been fixed.\n");
+            printk(TBOOT_INFO"previous error has been fixed.\n");
             break;
         case TB_ERR_GENERIC:
-            printk("non-fatal generic error.\n");
+            printk(TBOOT_WARN"non-fatal generic error.\n");
             break;
         case TB_ERR_TPM_NOT_READY:
-            printk("TPM not ready.\n");
+            printk(TBOOT_WARN"TPM not ready.\n");
             break;
         case TB_ERR_SMX_NOT_SUPPORTED:
-            printk("SMX not supported.\n");
+            printk(TBOOT_WARN"SMX not supported.\n");
             break;
         case TB_ERR_VMX_NOT_SUPPORTED:
-            printk("VMX not supported.\n");
+            printk(TBOOT_ERR"VMX not supported.\n");
             break;
         case TB_ERR_TXT_NOT_SUPPORTED:
-            printk("TXT not supported.\n");
+            printk(TBOOT_ERR"TXT not supported.\n");
             break;
         case TB_ERR_MODULES_NOT_IN_POLICY:
-            printk("modules in mbi but not in policy.\n");
+            printk(TBOOT_ERR"modules in mbi but not in policy.\n");
             break;
         case TB_ERR_MODULE_VERIFICATION_FAILED:
-            printk("verifying module against policy failed.\n");
+            printk(TBOOT_ERR"verifying module against policy failed.\n");
             break;
         case TB_ERR_POLICY_INVALID:
-            printk("policy invalid.\n");
+            printk(TBOOT_ERR"policy invalid.\n");
             break;
         case TB_ERR_POLICY_NOT_PRESENT:
-            printk("no policy in TPM NV.\n");
+            printk(TBOOT_WARN"no policy in TPM NV.\n");
             break;
         case TB_ERR_SINIT_NOT_PRESENT:
-            printk("SINIT ACM not provided.\n");
+            printk(TBOOT_WARN"SINIT ACM not provided.\n");
             break;
         case TB_ERR_ACMOD_VERIFY_FAILED:
-            printk("verifying AC module failed.\n");
+            printk(TBOOT_WARN"verifying AC module failed.\n");
             break;
         case TB_ERR_POST_LAUNCH_VERIFICATION:
-            printk("verification of post-launch failed.\n");
+            printk(TBOOT_ERR"verification of post-launch failed.\n");
             break;
         case TB_ERR_S3_INTEGRITY:
-            printk("creation or verification of S3 measurements failed.\n");
+            printk(TBOOT_ERR"creation or verification of S3 measurements failed.\n");
             break;
         case TB_ERR_FATAL:
-            printk("generic fatal error.\n");
+            printk(TBOOT_ERR"generic fatal error.\n");
             break;
         default:
-            printk("unknown error (%d).\n", error);
+            printk(TBOOT_ERR"unknown error (%d).\n", error);
             break;
     }
 }
@@ -128,7 +128,7 @@ bool read_tb_error_code(tb_error_t *error)
     uint32_t ret;
 
     if ( error == NULL ) {
-        printk("Error: error pointer is zero.\n");
+        printk(TBOOT_ERR"Error: error pointer is zero.\n");
         return false;
     }
 
@@ -137,7 +137,7 @@ bool read_tb_error_code(tb_error_t *error)
     /* read! */
     ret = tpm_nv_read_value(0, TB_LAUNCH_ERR_IDX, 0, (uint8_t *)error, &size);
     if ( ret != TPM_SUCCESS ) {
-        printk("Error: read TPM error: 0x%x.\n", ret);
+        printk(TBOOT_WARN"Error: read TPM error: 0x%x.\n", ret);
 	no_err_idx = true;
         return false;
     }
@@ -160,7 +160,7 @@ bool write_tb_error_code(tb_error_t error)
     uint32_t ret = tpm_nv_write_value(0, TB_LAUNCH_ERR_IDX, 0,
 				      (uint8_t *)&error, sizeof(tb_error_t));
     if ( ret != TPM_SUCCESS ) {
-        printk("Error: write TPM error: 0x%x.\n", ret);
+        printk(TBOOT_WARN"Error: write TPM error: 0x%x.\n", ret);
 	no_err_idx = true;
         return false;
     }

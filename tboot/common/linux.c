@@ -74,29 +74,29 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* Check param */
 
     if ( linux_image == NULL ) {
-        printk("Error: Linux kernel image is zero.\n");
+        printk(TBOOT_ERR"Error: Linux kernel image is zero.\n");
         return false;
     }
 
     if ( linux_size == 0 ) {
-        printk("Error: Linux kernel size is zero.\n");
+        printk(TBOOT_ERR"Error: Linux kernel size is zero.\n");
         return false;
     }
 
     if ( linux_size < sizeof(linux_kernel_header_t) ) {
-        printk("Error: Linux kernel size is too small.\n");
+        printk(TBOOT_ERR"Error: Linux kernel size is too small.\n");
         return false;
     }
 
     hdr = (linux_kernel_header_t *)(linux_image + KERNEL_HEADER_OFFSET);
 
     if ( hdr == NULL ) {
-        printk("Error: Linux kernel header is zero.\n");
+        printk(TBOOT_ERR"Error: Linux kernel header is zero.\n");
         return false;
     }
 
     if ( entry_point == NULL ) {
-        printk("Error: Output pointer is zero.\n");
+        printk(TBOOT_ERR"Error: Output pointer is zero.\n");
         return false;
     }
 
@@ -111,7 +111,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     if ( hdr->setup_sects == 0 )
         hdr->setup_sects = DEFAULT_SECTOR_NUM;
     if ( hdr->setup_sects > MAX_SECTOR_NUM ) {
-        printk("Error: Linux setup sectors %d exceed maximum limitation 64.\n",
+        printk(TBOOT_ERR"Error: Linux setup sectors %d exceed maximum limitation 64.\n",
                 hdr->setup_sects);
         return false;
     }
@@ -124,12 +124,12 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* compare to the magic number */
     if ( hdr->header != HDRS_MAGIC ) {
         /* old kernel */
-        printk("Error: Old kernel (< 2.6.20) is not supported by tboot.\n");
+        printk(TBOOT_ERR"Error: Old kernel (< 2.6.20) is not supported by tboot.\n");
         return false;
     }
 
     if ( hdr->version < 0x0205 ) {
-        printk("Error: Old kernel (<2.6.20) is not supported by tboot.\n");
+        printk(TBOOT_ERR"Error: Old kernel (<2.6.20) is not supported by tboot.\n");
         return false;
     }
 
@@ -155,20 +155,20 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     get_highest_sized_ram(initrd_size, mem_limit,
                           &max_ram_base, &max_ram_size);
     if ( max_ram_size == 0 ) {
-        printk("not enough RAM for initrd\n");
+        printk(TBOOT_ERR"not enough RAM for initrd\n");
         return false;
     }
     if ( initrd_size > max_ram_size ) {
-        printk("initrd_size is too large\n");
+        printk(TBOOT_ERR"initrd_size is too large\n");
         return false;
     }
     if ( max_ram_base > ((uint64_t)(uint32_t)(~0)) ) {
-        printk("max_ram_base is too high\n");
+        printk(TBOOT_ERR"max_ram_base is too high\n");
         return false;
     }
     if ( plus_overflow_u32((uint32_t)max_ram_base,
              (uint32_t)(max_ram_size - initrd_size)) ) {
-        printk("max_ram overflows\n");
+        printk(TBOOT_ERR"max_ram overflows\n");
         return false;
     }
     initrd_base = (max_ram_base + max_ram_size - initrd_size) & PAGE_MASK;
@@ -176,7 +176,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* should not exceed initrd_addr_max */
     if ( initrd_base + initrd_size > hdr->initrd_addr_max ) {
         if ( hdr->initrd_addr_max < initrd_size ) {
-            printk("initrd_addr_max is too small\n");
+            printk(TBOOT_ERR"initrd_addr_max is too small\n");
             return false;
         }
         initrd_base = hdr->initrd_addr_max - initrd_size;
@@ -184,7 +184,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     }
 
     memmove((void *)initrd_base, initrd_image, initrd_size);
-    printk("Initrd from 0x%lx to 0x%lx\n",
+    printk(TBOOT_DETA"Initrd from 0x%lx to 0x%lx\n",
            (unsigned long)initrd_base,
            (unsigned long)(initrd_base + initrd_size));
 
@@ -204,7 +204,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
 
     real_mode_size = (hdr->setup_sects + 1) * SECTOR_SIZE;
     if ( real_mode_size + sizeof(boot_params_t) > KERNEL_CMDLINE_OFFSET ) {
-        printk("realmode data is too large\n");
+        printk(TBOOT_ERR"realmode data is too large\n");
         return false;
     }
 
@@ -224,7 +224,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         /* overflow? */
         if ( plus_overflow_u32(protected_mode_base,
                  hdr->kernel_alignment - 1) ) {
-            printk("protected_mode_base overflows\n");
+            printk(TBOOT_ERR"protected_mode_base overflows\n");
             return false;
         }
         /* round it up to kernel alignment */
@@ -237,14 +237,14 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
                 /* bzImage:0x100000 */
         /* overflow? */
         if ( plus_overflow_u32(protected_mode_base, protected_mode_size) ) {
-            printk("protected_mode_base plus protected_mode_size overflows\n");
+            printk(TBOOT_ERR"protected_mode_base plus protected_mode_size overflows\n");
             return false;
         }
         /* Check: protected mode part cannot exceed mem_upper */
         if ( g_mbi->flags & MBI_MEMLIMITS )
             if ( (protected_mode_base + protected_mode_size)
                     > ((g_mbi->mem_upper << 10) + 0x100000) ) {
-                printk("Error: Linux protected mode part (0x%lx ~ 0x%lx) "
+                printk(TBOOT_ERR"Error: Linux protected mode part (0x%lx ~ 0x%lx) "
                        "exceeds mem_upper (0x%lx ~ 0x%lx).\n",
                        (unsigned long)protected_mode_base,
                        (unsigned long)(protected_mode_base + protected_mode_size),
@@ -254,7 +254,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
             }
     }
     else {
-        printk("Error: Linux protected mode not loaded high\n");
+        printk(TBOOT_ERR"Error: Linux protected mode not loaded high\n");
         return false;
     }
 
@@ -264,13 +264,13 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* load protected-mode part */
     memmove((void *)protected_mode_base, linux_image + real_mode_size,
             protected_mode_size);
-    printk("Kernel (protected mode) from 0x%lx to 0x%lx\n",
+    printk(TBOOT_DETA"Kernel (protected mode) from 0x%lx to 0x%lx\n",
            (unsigned long)protected_mode_base,
            (unsigned long)(protected_mode_base + protected_mode_size));
 
     /* load real-mode part */
     memmove((void *)real_mode_base, linux_image, real_mode_size);
-    printk("Kernel (real mode) from 0x%lx to 0x%lx\n",
+    printk(TBOOT_DETA"Kernel (real mode) from 0x%lx to 0x%lx\n",
            (unsigned long)real_mode_base,
            (unsigned long)(real_mode_base + real_mode_size));
 

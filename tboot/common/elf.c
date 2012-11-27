@@ -49,13 +49,13 @@ bool is_elf_image(const void *image, size_t size)
     elf_header_t *elf;
 
     if ( image == NULL ) {
-        printk("Error: Pointer is zero.\n");
+        printk(TBOOT_ERR"Error: Pointer is zero.\n");
         return false;
     }
 
     /* check size */
     if ( sizeof(elf_header_t) > size ) {
-        printk("Error: Image size is smaller than ELF header size.\n");
+        printk(TBOOT_ERR"Error: Image size is smaller than ELF header size.\n");
         return false;
     }
 
@@ -66,37 +66,37 @@ bool is_elf_image(const void *image, size_t size)
          (elf->e_ident[EI_MAG1] != ELFMAG1) ||
          (elf->e_ident[EI_MAG2] != ELFMAG2) ||
          (elf->e_ident[EI_MAG3] != ELFMAG3) ) {
-        printk("Error: ELF magic number is not matched.\n");
+        printk(TBOOT_WARN"Error: ELF magic number is not matched.\n");
         return false;
     }
 
     /* check data encoding in ELF */
     if ( elf->e_ident[EI_DATA] != ELFDATA2LSB ) {
-        printk("Error: ELF data encoding is not the least significant "
+        printk(TBOOT_ERR"Error: ELF data encoding is not the least significant "
                "byte occupying the lowest address.\n");
         return false;
     }
 
     /* check ELF image is executable? */
     if ( elf->e_type != ET_EXEC ) {
-        printk("Error: ELF image is not executable.\n");
+        printk(TBOOT_ERR"Error: ELF image is not executable.\n");
         return false;
     }
 
     /* check ELF image is for IA? */
     if ( elf->e_machine != EM_386 ) {
-        printk("Error: ELF image is not for IA.\n");
+        printk(TBOOT_ERR"Error: ELF image is not for IA.\n");
         return false;
     }
 
     /* check ELF version is valid? */
     if ( elf->e_version != EV_CURRENT ) {
-        printk("Error: ELF version is invalid.\n");
+        printk(TBOOT_ERR"Error: ELF version is invalid.\n");
         return false;
     }
 
     if ( sizeof(elf_program_header_t) > elf->e_phentsize ) {
-        printk("Error: Program size is smaller than program "
+        printk(TBOOT_ERR"Error: Program size is smaller than program "
                "header size.\n");
         return false;
     }
@@ -111,14 +111,14 @@ static bool get_elf_image_range(const elf_header_t *elf, void **start,
     uint32_t u_start, u_end;
 
     if (elf == NULL) {
-        printk("Error: ELF header pointer is zero.\n");
+        printk(TBOOT_ERR"Error: ELF header pointer is zero.\n");
         return false;
     }
 
     /* assumed that already passed is_elf_image() check */
 
     if ((start == NULL) || (end == NULL)) {
-        printk("Error: Output pointers are zero.\n");
+        printk(TBOOT_ERR"Error: Output pointers are zero.\n");
         return false;
     }
 
@@ -136,7 +136,7 @@ static bool get_elf_image_range(const elf_header_t *elf, void **start,
     }
 
     if (u_start >= u_end) {
-        printk("Error: PT_LOAD header not found\n");
+        printk(TBOOT_ERR"Error: PT_LOAD header not found\n");
         *start = NULL;
         *end = NULL;
         return false;
@@ -152,12 +152,12 @@ static bool get_elf_image_range(const elf_header_t *elf, void **start,
 bool expand_elf_image(const elf_header_t *elf, void **entry_point)
 {
     if ( elf == NULL ) {
-        printk("Error: ELF header pointer is zero.\n");
+        printk(TBOOT_ERR"Error: ELF header pointer is zero.\n");
         return false;
     }
 
     if ( entry_point == NULL ) {
-        printk("Error: Output pointer is zero.\n");
+        printk(TBOOT_ERR"Error: Output pointer is zero.\n");
         return false;
     }
 

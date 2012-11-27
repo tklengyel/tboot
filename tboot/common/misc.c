@@ -50,10 +50,10 @@ void print_hex(const char *prefix, const void *prtptr, size_t size)
 {
     for ( size_t i = 0; i < size; i++ ) {
         if ( i % 16 == 0 && prefix != NULL )
-            printk("\n%s", prefix);
-        printk("%02x ", *(uint8_t *)prtptr++);
+            printk(TBOOT_DETA"\n%s", prefix);
+        printk(TBOOT_DETA"%02x ", *(uint8_t *)prtptr++);
     }
-    printk("\n");
+    printk(TBOOT_DETA"\n");
 }
 
 static bool g_calibrated = false;

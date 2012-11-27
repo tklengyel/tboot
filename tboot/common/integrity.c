@@ -91,9 +91,9 @@ static bool extend_pcrs(void)
 
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
-    printk("PCRs before extending:\n");
-    printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk(TBOOT_DETA"PCRs before extending:\n");
+    printk(TBOOT_DETA"  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk(TBOOT_DETA"  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
     for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
         if ( tpm_pcr_extend(2, g_pre_k_s3_state.vl_entries[i].pcr,
@@ -108,35 +108,35 @@ static bool extend_pcrs(void)
 
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
-    printk("PCRs after extending:\n");
-    printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk(TBOOT_DETA"PCRs after extending:\n");
+    printk(TBOOT_DETA"  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk(TBOOT_DETA"  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
     return true;
 }
 
 static void print_pre_k_s3_state(void)
 {
-    printk("pre_k_s3_state:\n");
-    printk("\t vtd_pmr_lo_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_lo_base);
-    printk("\t vtd_pmr_lo_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_lo_size);
-    printk("\t vtd_pmr_hi_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_base);
-    printk("\t vtd_pmr_hi_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_size);
-    printk("\t pol_hash: ");
+    printk(TBOOT_DETA"pre_k_s3_state:\n");
+    printk(TBOOT_DETA"\t vtd_pmr_lo_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_lo_base);
+    printk(TBOOT_DETA"\t vtd_pmr_lo_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_lo_size);
+    printk(TBOOT_DETA"\t vtd_pmr_hi_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_base);
+    printk(TBOOT_DETA"\t vtd_pmr_hi_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_size);
+    printk(TBOOT_DETA"\t pol_hash: ");
     print_hash(&g_pre_k_s3_state.pol_hash, TB_HALG_SHA1);
-    printk("\t VL measurements:\n");
+    printk(TBOOT_DETA"\t VL measurements:\n");
     for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
-        printk("\t   PCR %d: ", g_pre_k_s3_state.vl_entries[i].pcr);
+        printk(TBOOT_DETA"\t   PCR %d: ", g_pre_k_s3_state.vl_entries[i].pcr);
         print_hash(&g_pre_k_s3_state.vl_entries[i].hash, TB_HALG_SHA1);
     }
 }
 
 static void print_post_k_s3_state(void)
 {
-    printk("post_k_s3_state:\n");
-    printk("\t kernel_s3_resume_vector: 0x%Lx\n",
+    printk(TBOOT_DETA"post_k_s3_state:\n");
+    printk(TBOOT_DETA"\t kernel_s3_resume_vector: 0x%Lx\n",
            g_post_k_s3_state.kernel_s3_resume_vector);
-    printk("\t kernel_integ: ");
+    printk(TBOOT_DETA"\t kernel_integ: ");
     print_hex(NULL, &g_post_k_s3_state.kernel_integ,
               sizeof(g_post_k_s3_state.kernel_integ));
 }
@@ -157,7 +157,7 @@ static bool seal_data(const void *data, size_t data_size,
 
     memset(&blob, 0, sizeof(blob));
     if ( !hash_buffer(data, data_size, &blob.data_hash, TB_HALG_SHA1) ) {
-        printk("failed to hash data\n");
+        printk(TBOOT_ERR"failed to hash data\n");
         return false;
     }
 
@@ -171,7 +171,7 @@ static bool seal_data(const void *data, size_t data_size,
                    sizeof(blob), (const uint8_t *)&blob,
                    sealed_data_size, sealed_data);
     if ( err != TPM_SUCCESS )
-        printk("failed to seal data\n");
+        printk(TBOOT_WARN"failed to seal data\n");
 
     /* since blob might contain secret, clear it */
     memset(&blob, 0, sizeof(blob));
@@ -194,11 +194,11 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
     uint32_t data_size = sizeof(blob);
     if ( tpm_unseal(2, sealed_data_size, sealed_data,
                     &data_size, (uint8_t *)&blob) != TPM_SUCCESS ) {
-        printk("failed to unseal blob\n");
+        printk(TBOOT_ERR"failed to unseal blob\n");
         return false;
     }
     if ( data_size != sizeof(blob) ) {
-        printk("unsealed state data size mismatch\n");
+        printk(TBOOT_WARN"unsealed state data size mismatch\n");
         goto done;
     }
 
@@ -207,11 +207,11 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
     memset(&curr_data_hash, 0, sizeof(curr_data_hash));
     if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash,
                       TB_HALG_SHA1) ) {
-        printk("failed to hash state data\n");
+        printk(TBOOT_WARN"failed to hash state data\n");
         goto done;
     }
     if ( !are_hashes_equal(&blob.data_hash, &curr_data_hash, TB_HALG_SHA1) ) {
-        printk("sealed hash does not match current hash\n");
+        printk(TBOOT_WARN"sealed hash does not match current hash\n");
         goto done;
     }
 
@@ -241,7 +241,7 @@ bool seal_pre_k_state(void)
     /* save hash of current policy into g_pre_k_s3_state */
     memset(&g_pre_k_s3_state.pol_hash, 0, sizeof(g_pre_k_s3_state.pol_hash));
     if ( !hash_policy(&g_pre_k_s3_state.pol_hash, TB_HALG_SHA1) ) {
-        printk("failed to hash policy\n");
+        printk(TBOOT_ERR"failed to hash policy\n");
         goto error;
     }
 
@@ -300,7 +300,7 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 
         /* overflow? */
         if ( plus_overflow_u64(start, _tboot_shared.mac_regions[i].size) ) {
-            printk("start plus size overflows during MACing\n");
+            printk(TBOOT_ERR"start plus size overflows during MACing\n");
             return false;
         }
 
@@ -312,14 +312,14 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 
         /* overflow? */
         if ( plus_overflow_u64(end, 1) ) {
-            printk("end up to the alignment overflows during MACing\n");
+            printk(TBOOT_ERR"end up to the alignment overflows during MACing\n");
             return false;
         }
 
         /* if not overflow, we get end aligned */
         end++;
 
-        printk("MACing region %u:  0x%Lx - 0x%Lx\n", i, start, end);
+        printk(TBOOT_DETA"MACing region %u:  0x%Lx - 0x%Lx\n", i, start, end);
 
         /*
          * spfn: start pfn in 2-Mbyte page
@@ -328,7 +328,7 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
          */
         /* check overflow? */
         if ( plus_overflow_u64(end, MAC_PAGE_SIZE) ) {
-            printk("end plus MAC_PAGE_SIZE overflows during MACing\n");
+            printk(TBOOT_ERR"end plus MAC_PAGE_SIZE overflows during MACing\n");
             return false;
         }
 
@@ -409,12 +409,12 @@ bool verify_integrity(void)
 
     tpm_pcr_read(2, 17, &pcr17);
     tpm_pcr_read(2, 18, &pcr18);
-    printk("PCRs before unseal:\n");
-    printk("  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk("  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    printk(TBOOT_DETA"PCRs before unseal:\n");
+    printk(TBOOT_DETA"  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+    printk(TBOOT_DETA"  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
     /* verify integrity of pre-kernel state data */
-    printk("verifying pre_k_s3_state\n");
+    printk(TBOOT_INFO"verifying pre_k_s3_state\n");
     if ( !verify_sealed_data(sealed_pre_k_state, sealed_pre_k_state_size,
                              &g_pre_k_s3_state, sizeof(g_pre_k_s3_state),
                              NULL, 0) )
@@ -436,12 +436,12 @@ bool verify_integrity(void)
                                 pcr_indcs_create, pcr_values_create,
                                 sealed_post_k_state_size,
                                 sealed_post_k_state) ) {
-        printk("extended PCR values don't match creation values in sealed blob.\n");
+        printk(TBOOT_ERR"extended PCR values don't match creation values in sealed blob.\n");
         goto error;
     }
 
     /* verify integrity of post-kernel state data */
-    printk("verifying post_k_s3_state\n");
+    printk(TBOOT_INFO"verifying post_k_s3_state\n");
     sealed_secrets_t secrets;
     if ( !verify_sealed_data(sealed_post_k_state, sealed_post_k_state_size,
                              &g_post_k_s3_state, sizeof(g_post_k_s3_state),
@@ -453,15 +453,15 @@ bool verify_integrity(void)
     if ( !measure_memory_integrity(&mac, secrets.mac_key) )
         goto error;
     if ( memcmp(&mac, &g_post_k_s3_state.kernel_integ, sizeof(mac)) ) {
-        printk("memory integrity lost on S3 resume\n");
-        printk("MAC of current image is: ");
+        printk(TBOOT_INFO"memory integrity lost on S3 resume\n");
+        printk(TBOOT_DETA"MAC of current image is: ");
         print_hex(NULL, &mac, sizeof(mac));
-        printk("MAC of pre-S3 image is: ");
+        printk(TBOOT_DETA"MAC of pre-S3 image is: ");
         print_hex(NULL, &g_post_k_s3_state.kernel_integ,
                   sizeof(g_post_k_s3_state.kernel_integ));
         goto error;
     }
-    printk("memory integrity OK\n");
+    printk(TBOOT_INFO"memory integrity OK\n");
 
     /* re-extend PCRs with VL measurements
        we can't leave the system in a state without valid measurements of
@@ -505,7 +505,7 @@ bool seal_post_k_state(void)
        that module should have at least one region for itself, otherwise
        it will not be protected against S3 resume attacks */
     if ( _tboot_shared.num_mac_regions == 0 ) {
-        printk("no memory regions to MAC\n");
+        printk(TBOOT_ERR"no memory regions to MAC\n");
         return false;
     }
 

@@ -60,10 +60,10 @@ static void print_bios_spec_ver_elt(const heap_ext_data_element_t *elt)
     const heap_bios_spec_ver_elt_t *bios_spec_ver_elt =
         (const heap_bios_spec_ver_elt_t *)elt->data;
 
-    printk("\t\t BIOS_SPEC_VER:\n");
-    printk("\t\t     major: 0x%x\n", bios_spec_ver_elt->spec_ver_major);
-    printk("\t\t     minor: 0x%x\n", bios_spec_ver_elt->spec_ver_minor);
-    printk("\t\t     rev: 0x%x\n", bios_spec_ver_elt->spec_ver_rev);
+    printk(TBOOT_INFO"\t\t BIOS_SPEC_VER:\n");
+    printk(TBOOT_INFO"\t\t     major: 0x%x\n", bios_spec_ver_elt->spec_ver_major);
+    printk(TBOOT_INFO"\t\t     minor: 0x%x\n", bios_spec_ver_elt->spec_ver_minor);
+    printk(TBOOT_INFO"\t\t     rev: 0x%x\n", bios_spec_ver_elt->spec_ver_rev);
 }
 
 static bool verify_bios_spec_ver_elt(const heap_ext_data_element_t *elt)
@@ -72,7 +72,7 @@ static bool verify_bios_spec_ver_elt(const heap_ext_data_element_t *elt)
         (const heap_bios_spec_ver_elt_t *)elt->data;
 
     if ( elt->size != sizeof(*elt) + sizeof(*bios_spec_ver_elt) ) {
-        printk("HEAP_BIOS_SPEC_VER element has wrong size (%u)\n", elt->size);
+        printk(TBOOT_ERR"HEAP_BIOS_SPEC_VER element has wrong size (%u)\n", elt->size);
         return false;
     }
 
@@ -85,10 +85,10 @@ static void print_acm_elt(const heap_ext_data_element_t *elt)
 {
     const heap_acm_elt_t *acm_elt = (const heap_acm_elt_t *)elt->data;
 
-    printk("\t\t ACM:\n");
-    printk("\t\t     num_acms: %u\n", acm_elt->num_acms);
+    printk(TBOOT_DETA"\t\t ACM:\n");
+    printk(TBOOT_DETA"\t\t     num_acms: %u\n", acm_elt->num_acms);
     for ( unsigned int i = 0; i < acm_elt->num_acms; i++ )
-        printk("\t\t     acm_addrs[%u]: 0x%jx\n", i, acm_elt->acm_addrs[i]);
+        printk(TBOOT_DETA"\t\t     acm_addrs[%u]: 0x%jx\n", i, acm_elt->acm_addrs[i]);
 }
 
 static bool verify_acm_elt(const heap_ext_data_element_t *elt)
@@ -97,22 +97,22 @@ static bool verify_acm_elt(const heap_ext_data_element_t *elt)
 
     if ( elt->size != sizeof(*elt) + sizeof(*acm_elt) +
          acm_elt->num_acms*sizeof(uint64_t) ) {
-        printk("HEAP_ACM element has wrong size (%u)\n", elt->size);
+        printk(TBOOT_ERR"HEAP_ACM element has wrong size (%u)\n", elt->size);
         return false;
     }
 
     /* no addrs is not error, but print warning */
     if ( acm_elt->num_acms == 0 )
-        printk("HEAP_ACM element has no ACM addrs\n");
+        printk(TBOOT_WARN"HEAP_ACM element has no ACM addrs\n");
 
     for ( unsigned int i = 0; i < acm_elt->num_acms; i++ ) {
         if ( acm_elt->acm_addrs[i] == 0 ) {
-            printk("HEAP_ACM element ACM addr (%u) is NULL\n", i);
+            printk(TBOOT_ERR"HEAP_ACM element ACM addr (%u) is NULL\n", i);
             return false;
         }
 
         if ( acm_elt->acm_addrs[i] >= 0x100000000UL ) {
-            printk("HEAP_ACM element ACM addr (%u) is >4GB (0x%jx)\n", i,
+            printk(TBOOT_ERR"HEAP_ACM element ACM addr (%u) is >4GB (0x%jx)\n", i,
                    acm_elt->acm_addrs[i]);
             return false;
         }
@@ -128,9 +128,10 @@ static void print_custom_elt(const heap_ext_data_element_t *elt)
 {
     const heap_custom_elt_t *custom_elt = (const heap_custom_elt_t *)elt->data;
 
-    printk("\t\t CUSTOM:\n");
-    printk("\t\t     size: %u\n", elt->size);
-    printk("\t\t     uuid: "); print_uuid(&custom_elt->uuid); printk("\n");
+    printk(TBOOT_DETA"\t\t CUSTOM:\n");
+    printk(TBOOT_DETA"\t\t     size: %u\n", elt->size);
+    printk(TBOOT_DETA"\t\t     uuid: "); print_uuid(&custom_elt->uuid);            
+    printk(TBOOT_DETA"\n");
 }
 
 static bool verify_custom_elt(const heap_ext_data_element_t *elt)
@@ -138,7 +139,7 @@ static bool verify_custom_elt(const heap_ext_data_element_t *elt)
     const heap_custom_elt_t *custom_elt = (const heap_custom_elt_t *)elt->data;
 
     if ( elt->size < sizeof(*elt) + sizeof(*custom_elt) ) {
-        printk("HEAP_CUSTOM element has wrong size (%u)\n", elt->size);
+        printk(TBOOT_ERR"HEAP_CUSTOM element has wrong size (%u)\n", elt->size);
         return false;
     }
 
@@ -154,25 +155,25 @@ static inline void print_heap_hash(const sha1_hash_t hash)
 
 void print_event(const tpm12_pcr_event_t *evt)
 {
-    printk("\t\t\t Event:\n");
-    printk("\t\t\t     PCRIndex: %u\n", evt->pcr_index);
-    printk("\t\t\t         Type: 0x%x\n", evt->type);
-    printk("\t\t\t       Digest: ");
+    printk(TBOOT_DETA"\t\t\t Event:\n");
+    printk(TBOOT_DETA"\t\t\t     PCRIndex: %u\n", evt->pcr_index);
+    printk(TBOOT_DETA"\t\t\t         Type: 0x%x\n", evt->type);
+    printk(TBOOT_DETA"\t\t\t       Digest: ");
     print_heap_hash(evt->digest);
-    printk("\t\t\t         Data: %u bytes", evt->data_size);
+    printk(TBOOT_DETA"\t\t\t         Data: %u bytes", evt->data_size);
     print_hex("\t\t\t         ", evt->data, evt->data_size);
 }
 
 static void print_evt_log(const event_log_container_t *elog)
 {
-    printk("\t\t\t Event Log Container:\n");
-    printk("\t\t\t     Signature: %s\n", elog->signature);
-    printk("\t\t\t  ContainerVer: %u.%u\n",
+    printk(TBOOT_DETA"\t\t\t Event Log Container:\n");
+    printk(TBOOT_DETA"\t\t\t     Signature: %s\n", elog->signature);
+    printk(TBOOT_DETA"\t\t\t  ContainerVer: %u.%u\n",
            elog->container_ver_major, elog->container_ver_minor);
-    printk("\t\t\t   PCREventVer: %u.%u\n",
+    printk(TBOOT_DETA"\t\t\t   PCREventVer: %u.%u\n",
            elog->pcr_event_ver_major, elog->pcr_event_ver_minor);
-    printk("\t\t\t          Size: %u\n", elog->size);
-    printk("\t\t\t  EventsOffset: [%u,%u)\n",
+    printk(TBOOT_DETA"\t\t\t          Size: %u\n", elog->size);
+    printk(TBOOT_DETA"\t\t\t  EventsOffset: [%u,%u)\n",
            elog->pcr_events_offset, elog->next_event_offset);
 
     const tpm12_pcr_event_t *curr, *next;
@@ -188,17 +189,17 @@ static void print_evt_log(const event_log_container_t *elog)
 static bool verify_evt_log(const event_log_container_t *elog)
 {
     if ( elog == NULL ) {
-        printk("Event log container pointer is NULL\n");
+        printk(TBOOT_ERR"Event log container pointer is NULL\n");
         return false;
     }
 
     if ( memcmp(elog->signature, EVTLOG_SIGNATURE, sizeof(elog->signature)) ) {
-        printk("Bad event log container signature: %s\n", elog->signature);
+        printk(TBOOT_ERR"Bad event log container signature: %s\n", elog->signature);
         return false;
     }
 
     if ( elog->size != MAX_EVENT_LOG_SIZE ) {
-        printk("Bad event log container size: 0x%x\n", elog->size);
+        printk(TBOOT_ERR"Bad event log container size: 0x%x\n", elog->size);
         return false;
     }
 
@@ -207,7 +208,7 @@ static bool verify_evt_log(const event_log_container_t *elog)
     if ( elog->pcr_events_offset < sizeof(*elog) ||
          elog->next_event_offset < elog->pcr_events_offset ||
          elog->next_event_offset > elog->size ) {
-        printk("Bad events offset range: [%u, %u)\n",
+        printk(TBOOT_ERR"Bad events offset range: [%u, %u)\n",
                elog->pcr_events_offset, elog->next_event_offset);
         return false;
     }
@@ -220,9 +221,9 @@ static void print_evt_log_ptr_elt(const heap_ext_data_element_t *elt)
     const heap_event_log_ptr_elt_t *elog_elt =
               (const heap_event_log_ptr_elt_t *)elt->data;
 
-    printk("\t\t EVENT_LOG_POINTER:\n");
-    printk("\t\t       size: %u\n", elt->size);
-    printk("\t\t  elog_addr: 0x%jx\n", elog_elt->event_log_phys_addr);
+    printk(TBOOT_DETA"\t\t EVENT_LOG_POINTER:\n");
+    printk(TBOOT_DETA"\t\t       size: %u\n", elt->size);
+    printk(TBOOT_DETA"\t\t  elog_addr: 0x%jx\n", elog_elt->event_log_phys_addr);
 
     if ( elog_elt->event_log_phys_addr )
         print_evt_log((event_log_container_t *)(unsigned long)
@@ -235,7 +236,7 @@ static bool verify_evt_log_ptr_elt(const heap_ext_data_element_t *elt)
               (const heap_event_log_ptr_elt_t *)elt->data;
 
     if ( elt->size != sizeof(*elt) + sizeof(*elog_elt) ) {
-        printk("HEAP_EVENT_LOG_POINTER element has wrong size (%u)\n",
+        printk(TBOOT_ERR"HEAP_EVENT_LOG_POINTER element has wrong size (%u)\n",
                elt->size);
         return false;
     }
@@ -248,7 +249,7 @@ static void print_ext_data_elts(const heap_ext_data_element_t elts[])
 {
     const heap_ext_data_element_t *elt = elts;
 
-    printk("\t ext_data_elts[]:\n");
+    printk(TBOOT_DETA"\t ext_data_elts[]:\n");
     while ( elt->type != HEAP_EXTDATA_TYPE_END ) {
         switch ( elt->type ) {
             case HEAP_EXTDATA_TYPE_BIOS_SPEC_VER:
@@ -264,7 +265,7 @@ static void print_ext_data_elts(const heap_ext_data_element_t elts[])
                 print_evt_log_ptr_elt(elt);
                 break;
             default:
-                printk("\t\t unknown element:  type: %u, size: %u\n",
+                printk(TBOOT_WARN"\t\t unknown element:  type: %u, size: %u\n",
                        elt->type, elt->size);
                 break;
         }
@@ -279,7 +280,7 @@ static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
 
     while ( true ) {
         if ( elts_size < sizeof(*elt) ) {
-            printk("heap ext data elements too small\n");
+            printk(TBOOT_ERR"heap ext data elements too small\n");
             return false;
         }
         switch ( elt->type ) {
@@ -302,7 +303,7 @@ static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
                     return false;
                 break;
             default:
-                printk("unknown element:  type: %u, size: %u\n", elt->type,
+                printk(TBOOT_WARN"unknown element:  type: %u, size: %u\n", elt->type,
                        elt->size);
                 break;
         }
@@ -315,17 +316,17 @@ static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
 
 static void print_bios_data(const bios_data_t *bios_data)
 {
-    printk("bios_data (@%p, %jx):\n", bios_data,
+    printk(TBOOT_DETA"bios_data (@%p, %jx):\n", bios_data,
            *((uint64_t *)bios_data - 1));
-    printk("\t version: %u\n", bios_data->version);
-    printk("\t bios_sinit_size: 0x%x (%u)\n", bios_data->bios_sinit_size,
+    printk(TBOOT_DETA"\t version: %u\n", bios_data->version);
+    printk(TBOOT_DETA"\t bios_sinit_size: 0x%x (%u)\n", bios_data->bios_sinit_size,
            bios_data->bios_sinit_size);
-    printk("\t lcp_pd_base: 0x%jx\n", bios_data->lcp_pd_base);
-    printk("\t lcp_pd_size: 0x%jx (%ju)\n", bios_data->lcp_pd_size,
+    printk(TBOOT_DETA"\t lcp_pd_base: 0x%jx\n", bios_data->lcp_pd_base);
+    printk(TBOOT_DETA"\t lcp_pd_size: 0x%jx (%ju)\n", bios_data->lcp_pd_size,
            bios_data->lcp_pd_size);
-    printk("\t num_logical_procs: %u\n", bios_data->num_logical_procs);
+    printk(TBOOT_DETA"\t num_logical_procs: %u\n", bios_data->num_logical_procs);
     if ( bios_data->version >= 3 )
-        printk("\t flags: 0x%08jx\n", bios_data->flags);
+        printk(TBOOT_DETA"\t flags: 0x%08jx\n", bios_data->flags);
     if ( bios_data->version >= 4 )
         print_ext_data_elts(bios_data->ext_data_elts);
 }
@@ -334,8 +335,8 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
 {
     uint64_t heap_base = read_pub_config_reg(TXTCR_HEAP_BASE);
     uint64_t heap_size = read_pub_config_reg(TXTCR_HEAP_SIZE);
-    printk("TXT.HEAP.BASE: 0x%jx\n", heap_base);
-    printk("TXT.HEAP.SIZE: 0x%jx (%ju)\n", heap_size, heap_size);
+    printk(TBOOT_DETA"TXT.HEAP.BASE: 0x%jx\n", heap_base);
+    printk(TBOOT_DETA"TXT.HEAP.SIZE: 0x%jx (%ju)\n", heap_size, heap_size);
 
     /* verify that heap base/size are valid */
     if ( txt_heap == NULL || heap_base == 0 || heap_size == 0 )
@@ -344,11 +345,11 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
     /* check size */
     uint64_t size = get_bios_data_size(txt_heap);
     if ( size == 0 ) {
-        printk("BIOS data size is 0\n");
+        printk(TBOOT_ERR"BIOS data size is 0\n");
         return false;
     }
     if ( size > heap_size ) {
-        printk("BIOS data size is larger than heap size "
+        printk(TBOOT_ERR"BIOS data size is larger than heap size "
                "(%jx, heap size=%jx)\n", size, heap_size);
         return false;
     }
@@ -357,21 +358,21 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
 
     /* check version */
     if ( bios_data->version < 2 ) {
-        printk("unsupported BIOS data version (%u)\n", bios_data->version);
+        printk(TBOOT_ERR"unsupported BIOS data version (%u)\n", bios_data->version);
         return false;
     }
     /* we assume backwards compatibility but print a warning */
     if ( bios_data->version > 4 )
-        printk("unsupported BIOS data version (%u)\n", bios_data->version);
+        printk(TBOOT_WARN"unsupported BIOS data version (%u)\n", bios_data->version);
 
     /* all TXT-capable CPUs support at least 2 cores */
     if ( bios_data->num_logical_procs < 2 ) {
-        printk("BIOS data has incorrect num_logical_procs (%u)\n",
+        printk(TBOOT_ERR"BIOS data has incorrect num_logical_procs (%u)\n",
                bios_data->num_logical_procs);
         return false;
     }
     else if ( bios_data->num_logical_procs > NR_CPUS ) {
-        printk("BIOS data specifies too many CPUs (%u)\n",
+        printk(TBOOT_ERR"BIOS data specifies too many CPUs (%u)\n",
                bios_data->num_logical_procs);
         return false;
     }
@@ -391,11 +392,11 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
 
 static void print_os_mle_data(const os_mle_data_t *os_mle_data)
 {
-    printk("os_mle_data (@%p, %Lx):\n", os_mle_data,
+    printk(TBOOT_DETA"os_mle_data (@%p, %Lx):\n", os_mle_data,
            *((uint64_t *)os_mle_data - 1));
-    printk("\t version: %u\n", os_mle_data->version);
+    printk(TBOOT_DETA"\t version: %u\n", os_mle_data->version);
     /* TBD: perhaps eventually print saved_mtrr_state field */
-    printk("\t mbi: %p\n", os_mle_data->mbi);
+    printk(TBOOT_DETA"\t mbi: %p\n", os_mle_data->mbi);
 }
 
 static bool verify_os_mle_data(const txt_heap_t *txt_heap)
@@ -407,16 +408,16 @@ static bool verify_os_mle_data(const txt_heap_t *txt_heap)
     heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
     size = get_os_mle_data_size(txt_heap);
     if ( size == 0 ) {
-        printk("OS to MLE data size is 0\n");
+        printk(TBOOT_ERR"OS to MLE data size is 0\n");
         return false;
     }
     if ( size > heap_size ) {
-        printk("OS to MLE data size is larger than heap size "
+        printk(TBOOT_ERR"OS to MLE data size is larger than heap size "
                "(%Lx, heap size=%Lx)\n", size, heap_size);
         return false;
     }
     if ( size != (sizeof(os_mle_data_t) + sizeof(size)) ) {
-        printk("OS to MLE data size (%Lx) is not equal to "
+        printk(TBOOT_ERR"OS to MLE data size (%Lx) is not equal to "
                "os_mle_data_t size (%x)\n", size, sizeof(os_mle_data_t));
         return false;
     }
@@ -427,14 +428,14 @@ static bool verify_os_mle_data(const txt_heap_t *txt_heap)
     /* since this data is from our pre-launch to post-launch code only, it */
     /* should always be this */
     if ( os_mle_data->version != 3 ) {
-        printk("unsupported OS to MLE data version (%u)\n",
+        printk(TBOOT_ERR"unsupported OS to MLE data version (%u)\n",
                os_mle_data->version);
         return false;
     }
 
     /* field checks */
     if ( os_mle_data->mbi == NULL ) {
-        printk("OS to MLE data mbi field is NULL\n");
+        printk(TBOOT_ERR"OS to MLE data mbi field is NULL\n");
         return false;
     }
 
@@ -445,23 +446,23 @@ static bool verify_os_mle_data(const txt_heap_t *txt_heap)
 
 void print_os_sinit_data(const os_sinit_data_t *os_sinit_data)
 {
-    printk("os_sinit_data (@%p, %Lx):\n", os_sinit_data,
+    printk(TBOOT_DETA"os_sinit_data (@%p, %Lx):\n", os_sinit_data,
            *((uint64_t *)os_sinit_data - 1));
-    printk("\t version: %u\n", os_sinit_data->version);
-    printk("\t mle_ptab: 0x%Lx\n", os_sinit_data->mle_ptab);
-    printk("\t mle_size: 0x%Lx (%Lu)\n", os_sinit_data->mle_size,
+    printk(TBOOT_DETA"\t version: %u\n", os_sinit_data->version);
+    printk(TBOOT_DETA"\t mle_ptab: 0x%Lx\n", os_sinit_data->mle_ptab);
+    printk(TBOOT_DETA"\t mle_size: 0x%Lx (%Lu)\n", os_sinit_data->mle_size,
            os_sinit_data->mle_size);
-    printk("\t mle_hdr_base: 0x%Lx\n", os_sinit_data->mle_hdr_base);
-    printk("\t vtd_pmr_lo_base: 0x%Lx\n", os_sinit_data->vtd_pmr_lo_base);
-    printk("\t vtd_pmr_lo_size: 0x%Lx\n", os_sinit_data->vtd_pmr_lo_size);
-    printk("\t vtd_pmr_hi_base: 0x%Lx\n", os_sinit_data->vtd_pmr_hi_base);
-    printk("\t vtd_pmr_hi_size: 0x%Lx\n", os_sinit_data->vtd_pmr_hi_size);
-    printk("\t lcp_po_base: 0x%Lx\n", os_sinit_data->lcp_po_base);
-    printk("\t lcp_po_size: 0x%Lx (%Lu)\n", os_sinit_data->lcp_po_size,
+    printk(TBOOT_DETA"\t mle_hdr_base: 0x%Lx\n", os_sinit_data->mle_hdr_base);
+    printk(TBOOT_DETA"\t vtd_pmr_lo_base: 0x%Lx\n", os_sinit_data->vtd_pmr_lo_base);
+    printk(TBOOT_DETA"\t vtd_pmr_lo_size: 0x%Lx\n", os_sinit_data->vtd_pmr_lo_size);
+    printk(TBOOT_DETA"\t vtd_pmr_hi_base: 0x%Lx\n", os_sinit_data->vtd_pmr_hi_base);
+    printk(TBOOT_DETA"\t vtd_pmr_hi_size: 0x%Lx\n", os_sinit_data->vtd_pmr_hi_size);
+    printk(TBOOT_DETA"\t lcp_po_base: 0x%Lx\n", os_sinit_data->lcp_po_base);
+    printk(TBOOT_DETA"\t lcp_po_size: 0x%Lx (%Lu)\n", os_sinit_data->lcp_po_size,
            os_sinit_data->lcp_po_size);
     print_txt_caps("\t ", os_sinit_data->capabilities);
     if ( os_sinit_data->version >= 5 )
-        printk("\t efi_rsdt_ptr: 0x%Lx\n", os_sinit_data->efi_rsdt_ptr);
+        printk(TBOOT_DETA"\t efi_rsdt_ptr: 0x%Lx\n", os_sinit_data->efi_rsdt_ptr);
     if ( os_sinit_data->version >= 6 )
         print_ext_data_elts(os_sinit_data->ext_data_elts);
 }
@@ -475,11 +476,11 @@ static bool verify_os_sinit_data(const txt_heap_t *txt_heap)
     heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
     size = get_os_sinit_data_size(txt_heap);
     if ( size == 0 ) {
-        printk("OS to SINIT data size is 0\n");
+        printk(TBOOT_ERR"OS to SINIT data size is 0\n");
         return false;
     }
     if ( size > heap_size ) {
-        printk("OS to SINIT data size is larger than heap size "
+        printk(TBOOT_ERR"OS to SINIT data size is larger than heap size "
                "(%Lx, heap size=%Lx)\n", size, heap_size);
         return false;
     }
@@ -489,13 +490,13 @@ static bool verify_os_sinit_data(const txt_heap_t *txt_heap)
     /* check version (but since we create this, it should always be OK) */
     if ( os_sinit_data->version < MIN_OS_SINIT_DATA_VER ||
          os_sinit_data->version > MAX_OS_SINIT_DATA_VER ) {
-        printk("unsupported OS to SINIT data version (%u)\n",
+        printk(TBOOT_ERR"unsupported OS to SINIT data version (%u)\n",
                os_sinit_data->version);
         return false;
     }
 
     if ( size != calc_os_sinit_data_size(os_sinit_data->version) ) {
-        printk("OS to SINIT data size (%Lx) does not match for version (%x)\n",
+        printk(TBOOT_ERR"OS to SINIT data size (%Lx) does not match for version (%x)\n",
                size, sizeof(os_sinit_data_t));
         return false;
     }
@@ -517,44 +518,44 @@ static void print_sinit_mdrs(const sinit_mdr_t mdrs[], uint32_t num_mdrs)
                                       "SMRAM NON-OVERLAY",
                                       "PCIE EXTENDED CONFIG", "PROTECTED"};
 
-    printk("\t sinit_mdrs:\n");
+    printk(TBOOT_DETA"\t sinit_mdrs:\n");
     for ( unsigned int i = 0; i < num_mdrs; i++ ) {
-        printk("\t\t %016Lx - %016Lx ", mdrs[i].base,
+        printk(TBOOT_DETA"\t\t %016Lx - %016Lx ", mdrs[i].base,
                mdrs[i].base + mdrs[i].length);
         if ( mdrs[i].mem_type < sizeof(mem_types)/sizeof(mem_types[0]) )
-            printk("(%s)\n", mem_types[mdrs[i].mem_type]);
+            printk(TBOOT_DETA"(%s)\n", mem_types[mdrs[i].mem_type]);
         else
-            printk("(%d)\n", (int)mdrs[i].mem_type);
+            printk(TBOOT_DETA"(%d)\n", (int)mdrs[i].mem_type);
     }
 }
 
 static void print_sinit_mle_data(const sinit_mle_data_t *sinit_mle_data)
 {
-    printk("sinit_mle_data (@%p, %Lx):\n", sinit_mle_data,
+    printk(TBOOT_DETA"sinit_mle_data (@%p, %Lx):\n", sinit_mle_data,
            *((uint64_t *)sinit_mle_data - 1));
-    printk("\t version: %u\n", sinit_mle_data->version);
-    printk("\t bios_acm_id: \n\t");
+    printk(TBOOT_DETA"\t version: %u\n", sinit_mle_data->version);
+    printk(TBOOT_DETA"\t bios_acm_id: \n\t");
     print_heap_hash(sinit_mle_data->bios_acm_id);
-    printk("\t edx_senter_flags: 0x%08x\n",
+    printk(TBOOT_DETA"\t edx_senter_flags: 0x%08x\n",
            sinit_mle_data->edx_senter_flags);
-    printk("\t mseg_valid: 0x%Lx\n", sinit_mle_data->mseg_valid);
-    printk("\t sinit_hash:\n\t"); print_heap_hash(sinit_mle_data->sinit_hash);
-    printk("\t mle_hash:\n\t"); print_heap_hash(sinit_mle_data->mle_hash);
-    printk("\t stm_hash:\n\t"); print_heap_hash(sinit_mle_data->stm_hash);
-    printk("\t lcp_policy_hash:\n\t");
+    printk(TBOOT_DETA"\t mseg_valid: 0x%Lx\n", sinit_mle_data->mseg_valid);
+    printk(TBOOT_DETA"\t sinit_hash:\n\t"); print_heap_hash(sinit_mle_data->sinit_hash);
+    printk(TBOOT_DETA"\t mle_hash:\n\t"); print_heap_hash(sinit_mle_data->mle_hash);
+    printk(TBOOT_DETA"\t stm_hash:\n\t"); print_heap_hash(sinit_mle_data->stm_hash);
+    printk(TBOOT_DETA"\t lcp_policy_hash:\n\t");
         print_heap_hash(sinit_mle_data->lcp_policy_hash);
-    printk("\t lcp_policy_control: 0x%08x\n",
+    printk(TBOOT_DETA"\t lcp_policy_control: 0x%08x\n",
            sinit_mle_data->lcp_policy_control);
-    printk("\t rlp_wakeup_addr: 0x%x\n", sinit_mle_data->rlp_wakeup_addr);
-    printk("\t num_mdrs: %u\n", sinit_mle_data->num_mdrs);
-    printk("\t mdrs_off: 0x%x\n", sinit_mle_data->mdrs_off);
-    printk("\t num_vtd_dmars: %u\n", sinit_mle_data->num_vtd_dmars);
-    printk("\t vtd_dmars_off: 0x%x\n", sinit_mle_data->vtd_dmars_off);
+    printk(TBOOT_DETA"\t rlp_wakeup_addr: 0x%x\n", sinit_mle_data->rlp_wakeup_addr);
+    printk(TBOOT_DETA"\t num_mdrs: %u\n", sinit_mle_data->num_mdrs);
+    printk(TBOOT_DETA"\t mdrs_off: 0x%x\n", sinit_mle_data->mdrs_off);
+    printk(TBOOT_DETA"\t num_vtd_dmars: %u\n", sinit_mle_data->num_vtd_dmars);
+    printk(TBOOT_DETA"\t vtd_dmars_off: 0x%x\n", sinit_mle_data->vtd_dmars_off);
     print_sinit_mdrs((sinit_mdr_t *)
                      (((void *)sinit_mle_data - sizeof(uint64_t)) +
                       sinit_mle_data->mdrs_off), sinit_mle_data->num_mdrs);
     if ( sinit_mle_data->version >= 8 )
-        printk("\t proc_scrtm_status: 0x%08x\n",
+        printk(TBOOT_DETA"\t proc_scrtm_status: 0x%08x\n",
                sinit_mle_data->proc_scrtm_status);
 }
 
@@ -567,11 +568,11 @@ static bool verify_sinit_mle_data(const txt_heap_t *txt_heap)
     heap_size = read_priv_config_reg(TXTCR_HEAP_SIZE);
     size = get_sinit_mle_data_size(txt_heap);
     if ( size == 0 ) {
-        printk("SINIT to MLE data size is 0\n");
+        printk(TBOOT_ERR"SINIT to MLE data size is 0\n");
         return false;
     }
     if ( size > heap_size ) {
-        printk("SINIT to MLE data size is larger than heap size\n"
+        printk(TBOOT_ERR"SINIT to MLE data size is larger than heap size\n"
                "(%Lx, heap size=%Lx)\n", size, heap_size);
         return false;
     }
@@ -581,12 +582,12 @@ static bool verify_sinit_mle_data(const txt_heap_t *txt_heap)
     /* check version */
     sinit_mle_data = get_sinit_mle_data_start(txt_heap);
     if ( sinit_mle_data->version < 6 ) {
-        printk("unsupported SINIT to MLE data version (%u)\n",
+        printk(TBOOT_ERR"unsupported SINIT to MLE data version (%u)\n",
                sinit_mle_data->version);
         return false;
     }
     else if ( sinit_mle_data->version > 8 ) {
-        printk("unsupported SINIT to MLE data version (%u)\n",
+        printk(TBOOT_WARN"unsupported SINIT to MLE data version (%u)\n",
                sinit_mle_data->version);
     }
 
@@ -615,21 +616,21 @@ bool verify_txt_heap(const txt_heap_t *txt_heap, bool bios_data_only)
 
     /* overflow? */
     if ( plus_overflow_u64(size1, size2) ) {
-        printk("TXT heap data size overflows\n");
+        printk(TBOOT_ERR"TXT heap data size overflows\n");
         return false;
     }
     if ( plus_overflow_u64(size3, size4) ) {
-        printk("TXT heap data size overflows\n");
+        printk(TBOOT_ERR"TXT heap data size overflows\n");
         return false;
     }
     if ( plus_overflow_u64(size1 + size2, size3 + size4) ) {
-        printk("TXT heap data size overflows\n");
+        printk(TBOOT_ERR"TXT heap data size overflows\n");
         return false;
     }
 
     if ( (size1 + size2 + size3 + size4) >
          read_priv_config_reg(TXTCR_HEAP_SIZE) ) {
-        printk("TXT heap data sizes (%Lx, %Lx, %Lx, %Lx) are larger than\n"
+        printk(TBOOT_ERR"TXT heap data sizes (%Lx, %Lx, %Lx, %Lx) are larger than\n"
                "heap total size (%Lx)\n", size1, size2, size3, size4,
                read_priv_config_reg(TXTCR_HEAP_SIZE));
         return false;

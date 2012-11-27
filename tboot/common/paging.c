@@ -129,7 +129,7 @@ static void map_tboot_pages(unsigned long pfn, unsigned long nr_pfns)
        compare 'start >= DIRECTMAP_VIRT_START' */
     COMPILE_TIME_ASSERT(DIRECTMAP_VIRT_START == 0);
     if ( end > DIRECTMAP_VIRT_END ) {
-        printk("0x%llx ~ 0x%llx cannot be mapped as direct map\n", start, end);
+        printk(TBOOT_ERR"0x%llx ~ 0x%llx cannot be mapped as direct map\n", start, end);
         disable_paging();
         apply_policy(TB_ERR_FATAL);
     }

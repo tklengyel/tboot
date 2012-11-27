@@ -98,21 +98,21 @@ static void read_processor_info(void)
     g_cpuid_ext_feat_info = cpuid_ecx(1);
 
     g_feat_ctrl_msr = rdmsr(MSR_IA32_FEATURE_CONTROL);
-    printk("IA32_FEATURE_CONTROL_MSR: %08lx\n", g_feat_ctrl_msr);
+    printk(TBOOT_DETA"IA32_FEATURE_CONTROL_MSR: %08lx\n", g_feat_ctrl_msr);
 }
 
 static bool supports_vmx(void)
 {
     /* check that processor supports VMX instructions */
     if ( !(g_cpuid_ext_feat_info & CPUID_X86_FEATURE_VMX) ) {
-        printk("ERR: CPU does not support VMX\n");
+        printk(TBOOT_ERR"ERR: CPU does not support VMX\n");
         return false;
     }
-    printk("CPU is VMX-capable\n");
+    printk(TBOOT_INFO"CPU is VMX-capable\n");
 
     /* and that VMX is enabled in the feature control MSR */
     if ( !(g_feat_ctrl_msr & IA32_FEATURE_CONTROL_MSR_ENABLE_VMX_IN_SMX) ) {
-        printk("ERR: VMXON disabled by feature control MSR (%lx)\n",
+        printk(TBOOT_ERR"ERR: VMXON disabled by feature control MSR (%lx)\n",
                g_feat_ctrl_msr);
         return false;
     }
@@ -124,10 +124,10 @@ static bool supports_smx(void)
 {
     /* check that processor supports SMX instructions */
     if ( !(g_cpuid_ext_feat_info & CPUID_X86_FEATURE_SMX) ) {
-        printk("ERR: CPU does not support SMX\n");
+        printk(TBOOT_ERR"ERR: CPU does not support SMX\n");
         return false;
     }
-    printk("CPU is SMX-capable\n");
+    printk(TBOOT_INFO"CPU is SMX-capable\n");
 
     /*
      * and that SMX is enabled in the feature control MSR
@@ -135,7 +135,7 @@ static bool supports_smx(void)
 
     /* check that the MSR is locked -- BIOS should always lock it */
     if ( !(g_feat_ctrl_msr & IA32_FEATURE_CONTROL_MSR_LOCK) ) {
-        printk("ERR: IA32_FEATURE_CONTROL_MSR_LOCK is not locked\n");
+        printk(TBOOT_ERR"ERR: IA32_FEATURE_CONTROL_MSR_LOCK is not locked\n");
         /* this should not happen, as BIOS is required to lock the MSR */
 #ifdef PERMISSIVE_BOOT
         /* we enable VMX outside of SMX as well so that if there was some */
@@ -155,7 +155,7 @@ static bool supports_smx(void)
     /* check that SENTER (w/ full params) is enabled */
     if ( !(g_feat_ctrl_msr & (IA32_FEATURE_CONTROL_MSR_ENABLE_SENTER |
                               IA32_FEATURE_CONTROL_MSR_SENTER_PARAM_CTL)) ) {
-        printk("ERR: SENTER disabled by feature control MSR (%lx)\n",
+        printk(TBOOT_ERR"ERR: SENTER disabled by feature control MSR (%lx)\n",
                g_feat_ctrl_msr);
         return false;
     }
@@ -192,7 +192,7 @@ tb_error_t supports_txt(void)
 
     /* testing for chipset support requires enabling SMX on the processor */
     write_cr4(read_cr4() | CR4_SMXE);
-    printk("SMX is enabled\n");
+    printk(TBOOT_INFO"SMX is enabled\n");
 
     /*
      * verify that an TXT-capable chipset is present and
@@ -203,14 +203,14 @@ tb_error_t supports_txt(void)
     if ( cap.chipset_present ) {
         if ( cap.senter && cap.sexit && cap.parameters && cap.smctrl &&
              cap.wakeup ) {
-            printk("TXT chipset and all needed capabilities present\n");
+            printk(TBOOT_INFO"TXT chipset and all needed capabilities present\n");
             return TB_ERR_NONE;
         }
         else
-            printk("ERR: insufficient SMX capabilities (%x)\n", cap._raw);
+            printk(TBOOT_ERR"ERR: insufficient SMX capabilities (%x)\n", cap._raw);
     }
     else
-        printk("ERR: TXT-capable chipset not present\n");
+        printk(TBOOT_ERR"ERR: TXT-capable chipset not present\n");
 
     /* since we are failing, we should clear the SMX flag */
     write_cr4(read_cr4() & ~CR4_SMXE);
@@ -231,7 +231,7 @@ static bool reserve_vtd_delta_mem(uint64_t min_lo_ram, uint64_t max_lo_ram,
                         os_sinit_data->vtd_pmr_lo_size) ) {
         base = os_sinit_data->vtd_pmr_lo_base + os_sinit_data->vtd_pmr_lo_size;
         length = max_lo_ram - base;
-        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
+        printk(TBOOT_INFO"reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
                base, base + length);
         if ( !e820_reserve_ram(base, length) )
             return false;
@@ -240,7 +240,7 @@ static bool reserve_vtd_delta_mem(uint64_t min_lo_ram, uint64_t max_lo_ram,
                         os_sinit_data->vtd_pmr_hi_size) ) {
         base = os_sinit_data->vtd_pmr_hi_base + os_sinit_data->vtd_pmr_hi_size;
         length = max_hi_ram - base;
-        printk("reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
+        printk(TBOOT_INFO"reserving 0x%Lx - 0x%Lx, which was truncated for VT-d\n",
                base, base + length);
         if ( !e820_reserve_ram(base, length) )
             return false;
@@ -280,7 +280,7 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
            not used by the kernel */
         if ( !reserve_vtd_delta_mem(min_lo_ram, max_lo_ram, min_hi_ram,
                                     max_hi_ram) ) {
-            printk("failed to reserve VT-d PMR delta memory\n");
+            printk(TBOOT_ERR"failed to reserve VT-d PMR delta memory\n");
             return false;
         }
     }
@@ -298,7 +298,7 @@ static bool verify_vtd_pmrs(txt_heap_t *txt_heap)
           os_sinit_data->vtd_pmr_hi_base) ||
          (tmp_os_sinit_data.vtd_pmr_hi_size !=
           os_sinit_data->vtd_pmr_hi_size) ) {
-        printk("OS to SINIT data VT-d PMR settings do not match:\n");
+        printk(TBOOT_ERR"OS to SINIT data VT-d PMR settings do not match:\n");
         print_os_sinit_data(&tmp_os_sinit_data);
         print_os_sinit_data(os_sinit_data);
         return false;
@@ -319,8 +319,8 @@ void set_vtd_pmrs(os_sinit_data_t *os_sinit_data,
                   uint64_t min_lo_ram, uint64_t max_lo_ram,
                   uint64_t min_hi_ram, uint64_t max_hi_ram)
 {
-    printk("min_lo_ram: 0x%Lx, max_lo_ram: 0x%Lx\n", min_lo_ram, max_lo_ram);
-    printk("min_hi_ram: 0x%Lx, max_hi_ram: 0x%Lx\n", min_hi_ram, max_hi_ram);
+    printk(TBOOT_DETA"min_lo_ram: 0x%Lx, max_lo_ram: 0x%Lx\n", min_lo_ram, max_lo_ram);
+    printk(TBOOT_DETA"min_hi_ram: 0x%Lx, max_hi_ram: 0x%Lx\n", min_hi_ram, max_hi_ram);
 
     /*
      * base must be 2M-aligned and size must be multiple of 2M
@@ -355,7 +355,7 @@ tb_error_t txt_verify_platform(void)
     /* check is TXT_RESET.STS is set, since if it is SENTER will fail */
     txt_ests_t ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
     if ( ests.txt_reset_sts ) {
-        printk("TXT_RESET.STS is set and SENTER is disabled (0x%02Lx)\n",
+        printk(TBOOT_ERR"TXT_RESET.STS is set and SENTER is disabled (0x%02Lx)\n",
                ests._raw);
         return TB_ERR_SMX_NOT_SUPPORTED;
     }
@@ -450,15 +450,15 @@ bool verify_e820_map(sinit_mdr_t* mdrs_base, uint32_t num_mdrs)
 
 static void print_mseg_hdr(mseg_hdr_t *mseg_hdr)
 {
-    printk("MSEG header dump for 0x%x:\n", (uint32_t)mseg_hdr);
-    printk("\t revision_id = 0x%x\n", mseg_hdr->revision_id);
-    printk("\t smm_monitor_features = 0x%x\n", mseg_hdr->smm_mon_feat);
-    printk("\t gdtr_limit = 0x%x\n", mseg_hdr->gdtr_limit);
-    printk("\t gdtr_base_offset = 0x%x\n", mseg_hdr->gdtr_base_offset);
-    printk("\t cs_sel = 0x%x\n", mseg_hdr->cs_sel);
-    printk("\t eip_offset = 0x%x\n", mseg_hdr->eip_offset);
-    printk("\t esp_offset = 0x%x\n", mseg_hdr->esp_offset);
-    printk("\t cr3_offset = 0x%x\n", mseg_hdr->cr3_offset);
+    printk(TBOOT_DETA"MSEG header dump for 0x%x:\n", (uint32_t)mseg_hdr);
+    printk(TBOOT_DETA"\t revision_id = 0x%x\n", mseg_hdr->revision_id);
+    printk(TBOOT_DETA"\t smm_monitor_features = 0x%x\n", mseg_hdr->smm_mon_feat);
+    printk(TBOOT_DETA"\t gdtr_limit = 0x%x\n", mseg_hdr->gdtr_limit);
+    printk(TBOOT_DETA"\t gdtr_base_offset = 0x%x\n", mseg_hdr->gdtr_base_offset);
+    printk(TBOOT_DETA"\t cs_sel = 0x%x\n", mseg_hdr->cs_sel);
+    printk(TBOOT_DETA"\t eip_offset = 0x%x\n", mseg_hdr->eip_offset);
+    printk(TBOOT_DETA"\t esp_offset = 0x%x\n", mseg_hdr->esp_offset);
+    printk(TBOOT_DETA"\t cr3_offset = 0x%x\n", mseg_hdr->cr3_offset);
 }
 
 static bool are_mseg_hdrs_equal(void *mseg_base1, void *mseg_base2)
@@ -472,18 +472,18 @@ static bool are_mseg_hdrs_equal(void *mseg_base1, void *mseg_base2)
     print_mseg_hdr(mseg_hdr2);
 
     if ( mseg_hdr1->revision_id != mseg_hdr2->revision_id ) {
-        printk("revision id is not consistent.\n");
+        printk(TBOOT_ERR"revision id is not consistent.\n");
         return false;
     }
 
     if ( (mseg_hdr1->smm_mon_feat & 0xfffffffe)
         || (mseg_hdr2->smm_mon_feat & 0xfffffffe) ) {
-        printk("bits 1:31 of SMM-monitor features field should be zero.\n");
+        printk(TBOOT_ERR"bits 1:31 of SMM-monitor features field should be zero.\n");
         return false;
     }
 
     if ( mseg_hdr1->smm_mon_feat != mseg_hdr2->smm_mon_feat ) {
-        printk("SMM-monitor features are not consistent.\n");
+        printk(TBOOT_ERR"SMM-monitor features are not consistent.\n");
         return false;
     }
 
@@ -493,7 +493,7 @@ static bool are_mseg_hdrs_equal(void *mseg_base1, void *mseg_base2)
         || (mseg_hdr1->eip_offset != mseg_hdr2->eip_offset)
         || (mseg_hdr1->esp_offset != mseg_hdr2->esp_offset)
         || (mseg_hdr1->cr3_offset != mseg_hdr2->cr3_offset) ) {
-        printk("states for SMM activation are not consistent.\n");
+        printk(TBOOT_ERR"states for SMM activation are not consistent.\n");
         return false;
     }
 
@@ -508,27 +508,27 @@ static bool verify_mseg(uint64_t smm_mon_ctl)
 
     /* opt-out */
     if ( !(smm_mon_ctl & MSR_IA32_SMM_MONITOR_CTL_VALID) ) {
-        printk("\topt-out\n");
+        printk(TBOOT_INFO"\topt-out\n");
         return true;
     }
 
     if ( !sinit_mle_data->mseg_valid ) {
-        printk("\topt-out\n");
+        printk(TBOOT_INFO"\topt-out\n");
         return true;
     }
 
     /* opt-in */
-    printk("\topt-in ");
+    printk(TBOOT_INFO"\topt-in ");
     mseg_base = (void *)(unsigned long)
         MSR_IA32_SMM_MONITOR_CTL_MSEG_BASE(smm_mon_ctl);
     txt_mseg_base = (void *)(uint32_t)read_pub_config_reg(TXTCR_MSEG_BASE);
 
     if ( are_mseg_hdrs_equal(mseg_base, txt_mseg_base) ) {
-        printk("and same MSEG header\n");
+        printk(TBOOT_INFO"and same MSEG header\n");
         return true;
     }
 
-    printk("but different MSEG headers\n");
+    printk(TBOOT_ERR"but different MSEG headers\n");
     return false;
 }
 
@@ -541,30 +541,30 @@ bool verify_stm(unsigned int cpuid)
     apicbase = rdmsr(MSR_APICBASE);
     if ( apicbase & APICBASE_BSP ) {
         ilp_smm_mon_ctl = smm_mon_ctl;
-        printk("MSR for SMM monitor control on BSP is 0x%Lx.\n",
+        printk(TBOOT_DETA"MSR for SMM monitor control on BSP is 0x%Lx.\n",
                ilp_smm_mon_ctl);
 
         /* verify ILP's MSEG == TXT.MSEG.BASE */
-        printk("verifying ILP is opt-out "
+        printk(TBOOT_INFO"verifying ILP is opt-out "
                "or has the same MSEG header with TXT.MSEG.BASE\n\t");
         if ( !verify_mseg(ilp_smm_mon_ctl) ) {
-            printk(" : failed.\n");
+            printk(TBOOT_ERR" : failed.\n");
             return false;
         }
-        printk(" : succeeded.\n");
+        printk(TBOOT_INFO" : succeeded.\n");
     }
     else {
-        printk("MSR for SMM monitor control on cpu %u is 0x%Lx\n",
+        printk(TBOOT_DETA"MSR for SMM monitor control on cpu %u is 0x%Lx\n",
                cpuid, smm_mon_ctl);
 
         /* verify ILP's SMM MSR == RLP's SMM MSR */
-        printk("verifying ILP's MSR_IA32_SMM_MONITOR_CTL with cpu %u\n\t",
+        printk(TBOOT_INFO"verifying ILP's MSR_IA32_SMM_MONITOR_CTL with cpu %u\n\t",
                cpuid);
         if ( smm_mon_ctl != ilp_smm_mon_ctl ) {
-            printk(" : failed.\n");
+            printk(TBOOT_ERR" : failed.\n");
             return false;
         }
-        printk(" : succeeded.\n");
+        printk(TBOOT_INFO" : succeeded.\n");
 
         /* since the RLP's MSR is the same. No need to verify MSEG header */
     }

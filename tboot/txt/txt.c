@@ -113,26 +113,27 @@ atomic_t ap_wfs_count;
 
 static void print_file_info(void)
 {
-    printk("file addresses:\n");
-    printk("\t &_start=%p\n", &_start);
-    printk("\t &_end=%p\n", &_end);
-    printk("\t &_mle_start=%p\n", &_mle_start);
-    printk("\t &_mle_end=%p\n", &_mle_end);
-    printk("\t &_post_launch_entry=%p\n", &_post_launch_entry);
-    printk("\t &_txt_wakeup=%p\n", &_txt_wakeup);
-    printk("\t &g_mle_hdr=%p\n", &g_mle_hdr);
+    printk(TBOOT_DETA"file addresses:\n");
+    printk(TBOOT_DETA"\t &_start=%p\n", &_start);
+    printk(TBOOT_DETA"\t &_end=%p\n", &_end);
+    printk(TBOOT_DETA"\t &_mle_start=%p\n", &_mle_start);
+    printk(TBOOT_DETA"\t &_mle_end=%p\n", &_mle_end);
+    printk(TBOOT_DETA"\t &_post_launch_entry=%p\n", &_post_launch_entry);
+    printk(TBOOT_DETA"\t &_txt_wakeup=%p\n", &_txt_wakeup);
+    printk(TBOOT_DETA"\t &g_mle_hdr=%p\n", &g_mle_hdr);
 }
 
 static void print_mle_hdr(const mle_hdr_t *mle_hdr)
 {
-    printk("MLE header:\n");
-    printk("\t uuid="); print_uuid(&mle_hdr->uuid); printk("\n");
-    printk("\t length=%x\n", mle_hdr->length);
-    printk("\t version=%08x\n", mle_hdr->version);
-    printk("\t entry_point=%08x\n", mle_hdr->entry_point);
-    printk("\t first_valid_page=%08x\n", mle_hdr->first_valid_page);
-    printk("\t mle_start_off=%x\n", mle_hdr->mle_start_off);
-    printk("\t mle_end_off=%x\n", mle_hdr->mle_end_off);
+    printk(TBOOT_DETA"MLE header:\n");
+    printk(TBOOT_DETA"\t uuid="); print_uuid(&mle_hdr->uuid); 
+    printk(TBOOT_DETA"\n");
+    printk(TBOOT_DETA"\t length=%x\n", mle_hdr->length);
+    printk(TBOOT_DETA"\t version=%08x\n", mle_hdr->version);
+    printk(TBOOT_DETA"\t entry_point=%08x\n", mle_hdr->entry_point);
+    printk(TBOOT_DETA"\t first_valid_page=%08x\n", mle_hdr->first_valid_page);
+    printk(TBOOT_DETA"\t mle_start_off=%x\n", mle_hdr->mle_start_off);
+    printk(TBOOT_DETA"\t mle_end_off=%x\n", mle_hdr->mle_end_off);
     print_txt_caps("\t ", mle_hdr->capabilities);
 }
 
@@ -157,17 +158,17 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     void *pg_dir_ptr_tab, *pg_dir, *pg_tab;
     uint64_t *pte;
 
-    printk("MLE start=%x, end=%x, size=%x\n", mle_start, mle_start+mle_size,
+    printk(TBOOT_DETA"MLE start=%x, end=%x, size=%x\n", mle_start, mle_start+mle_size,
            mle_size);
     if ( mle_size > 512*PAGE_SIZE ) {
-        printk("MLE size too big for single page table\n");
+        printk(TBOOT_ERR"MLE size too big for single page table\n");
         return NULL;
     }
 
 
     /* should start on page boundary */
     if ( mle_start & ~PAGE_MASK ) {
-        printk("MLE start is not page-aligned\n");
+        printk(TBOOT_ERR"MLE start is not page-aligned\n");
         return NULL;
     }
 
@@ -175,7 +176,7 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     ptab_size = sizeof(g_mle_pt);
     ptab_base = &g_mle_pt;
     memset(ptab_base, 0, ptab_size);
-    printk("ptab_size=%x, ptab_base=%p\n", ptab_size, ptab_base);
+    printk(TBOOT_DETA"ptab_size=%x, ptab_base=%p\n", ptab_size, ptab_base);
 
     pg_dir_ptr_tab = ptab_base;
     pg_dir         = pg_dir_ptr_tab + PAGE_SIZE;
@@ -212,14 +213,14 @@ static bool find_platform_sinit_module(const multiboot_info_t *mbi, void **base,
         *size = 0;
 
     if ( mbi->mods_addr == 0 || mbi->mods_count == 0 ) {
-        printk("no module info\n");
+        printk(TBOOT_ERR"no module info\n");
         return false;
     }
 
     for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
         module_t *m = get_module(mbi, i);
 
-        printk("checking if module %s is an SINIT for this platform...\n",
+        printk(TBOOT_DETA"checking if module %s is an SINIT for this platform...\n",
                (const char *)m->string);
         void *base2 = (void *)m->mod_start;
         uint32_t size2 = m->mod_end - (unsigned long)(base2);
@@ -229,12 +230,12 @@ static bool find_platform_sinit_module(const multiboot_info_t *mbi, void **base,
                 *base = base2;
             if ( size != NULL )
                 *size = size2;
-            printk("SINIT matches platform\n");
+            printk(TBOOT_DETA"SINIT matches platform\n");
             return true;
         }
     }
     /* no SINIT found for this platform */
-    printk("no SINIT AC module found\n");
+    printk(TBOOT_ERR"no SINIT AC module found\n");
     return false;
 }
 
@@ -258,14 +259,14 @@ bool find_lcp_module(const multiboot_info_t *mbi, void **base, uint32_t *size)
                                       LCP_POLICY_DATA_FILE_SIGNATURE);
 
         if ( base2 == NULL ) {
-            printk("no LCP module found\n");
+            printk(TBOOT_WARN"no LCP module found\n");
             return false;
         }
         else
-            printk("v2 LCP policy data found\n");
+            printk(TBOOT_INFO"v2 LCP policy data found\n");
     }
     else
-        printk("v1 LCP policy data found\n");
+        printk(TBOOT_INFO"v1 LCP policy data found\n");
 
 
     if ( base != NULL )
@@ -369,7 +370,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /* check sinit supported os_sinit_data version */
     uint32_t version = get_supported_os_sinit_data_ver(sinit);
     if ( version < MIN_OS_SINIT_DATA_VER ) {
-        printk("unsupported OS to SINIT data version(%u) in sinit\n", version);
+        printk(TBOOT_ERR"unsupported OS to SINIT data version(%u) in sinit\n", version);
         return NULL;
     }
     if ( version > MAX_OS_SINIT_DATA_VER )
@@ -399,7 +400,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     if ( find_lcp_module(mbi, &lcp_base, &lcp_size) && lcp_size > 0 ) {
         /* copy to heap */
         if ( lcp_size > sizeof(os_mle_data->lcp_po_data) ) {
-            printk("LCP owner policy data file is too large (%u)\n", lcp_size);
+            printk(TBOOT_ERR"LCP owner policy data file is too large (%u)\n", lcp_size);
             return NULL;
         }
         memcpy(os_mle_data->lcp_po_data, lcp_base, lcp_size);
@@ -418,7 +419,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     else if ( sinit_caps.rlp_wake_getsec )
         os_sinit_data->capabilities.rlp_wake_getsec = 1;
     else {     /* should have been detected in verify_acmod() */
-        printk("SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
+        printk(TBOOT_ERR"SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
         return NULL;
     }
     /* capabilities : require MLE pagetable in ECX on launch */
@@ -434,11 +435,11 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     else if ( !sinit_caps.pcr_map_no_legacy )
         os_sinit_data->capabilities.pcr_map_no_legacy = 0;
     else if ( sinit_caps.pcr_map_da ) {
-        printk("DA is the only supported PCR mapping by SINIT, use it\n");
+        printk(TBOOT_INFO"DA is the only supported PCR mapping by SINIT, use it\n");
         os_sinit_data->capabilities.pcr_map_da = 1;
     }
     else {
-        printk("SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
+        printk(TBOOT_ERR"SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
         return NULL;
     }
     g_using_da = os_sinit_data->capabilities.pcr_map_da;
@@ -468,7 +469,7 @@ static void txt_wakeup_cpus(void)
 
     /* enable SMIs on BSP before waking APs (which will enable them on APs)
        because some SMM may take immediate SMI and hang if AP gets in first */
-    printk("enabling SMIs on BSP\n");
+    printk(TBOOT_DETA"enabling SMIs on BSP\n");
     __getsec_smctrl();
 
     atomic_set(&ap_wfs_count, 0);
@@ -482,10 +483,10 @@ static void txt_wakeup_cpus(void)
     mle_join.gdt_base = (uint32_t)gdt_table;
     mle_join.gdt_limit = gdt_table_end - gdt_table - 1;
 
-    printk("mle_join.entry_point = %x\n", mle_join.entry_point);
-    printk("mle_join.seg_sel = %x\n", mle_join.seg_sel);
-    printk("mle_join.gdt_base = %x\n", mle_join.gdt_base);
-    printk("mle_join.gdt_limit = %x\n", mle_join.gdt_limit);
+    printk(TBOOT_DETA"mle_join.entry_point = %x\n", mle_join.entry_point);
+    printk(TBOOT_DETA"mle_join.seg_sel = %x\n", mle_join.seg_sel);
+    printk(TBOOT_DETA"mle_join.gdt_base = %x\n", mle_join.gdt_base);
+    printk(TBOOT_DETA"mle_join.gdt_limit = %x\n", mle_join.gdt_limit);
 
     write_priv_config_reg(TXTCR_MLE_JOIN, (uint64_t)(unsigned long)&mle_join);
 
@@ -497,14 +498,14 @@ static void txt_wakeup_cpus(void)
 
     /* choose wakeup mechanism based on capabilities used */
     if ( os_sinit_data->capabilities.rlp_wake_monitor ) {
-        printk("joining RLPs to MLE with MONITOR wakeup\n");
-        printk("rlp_wakeup_addr = 0x%x\n", sinit_mle_data->rlp_wakeup_addr);
+        printk(TBOOT_INFO"joining RLPs to MLE with MONITOR wakeup\n");
+        printk(TBOOT_DETA"rlp_wakeup_addr = 0x%x\n", sinit_mle_data->rlp_wakeup_addr);
         *((uint32_t *)(unsigned long)(sinit_mle_data->rlp_wakeup_addr)) = 0x01;
     }
     else {
-        printk("joining RLPs to MLE with GETSEC[WAKEUP]\n");
+        printk(TBOOT_INFO"joining RLPs to MLE with GETSEC[WAKEUP]\n");
         __getsec_wakeup();
-        printk("GETSEC[WAKEUP] completed\n");
+        printk(TBOOT_INFO"GETSEC[WAKEUP] completed\n");
     }
 
     /* assume BIOS isn't lying to us about # CPUs, else some CPUS may not */
@@ -514,29 +515,29 @@ static void txt_wakeup_cpus(void)
     bios_data_t *bios_data = get_bios_data_start(txt_heap);
     ap_wakeup_count = bios_data->num_logical_procs - 1;
     if ( ap_wakeup_count >= NR_CPUS ) {
-        printk("there are too many CPUs (%u)\n", ap_wakeup_count);
+        printk(TBOOT_INFO"there are too many CPUs (%u)\n", ap_wakeup_count);
         ap_wakeup_count = NR_CPUS - 1;
     }
 
-    printk("waiting for all APs (%d) to enter wait-for-sipi...\n",
+    printk(TBOOT_INFO"waiting for all APs (%d) to enter wait-for-sipi...\n",
            ap_wakeup_count);
     /* wait for all APs that woke up to have entered wait-for-sipi */
     uint32_t timeout = AP_WFS_TIMEOUT;
     do {
         if ( timeout % 0x8000 == 0 )
-            printk(".");
+            printk(TBOOT_INFO".");
         else
             cpu_relax();
         if ( timeout % 0x200000 == 0 )
-            printk("\n");
+            printk(TBOOT_INFO"\n");
         timeout--;
     } while ( ( atomic_read(&ap_wfs_count) < ap_wakeup_count ) &&
               timeout > 0 );
-    printk("\n");
+    printk(TBOOT_INFO"\n");
     if ( timeout == 0 )
-        printk("wait-for-sipi loop timed-out\n");
+        printk(TBOOT_INFO"wait-for-sipi loop timed-out\n");
     else
-        printk("all APs in wait-for-sipi\n");
+        printk(TBOOT_INFO"all APs in wait-for-sipi\n");
 }
 
 bool txt_is_launched(void)
@@ -592,12 +593,12 @@ tb_error_t txt_launch_environment(const multiboot_info_t *mbi)
     if ( !set_mtrrs_for_acmod(sinit) )
         return TB_ERR_FATAL;
 
-    printk("executing GETSEC[SENTER]...\n");
+    printk(TBOOT_INFO"executing GETSEC[SENTER]...\n");
     /* (optionally) pause before executing GETSEC[SENTER] */
     if ( g_vga_delay > 0 )
         delay(g_vga_delay * 1000);
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
-    printk("ERROR--we should not get here!\n");
+    printk(TBOOT_INFO"ERROR--we should not get here!\n");
     return TB_ERR_FATAL;
 }
 
@@ -622,12 +623,12 @@ bool txt_s3_launch_environment(void)
     /* set MTRRs properly for AC module (SINIT) */
     set_mtrrs_for_acmod(sinit);
 
-    printk("executing GETSEC[SENTER]...\n");
+    printk(TBOOT_INFO"executing GETSEC[SENTER]...\n");
     /* (optionally) pause before executing GETSEC[SENTER] */
     if ( g_vga_delay > 0 )
         delay(g_vga_delay * 1000);
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
-    printk("ERROR--we should not get here!\n");
+    printk(TBOOT_ERR"ERROR--we should not get here!\n");
     return false;
 }
 
@@ -643,24 +644,24 @@ bool txt_prepare_cpu(void)
 
     /* must be in protected mode */
     if ( !(cr0 & CR0_PE) ) {
-        printk("ERR: not in protected mode\n");
+        printk(TBOOT_ERR"ERR: not in protected mode\n");
         return false;
     }
 
     /* cache must be enabled (CR0.CD = CR0.NW = 0) */
     if ( cr0 & CR0_CD ) {
-        printk("CR0.CD set\n");
+        printk(TBOOT_INFO"CR0.CD set\n");
         cr0 &= ~CR0_CD;
     }
     if ( cr0 & CR0_NW ) {
-        printk("CR0.NW set\n");
+        printk(TBOOT_INFO"CR0.NW set\n");
         cr0 &= ~CR0_NW;
     }
 
     /* native FPU error reporting must be enabled for proper */
     /* interaction behavior */
     if ( !(cr0 & CR0_NE) ) {
-        printk("CR0.NE not set\n");
+        printk(TBOOT_INFO"CR0.NE not set\n");
         cr0 |= CR0_NE;
     }
 
@@ -669,17 +670,17 @@ bool txt_prepare_cpu(void)
     /* cannot be in virtual-8086 mode (EFLAGS.VM=1) */
     eflags = read_eflags();
     if ( eflags & X86_EFLAGS_VM ) {
-        printk("EFLAGS.VM set\n");
+        printk(TBOOT_INFO"EFLAGS.VM set\n");
         write_eflags(eflags | ~X86_EFLAGS_VM);
     }
 
-    printk("CR0 and EFLAGS OK\n");
+    printk(TBOOT_INFO"CR0 and EFLAGS OK\n");
 
     /*
      * verify that we're not already in a protected environment
      */
     if ( txt_is_launched() ) {
-        printk("already in protected environment\n");
+        printk(TBOOT_ERR"already in protected environment\n");
         return false;
     }
 
@@ -691,13 +692,13 @@ bool txt_prepare_cpu(void)
     /* no machine check in progress (IA32_MCG_STATUS.MCIP=1) */
     mcg_stat = rdmsr(MSR_MCG_STATUS);
     if ( mcg_stat & 0x04 ) {
-        printk("machine check in progress\n");
+        printk(TBOOT_ERR"machine check in progress\n");
         return false;
     }
 
     getsec_parameters_t params;
     if ( !get_parameters(&params) ) {
-        printk("get_parameters() failed\n");
+        printk(TBOOT_ERR"get_parameters() failed\n");
         return false;
     }
 
@@ -706,22 +707,22 @@ bool txt_prepare_cpu(void)
     for ( unsigned int i = 0; i < (mcg_cap & 0xff); i++ ) {
         mcg_stat = rdmsr(MSR_MC0_STATUS + 4*i);
         if ( mcg_stat & (1ULL << 63) ) {
-            printk("MCG[%u] = %Lx ERROR\n", i, mcg_stat);
+            printk(TBOOT_ERR"MCG[%u] = %Lx ERROR\n", i, mcg_stat);
             if ( !params.preserve_mce )
                 return false;
         }
     }
 
     if ( params.preserve_mce )
-        printk("supports preserving machine check errors\n");
+        printk(TBOOT_INFO"supports preserving machine check errors\n");
     else
-        printk("no machine check errors\n");
+        printk(TBOOT_INFO"no machine check errors\n");
 
     if ( params.proc_based_scrtm )
-        printk("CPU support processor-based S-CRTM\n");
+        printk(TBOOT_INFO"CPU support processor-based S-CRTM\n");
 
     /* all is well with the processor state */
-    printk("CPU is ready for SENTER\n");
+    printk(TBOOT_INFO"CPU is ready for SENTER\n");
 
     return true;
 }
@@ -736,7 +737,7 @@ void txt_post_launch(void)
     err = txt_post_launch_verify_platform();
     /* don't return the error yet, because we need to restore settings */
     if ( err != TB_ERR_NONE )
-        printk("failed to verify platform\n");
+        printk(TBOOT_ERR"failed to verify platform\n");
 
     /* get saved OS state (os_mvmm_data_t) from LT heap */
     txt_heap = get_txt_heap();
@@ -753,7 +754,7 @@ void txt_post_launch(void)
     /* restore pre-SENTER IA32_MISC_ENABLE_MSR (no verification needed)
        (do after AP wakeup so that if restored MSR has MWAIT clear it won't
        prevent wakeup) */
-    printk("saved IA32_MISC_ENABLE = 0x%08x\n",
+    printk(TBOOT_DETA"saved IA32_MISC_ENABLE = 0x%08x\n",
            os_mle_data->saved_misc_enable_msr);
     wrmsr(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
     if ( use_mwait() ) {
@@ -773,18 +774,18 @@ void txt_post_launch(void)
     /* always set the TXT.CMD.SECRETS flag */
     write_priv_config_reg(TXTCR_CMD_SECRETS, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
-    printk("set TXT.CMD.SECRETS flag\n");
+    printk(TBOOT_INFO"set TXT.CMD.SECRETS flag\n");
 
     /* open TPM locality 1 */
     write_priv_config_reg(TXTCR_CMD_OPEN_LOCALITY1, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* just a fence, so ignore return */
-    printk("opened TPM locality 1\n");
+    printk(TBOOT_INFO"opened TPM locality 1\n");
 }
 
 void ap_wait(unsigned int cpuid)
 {
     if ( cpuid >= NR_CPUS ) {
-        printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
+        printk(TBOOT_ERR"cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
         mtx_leave(&ap_lock);
         return;
@@ -800,7 +801,7 @@ void ap_wait(unsigned int cpuid)
     atomic_inc((atomic_t *)&_tboot_shared.num_in_wfs);
     mtx_leave(&ap_lock);
 
-    printk("cpu %u mwait'ing\n", cpuid);
+    printk(TBOOT_INFO"cpu %u mwait'ing\n", cpuid);
     while ( _tboot_shared.ap_wake_trigger != cpuid ) {
         cpu_monitor(&_tboot_shared.ap_wake_trigger, 0, 0);
         mb();
@@ -822,14 +823,14 @@ void txt_cpu_wakeup(void)
     unsigned int cpuid = get_apicid();
 
     if ( cpuid >= NR_CPUS ) {
-        printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
+        printk(TBOOT_ERR"cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
         return;
     }
 
     mtx_enter(&ap_lock);
 
-    printk("cpu %u waking up from TXT sleep\n", cpuid);
+    printk(TBOOT_INFO"cpu %u waking up from TXT sleep\n", cpuid);
 
     txt_heap = get_txt_heap();
     os_mle_data = get_os_mle_data_start(txt_heap);
@@ -844,7 +845,7 @@ void txt_cpu_wakeup(void)
         apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* enable SMIs */
-    printk("enabling SMIs on cpu %u\n", cpuid);
+    printk(TBOOT_DETA"enabling SMIs on cpu %u\n", cpuid);
     __getsec_smctrl();
 
     atomic_inc(&ap_wfs_count);
@@ -867,7 +868,7 @@ tb_error_t txt_protect_mem_regions(void)
     /* TXT heap */
     base = read_pub_config_reg(TXTCR_HEAP_BASE);
     size = read_pub_config_reg(TXTCR_HEAP_SIZE);
-    printk("protecting TXT heap (%Lx - %Lx) in e820 table\n", base,
+    printk(TBOOT_INFO"protecting TXT heap (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, E820_RESERVED) )
         return TB_ERR_FATAL;
@@ -875,7 +876,7 @@ tb_error_t txt_protect_mem_regions(void)
     /* SINIT */
     base = read_pub_config_reg(TXTCR_SINIT_BASE);
     size = read_pub_config_reg(TXTCR_SINIT_SIZE);
-    printk("protecting SINIT (%Lx - %Lx) in e820 table\n", base,
+    printk(TBOOT_INFO"protecting SINIT (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, E820_RESERVED) )
         return TB_ERR_FATAL;
@@ -883,7 +884,7 @@ tb_error_t txt_protect_mem_regions(void)
     /* TXT private space */
     base = TXT_PRIV_CONFIG_REGS_BASE;
     size = TXT_CONFIG_REGS_SIZE;
-    printk("protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
+    printk(TBOOT_INFO"protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
            base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_RESERVED) )
         return TB_ERR_FATAL;
@@ -896,12 +897,12 @@ tb_error_t txt_protect_mem_regions(void)
     sinit_mdr_t *mdrs_base = (sinit_mdr_t *)(((void *)sinit_mle_data
                                               - sizeof(uint64_t)) +
                                              sinit_mle_data->mdrs_off);
-    printk("verifying e820 table against SINIT MDRs: ");
+    printk(TBOOT_INFO"verifying e820 table against SINIT MDRs: ");
     if ( !verify_e820_map(mdrs_base, num_mdrs) ) {
-        printk("verification failed.\n");
+        printk(TBOOT_ERR"verification failed.\n");
         return TB_ERR_POST_LAUNCH_VERIFICATION;
     }
-    printk("verification succeeded.\n");
+    printk(TBOOT_INFO"verification succeeded.\n");
 
     return TB_ERR_NONE;
 }
@@ -913,7 +914,7 @@ void txt_shutdown(void)
     /* shutdown shouldn't be called on APs, but if it is then just hlt */
     apicbase = rdmsr(MSR_APICBASE);
     if ( !(apicbase & APICBASE_BSP) ) {
-        printk("calling txt_shutdown on AP\n");
+        printk(TBOOT_INFO"calling txt_shutdown on AP\n");
         while ( true )
             halt();
     }
@@ -921,17 +922,17 @@ void txt_shutdown(void)
     /* set TXT.CMD.NO-SECRETS flag (i.e. clear SECRETS flag) */
     write_priv_config_reg(TXTCR_CMD_NO_SECRETS, 0x01);
     read_priv_config_reg(TXTCR_E2STS);   /* fence */
-    printk("secrets flag cleared\n");
+    printk(TBOOT_INFO"secrets flag cleared\n");
 
     /* unlock memory configuration */
     write_priv_config_reg(TXTCR_CMD_UNLOCK_MEM_CONFIG, 0x01);
     read_pub_config_reg(TXTCR_E2STS);    /* fence */
-    printk("memory configuration unlocked\n");
+    printk(TBOOT_INFO"memory configuration unlocked\n");
 
     /* if some APs are still in wait-for-sipi then SEXIT will hang */
     /* so TXT reset the platform instead, expect mwait case */
     if ( (!use_mwait()) && atomic_read(&ap_wfs_count) > 0 ) {
-        printk("exiting with some APs still in wait-for-sipi state (%u)\n",
+        printk(TBOOT_INFO"exiting with some APs still in wait-for-sipi state (%u)\n",
                atomic_read(&ap_wfs_count));
         write_priv_config_reg(TXTCR_CMD_RESET, 0x01);
     }
@@ -941,15 +942,15 @@ void txt_shutdown(void)
     read_priv_config_reg(TXTCR_E2STS);   /* fence */
     write_priv_config_reg(TXTCR_CMD_CLOSE_PRIVATE, 0x01);
     read_pub_config_reg(TXTCR_E2STS);    /* fence */
-    printk("private config space closed\n");
+    printk(TBOOT_INFO"private config space closed\n");
 
     /* SMXE may not be enabled any more, so set it to make sure */
     write_cr4(read_cr4() | CR4_SMXE);
 
     /* call GETSEC[SEXIT] */
-    printk("executing GETSEC[SEXIT]...\n");
+    printk(TBOOT_INFO"executing GETSEC[SEXIT]...\n");
     __getsec_sexit();
-    printk("measured environment torn down\n");
+    printk(TBOOT_INFO"measured environment torn down\n");
 }
 
 bool txt_is_powercycle_required(void)
@@ -980,7 +981,7 @@ bool get_parameters(getsec_parameters_t *params)
     /* sanity check because GETSEC[PARAMETERS] will fail if not set */
     cr4 = read_cr4();
     if ( !(cr4 & CR4_SMXE) ) {
-        printk("SMXE not enabled, can't read parameters\n");
+        printk(TBOOT_ERR"SMXE not enabled, can't read parameters\n");
         return false;
     }
 
@@ -1003,7 +1004,7 @@ bool get_parameters(getsec_parameters_t *params)
         /* supported ACM versions */
         else if ( param_type == 1 ) {
             if ( params->n_versions == MAX_SUPPORTED_ACM_VERSIONS )
-                printk("number of supported ACM version exceeds "
+                printk(TBOOT_WARN"number of supported ACM version exceeds "
                        "MAX_SUPPORTED_ACM_VERSIONS\n");
             else {
                 params->acm_versions[params->n_versions].mask = ebx;
@@ -1026,7 +1027,7 @@ bool get_parameters(getsec_parameters_t *params)
             params->preserve_mce = (eax & 0x00000040) ? true : false;
         }
         else {
-            printk("unknown GETSEC[PARAMETERS] type: %d\n", param_type);
+            printk(TBOOT_WARN"unknown GETSEC[PARAMETERS] type: %d\n", param_type);
             param_type = 0;    /* set so that we break out of the loop */
         }
     } while ( param_type != 0 );

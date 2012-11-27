@@ -193,7 +193,7 @@ static bool read_policy_from_tpm(tpm_nv_index_t index,
     uint32_t ret, index_size;
 
     if ( policy_index_size == NULL ) {
-        printk("size is NULL\n");
+        printk(TBOOT_ERR"size is NULL\n");
         return false;
     }
 
@@ -202,7 +202,7 @@ static bool read_policy_from_tpm(tpm_nv_index_t index,
         return false;
 
     if ( index_size > *policy_index_size ) {
-        printk("policy in TPM NV %x was too big for buffer\n", index);
+        printk(TBOOT_WARN"policy in TPM NV %x was too big for buffer\n", index);
         index_size = *policy_index_size;
     }
 
@@ -225,7 +225,7 @@ static bool read_policy_from_tpm(tpm_nv_index_t index,
     } while ( offset < index_size );
 
     if ( offset == 0 && ret != TPM_SUCCESS ) {
-        printk("Error: read TPM error: 0x%x from index %x.\n", ret, index);
+        printk(TBOOT_ERR"Error: read TPM error: 0x%x from index %x.\n", ret, index);
         return false;
     }
 
@@ -306,26 +306,26 @@ tb_error_t set_policy(void)
 {
     /* try to read tboot policy from TB_POLICY_INDEX in TPM NV */
     size_t policy_index_size = sizeof(_policy_index_buf);
-    printk("reading Verified Launch Policy from TPM NV...\n");
+    printk(TBOOT_INFO"reading Verified Launch Policy from TPM NV...\n");
     if ( read_policy_from_tpm(TB_POLICY_INDEX,
              _policy_index_buf, &policy_index_size) ) {
-        printk("\t:%lu bytes read\n", policy_index_size);
+        printk(TBOOT_DETA"\t:%lu bytes read\n", policy_index_size);
         if ( verify_policy((tb_policy_t *)_policy_index_buf,
                  policy_index_size, true) ) {
             goto policy_found;
         }
     }
-    printk("\t:reading failed\n");
+    printk(TBOOT_WARN"\t:reading failed\n");
 
     /* tboot policy not found in TB_POLICY_INDEX, so see if it is wrapped
      * in a custom element in the PO policy; if so, SINIT will have verified
      * the policy and policy data for us; we just need to ensure the policy
      * type is LCP_POLTYPE_LIST (since we could have been give a policy data
      * file even though the policy was not a LIST */
-    printk("reading Launch Control Policy from TPM NV...\n");
+    printk(TBOOT_INFO"reading Launch Control Policy from TPM NV...\n");
     if ( read_policy_from_tpm(INDEX_LCP_OWN,
              _policy_index_buf, &policy_index_size) ) {
-        printk("\t:%lu bytes read\n", policy_index_size);
+        printk(TBOOT_DETA"\t:%lu bytes read\n", policy_index_size);
         /* assume lcp policy has been verified by sinit already */
         lcp_policy_t *pol = (lcp_policy_t *)_policy_index_buf;
         if ( pol->policy_type == LCP_POLTYPE_LIST && unwrap_lcp_policy() ) {
@@ -335,10 +335,10 @@ tb_error_t set_policy(void)
                 goto policy_found;
         }
     }
-    printk("\t:reading failed\n");
+    printk(TBOOT_WARN"\t:reading failed\n");
 
     /* either no policy in TPM NV or policy is invalid, so use default */
-    printk("failed to read policy from TPM NV, using default\n");
+    printk(TBOOT_WARN"failed to read policy from TPM NV, using default\n");
     g_policy = g_using_da ? &_def_policy_da : &_def_policy;
     policy_index_size = calc_policy_size(g_policy);
 
@@ -357,7 +357,7 @@ policy_found:
 bool hash_policy(tb_hash_t *hash, uint8_t hash_alg)
 {
     if ( hash == NULL ) {
-        printk("Error: input parameter is wrong.\n");
+        printk(TBOOT_ERR"Error: input parameter is wrong.\n");
         return false;
     }
 
@@ -371,7 +371,7 @@ static bool hash_module(tb_hash_t *hash, uint8_t hash_alg,
                         size_t size)
 {
     if ( hash == NULL ) {
-        printk("Error: input parameter is wrong.\n");
+        printk(TBOOT_ERR"Error: input parameter is wrong.\n");
         return false;
     }
 
@@ -405,7 +405,7 @@ static bool is_hash_in_policy_entry(const tb_policy_entry_t *pol_entry,
     /* assumes policy entry has been validated */
 
     if ( pol_entry == NULL || hash == NULL) {
-        printk("Error: input parameter is wrong.\n");
+        printk(TBOOT_ERR"Error: input parameter is wrong.\n");
         return false;
     }
 
@@ -481,7 +481,7 @@ void apply_policy(tb_error_t error)
         case TB_POLACT_HALT:
             break; /* do halt at the end */
         default:
-            printk("Error: invalid policy action (%d)\n", action);
+            printk(TBOOT_ERR"Error: invalid policy action (%d)\n", action);
             /* do halt at the end */
     }
 
@@ -507,10 +507,10 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
     char *cmdline = (char *)module->string;
 
     if ( pol_entry != NULL )
-        printk("verifying module \"%s\"...\n", cmdline);
+        printk(TBOOT_INFO"verifying module \"%s\"...\n", cmdline);
     tb_hash_t hash;
     if ( !hash_module(&hash, TB_HALG_SHA1, cmdline, base, size) ) {
-        printk("\t hash cannot be generated.\n");
+        printk(TBOOT_ERR"\t hash cannot be generated.\n");
         return TB_ERR_MODULE_VERIFICATION_FAILED;
     }
 
@@ -519,7 +519,7 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
        PCRs won't match pre-S3
        NULL pol_entry means this is module 0 which is extended to PCR 18 */
     if ( NUM_VL_ENTRIES >= MAX_VL_HASHES )
-        printk("\t too many hashes to save\n");
+        printk(TBOOT_WARN"\t too many hashes to save\n");
     else if ( pol_entry == NULL || pol_entry->pcr != TB_POL_PCR_NONE ) {
         uint8_t pcr = (pol_entry == NULL ) ?
                           (g_using_da ? 17 : 18) : pol_entry->pcr;
@@ -529,12 +529,12 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
 
     if ( pol_entry != NULL &&
          !is_hash_in_policy_entry(pol_entry, &hash, hash_alg) ) {
-        printk("\t verification failed\n");
+        printk(TBOOT_ERR"\t verification failed\n");
         return TB_ERR_MODULE_VERIFICATION_FAILED;
     }
 
     if ( pol_entry != NULL ) {
-        printk("\t OK : "); print_hash(&hash, TB_HALG_SHA1);
+        printk(TBOOT_DETA"\t OK : "); print_hash(&hash, TB_HALG_SHA1);
     }
     return TB_ERR_NONE;
 }
@@ -552,7 +552,7 @@ void verify_all_modules(multiboot_info_t *mbi)
     if ( g_policy->policy_control & TB_POLCTL_EXTEND_PCR17 ) {
         if ( !hash_policy((tb_hash_t *)&buf[sizeof(g_policy->policy_control)],
                           TB_HALG_SHA1) ) {
-            printk("policy hash failed\n");
+            printk(TBOOT_ERR"policy hash failed\n");
             apply_policy(TB_ERR_MODULE_VERIFICATION_FAILED);
         }
     }
@@ -564,7 +564,7 @@ void verify_all_modules(multiboot_info_t *mbi)
     if ( g_using_da ) {
         /* copying hash of policy_control into PCR 18 */
         if ( NUM_VL_ENTRIES >= MAX_VL_HASHES )
-            printk("\t too many hashes to save for DA\n");
+            printk(TBOOT_ERR"\t too many hashes to save for DA\n");
         else {
             VL_ENTRIES(NUM_VL_ENTRIES).hash = VL_ENTRIES(NUM_VL_ENTRIES-1).hash;
             VL_ENTRIES(NUM_VL_ENTRIES++).pcr = 18;
@@ -579,18 +579,18 @@ void verify_all_modules(multiboot_info_t *mbi)
         module_t *module = get_module(mbi, i);
         tb_policy_entry_t *pol_entry = find_policy_entry(g_policy, i);
         if ( module == NULL ) {
-            printk("missing module entry %u\n", i);
+            printk(TBOOT_ERR"missing module entry %u\n", i);
             apply_policy(TB_ERR_MODULE_VERIFICATION_FAILED);
         }
         else if ( pol_entry == NULL ) {
-            printk("policy entry for module %u not found\n", i);
+            printk(TBOOT_ERR"policy entry for module %u not found\n", i);
             apply_policy(TB_ERR_MODULES_NOT_IN_POLICY);
         }
         else
             apply_policy(verify_module(module, pol_entry, g_policy->hash_alg));
     }
 
-    printk("all modules are verified\n");
+    printk(TBOOT_INFO"all modules are verified\n");
 }
 
 

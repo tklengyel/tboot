@@ -76,73 +76,73 @@ void print_mbi(const multiboot_info_t *mbi)
     /* print mbi for debug */
     unsigned int i;
 
-    printk("print mbi@%p ...\n", mbi);
-    printk("\t flags: 0x%x\n", mbi->flags);
+    printk(TBOOT_DETA"print mbi@%p ...\n", mbi);
+    printk(TBOOT_DETA"\t flags: 0x%x\n", mbi->flags);
     if ( mbi->flags & MBI_MEMLIMITS )
-        printk("\t mem_lower: %uKB, mem_upper: %uKB\n", mbi->mem_lower,
+        printk(TBOOT_DETA"\t mem_lower: %uKB, mem_upper: %uKB\n", mbi->mem_lower,
                mbi->mem_upper);
     if ( mbi->flags & MBI_BOOTDEV ) {
-        printk("\t boot_device.bios_driver: 0x%x\n",
+        printk(TBOOT_DETA"\t boot_device.bios_driver: 0x%x\n",
                mbi->boot_device.bios_driver);
-        printk("\t boot_device.top_level_partition: 0x%x\n",
+        printk(TBOOT_DETA"\t boot_device.top_level_partition: 0x%x\n",
                mbi->boot_device.top_level_partition);
-        printk("\t boot_device.sub_partition: 0x%x\n",
+        printk(TBOOT_DETA"\t boot_device.sub_partition: 0x%x\n",
                mbi->boot_device.sub_partition);
-        printk("\t boot_device.third_partition: 0x%x\n",
+        printk(TBOOT_DETA"\t boot_device.third_partition: 0x%x\n",
                mbi->boot_device.third_partition);
     }
     if ( mbi->flags & MBI_CMDLINE )
-        printk("\t cmdline@0x%x: \"%s\"\n", mbi->cmdline, (char *)mbi->cmdline);
+        printk(TBOOT_DETA"\t cmdline@0x%x: \"%s\"\n", mbi->cmdline, (char *)mbi->cmdline);
     if ( mbi->flags & MBI_MODULES ) {
-        printk("\t mods_count: %u, mods_addr: 0x%x\n", mbi->mods_count,
+        printk(TBOOT_DETA"\t mods_count: %u, mods_addr: 0x%x\n", mbi->mods_count,
                mbi->mods_addr);
         for ( i = 0; i < mbi->mods_count; i++ ) {
             module_t *p = (module_t *)(mbi->mods_addr + i*sizeof(module_t));
-            printk("\t     %d : mod_start: 0x%x, mod_end: 0x%x\n", i,
+            printk(TBOOT_DETA"\t     %d : mod_start: 0x%x, mod_end: 0x%x\n", i,
                    p->mod_start, p->mod_end);
-            printk("\t         string (@0x%x): \"%s\"\n", p->string,
+            printk(TBOOT_DETA"\t         string (@0x%x): \"%s\"\n", p->string,
                    (char *)p->string);
         }
     }
     if ( mbi->flags & MBI_AOUT ) {
         const aout_t *p = &(mbi->syms.aout_image);
-        printk("\t aout :: tabsize: 0x%x, strsize: 0x%x, addr: 0x%x\n",
+        printk(TBOOT_DETA"\t aout :: tabsize: 0x%x, strsize: 0x%x, addr: 0x%x\n",
                p->tabsize, p->strsize, p->addr);
     }
     if ( mbi->flags & MBI_ELF ) {
         const elf_t *p = &(mbi->syms.elf_image);
-        printk("\t elf :: num: %u, size: 0x%x, addr: 0x%x, shndx: 0x%x\n",
+        printk(TBOOT_DETA"\t elf :: num: %u, size: 0x%x, addr: 0x%x, shndx: 0x%x\n",
                p->num, p->size, p->addr, p->shndx);
     }
     if ( mbi->flags & MBI_MEMMAP ) {
         memory_map_t *p;
-        printk("\t mmap_length: 0x%x, mmap_addr: 0x%x\n", mbi->mmap_length,
+        printk(TBOOT_DETA"\t mmap_length: 0x%x, mmap_addr: 0x%x\n", mbi->mmap_length,
                mbi->mmap_addr);
         for ( p = (memory_map_t *)mbi->mmap_addr;
               (uint32_t)p < mbi->mmap_addr + mbi->mmap_length;
               p=(memory_map_t *)((uint32_t)p + p->size + sizeof(p->size)) ) {
-	        printk("\t     size: 0x%x, base_addr: 0x%04x%04x, "
+	        printk(TBOOT_DETA"\t     size: 0x%x, base_addr: 0x%04x%04x, "
                    "length: 0x%04x%04x, type: %u\n", p->size,
                    p->base_addr_high, p->base_addr_low,
                    p->length_high, p->length_low, p->type);
         }
     }
     if ( mbi->flags & MBI_DRIVES ) {
-        printk("\t drives_length: %u, drives_addr: 0x%x\n", mbi->drives_length,
+        printk(TBOOT_DETA"\t drives_length: %u, drives_addr: 0x%x\n", mbi->drives_length,
                mbi->drives_addr);
     }
     if ( mbi->flags & MBI_CONFIG ) {
-        printk("\t config_table: 0x%x\n", mbi->config_table);
+        printk(TBOOT_DETA"\t config_table: 0x%x\n", mbi->config_table);
     }
     if ( mbi->flags & MBI_BTLDNAME ) {
-        printk("\t boot_loader_name@0x%x: %s\n",
+        printk(TBOOT_DETA"\t boot_loader_name@0x%x: %s\n",
                mbi->boot_loader_name, (char *)mbi->boot_loader_name);
     }
     if ( mbi->flags & MBI_APM ) {
-        printk("\t apm_table: 0x%x\n", mbi->apm_table);
+        printk(TBOOT_DETA"\t apm_table: 0x%x\n", mbi->apm_table);
     }
     if ( mbi->flags & MBI_VBE ) {
-        printk("\t vbe_control_info: 0x%x\n"
+        printk(TBOOT_DETA"\t vbe_control_info: 0x%x\n"
                "\t vbe_mode_info: 0x%x\n"
                "\t vbe_mode: 0x%x\n"
                "\t vbe_interface_seg: 0x%x\n"
@@ -162,17 +162,17 @@ void print_mbi(const multiboot_info_t *mbi)
 bool verify_mbi(const multiboot_info_t *mbi)
 {
     if ( mbi == NULL ) {
-        printk("Error: Mbi pointer is zero.\n");
+        printk(TBOOT_ERR"Error: Mbi pointer is zero.\n");
         return false;
     }
 
     if ( !(mbi->flags & MBI_MODULES) ) {
-        printk("Error: Mods in mbi is invalid.\n");
+        printk(TBOOT_ERR"Error: Mods in mbi is invalid.\n");
         return false;
     }
 
     if ( mbi->mods_count < 1 ) {
-        printk("Error: no modules\n");
+        printk(TBOOT_ERR"Error: no modules\n");
         return false;
     }
 
@@ -195,7 +195,7 @@ static void *remove_module(multiboot_info_t *mbi, void *mod_start)
 
     /* not found */
     if ( m == NULL ) {
-        printk("could not find module to remove\n");
+        printk(TBOOT_ERR"could not find module to remove\n");
         return NULL;
     }
 
@@ -255,7 +255,7 @@ bool is_kernel_linux(void)
 bool remove_txt_modules(multiboot_info_t *mbi)
 {
     if ( mbi->mods_count == 0 || mbi->mods_addr == 0 ) {
-        printk("Error: no module.\n");
+        printk(TBOOT_ERR"Error: no module.\n");
         return false;
     }
 
@@ -266,7 +266,7 @@ bool remove_txt_modules(multiboot_info_t *mbi)
 
         if ( is_sinit_acmod(base, m->mod_end - (unsigned long)base, true) ) {
             if ( remove_module(g_mbi, base) == NULL ) {
-                printk("failed to remove SINIT module from module list\n");
+                printk(TBOOT_ERR"failed to remove SINIT module from module list\n");
                 return false;
             }
         }
@@ -275,7 +275,7 @@ bool remove_txt_modules(multiboot_info_t *mbi)
     void *base = NULL;
     if ( find_lcp_module(g_mbi, &base, NULL) ) {
         if ( remove_module(g_mbi, base) == NULL ) {
-            printk("failed to remove LCP module from module list\n");
+            printk(TBOOT_ERR"failed to remove LCP module from module list\n");
             return false;
         }
     }
@@ -365,9 +365,9 @@ static multiboot_info_t *fixup_mbi(multiboot_info_t *mbi, size_t offset)
     bool moving_mbi = below_tboot((unsigned long)mbi);
 
     if ( moving_mbi ) {
-        printk("mbi was moved from %p to ", mbi);
+        printk(TBOOT_INFO"mbi was moved from %p to ", mbi);
         mbi = (multiboot_info_t *)((unsigned long)mbi + offset);
-        printk("%p\n", mbi);
+        printk(TBOOT_INFO"%p\n", mbi);
     }
 
     if ( mbi->flags & MBI_MODULES ) {
@@ -473,7 +473,7 @@ static void move_modules(multiboot_info_t **mbi)
 
     memcpy((void *)to, (void *)from, TBOOT_BASE_ADDR - from);
 
-    printk("0x%lx bytes copied from 0x%lx to 0x%lx\n",
+    printk(TBOOT_DETA"0x%lx bytes copied from 0x%lx to 0x%lx\n",
            TBOOT_BASE_ADDR - from, from, to);
     *mbi = fixup_mbi(*mbi, to - from);
 }
@@ -495,13 +495,13 @@ bool launch_kernel(bool is_measured_launch)
     size_t kernel_size = m->mod_end - m->mod_start;
 
     if ( is_elf_image(kernel_image, kernel_size) ) {
-        printk("kernel is ELF format\n");
+        printk(TBOOT_INFO"kernel is ELF format\n");
         kernel_type = ELF;
         /* fix for GRUB2, which may load modules into memory before tboot */
         move_modules(&g_mbi);
     }
     else {
-        printk("assuming kernel is Linux format\n");
+        printk(TBOOT_INFO"assuming kernel is Linux format\n");
         kernel_type = LINUX;
     }
 
@@ -517,7 +517,7 @@ bool launch_kernel(bool is_measured_launch)
         if ( !expand_elf_image((elf_header_t *)kernel_image,
                                &kernel_entry_point) )
             return false;
-        printk("transfering control to kernel @%p...\n", kernel_entry_point);
+        printk(TBOOT_INFO"transfering control to kernel @%p...\n", kernel_entry_point);
         /* (optionally) pause when transferring to kernel */
         if ( g_vga_delay > 0 )
             delay(g_vga_delay * 1000);
@@ -531,26 +531,26 @@ bool launch_kernel(bool is_measured_launch)
         expand_linux_image(kernel_image, kernel_size,
                            initrd_image, initrd_size,
                            &kernel_entry_point, is_measured_launch);
-        printk("transfering control to kernel @%p...\n", kernel_entry_point);
+        printk(TBOOT_INFO"transfering control to kernel @%p...\n", kernel_entry_point);
         /* (optionally) pause when transferring to kernel */
         if ( g_vga_delay > 0 )
             delay(g_vga_delay * 1000);
         return jump_linux_image(kernel_entry_point);
     }
 
-    printk("unknown kernel type\n");
+    printk(TBOOT_ERR"unknown kernel type\n");
     return false;
 }
 
 module_t *get_module(const multiboot_info_t *mbi, unsigned int i)
 {
     if ( mbi == NULL ) {
-        printk("Error: mbi pointer is zero.\n");
+        printk(TBOOT_ERR"Error: mbi pointer is zero.\n");
         return NULL;
     }
 
     if ( i >= mbi->mods_count ) {
-        printk("invalid module #\n");
+        printk(TBOOT_ERR"invalid module #\n");
         return NULL;
     }
 
@@ -561,12 +561,12 @@ static bool find_module(const multiboot_info_t *mbi, void **base, size_t *size,
                         const void *data, size_t len)
 {
     if ( mbi == NULL ) {
-        printk("Error: mbi pointer is zero.\n");
+        printk(TBOOT_ERR"Error: mbi pointer is zero.\n");
         return false;
     }
 
     if ( base == NULL ) {
-        printk("Error: base is NULL.\n");
+        printk(TBOOT_ERR"Error: base is NULL.\n");
         return false;
     }
 
@@ -575,7 +575,7 @@ static bool find_module(const multiboot_info_t *mbi, void **base, size_t *size,
         *size = 0;
 
     if ( mbi->mods_count == 0 || mbi->mods_addr == 0 ) {
-        printk("Error: no module.\n");
+        printk(TBOOT_ERR"Error: no module.\n");
         return false;
     }
 
@@ -584,7 +584,7 @@ static bool find_module(const multiboot_info_t *mbi, void **base, size_t *size,
         /* check size */
         size_t mod_size = m->mod_end - m->mod_start;
         if ( len > mod_size ) {
-            printk("Error: image size is smaller than data size.\n");
+            printk(TBOOT_ERR"Error: image size is smaller than data size.\n");
             return false;
         }
         if ( memcmp((void *)m->mod_start, data, len) == 0 ) {
@@ -635,14 +635,14 @@ bool verify_modules(const multiboot_info_t *mbi)
         m = (module_t *)(mbi->mods_addr + i*sizeof(module_t));
         base = m->mod_start;
         size = m->mod_end - m->mod_start;
-        printk("verifying module %d of mbi (%Lx - %Lx) in e820 table\n\t",
+        printk(TBOOT_INFO"verifying module %d of mbi (%Lx - %Lx) in e820 table\n\t",
                i, base, (base + size - 1));
         if ( e820_check_region(base, size) != E820_RAM ) {
-            printk(": failed.\n");
+            printk(TBOOT_ERR": failed.\n");
             return false;
         }
         else
-            printk(": succeeded.\n");
+            printk(TBOOT_INFO": succeeded.\n");
     }
 
     return true;

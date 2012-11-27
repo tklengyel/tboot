@@ -169,7 +169,7 @@ static bool start_vmx(unsigned int cpuid)
     /* TBD: it would be good to check VMX config is same on all CPUs */
     /* only initialize this data the first time */
     if ( !init_done ) {
-        /*printk("one-time initializing VMX mini-guest\n");*/
+        /*printk(TBOOT_INFO"one-time initializing VMX mini-guest\n");*/
         memset(vmcs, 0, PAGE_SIZE);
 
         init_vmcs_config();
@@ -181,7 +181,7 @@ static bool start_vmx(unsigned int cpuid)
         init_done = true;
     }
 
-    /*printk("per-cpu initializing VMX mini-guest on cpu %u\n", cpuid);*/
+    /*printk(TBOOT_INFO"per-cpu initializing VMX mini-guest on cpu %u\n", cpuid);*/
 
     /* enable paging using 1:1 page table [0, _end] */
     /* addrs outside of tboot (e.g. MMIO) are not mapped) */
@@ -193,11 +193,11 @@ static bool start_vmx(unsigned int cpuid)
         write_cr4(read_cr4() & ~CR4_VMXE);
         write_cr4(read_cr4() & ~CR4_PSE);
         write_cr0(read_cr0() & ~CR0_PG);
-        printk("VMXON failed for cpu %u\n", cpuid);
+        printk(TBOOT_ERR"VMXON failed for cpu %u\n", cpuid);
         return false;
     }
 
-    printk("VMXON done for cpu %u\n", cpuid);
+    printk(TBOOT_DETA"VMXON done for cpu %u\n", cpuid);
     return true;
 }
 
@@ -206,7 +206,7 @@ static void stop_vmx(unsigned int cpuid)
     struct vmcs_struct *vmcs = NULL;
 
     if ( !(read_cr4() & CR4_VMXE) ) {
-        printk("stop_vmx() called when VMX not enabled\n");
+        printk(TBOOT_DETA"stop_vmx() called when VMX not enabled\n");
         return;
     }
 
@@ -222,7 +222,7 @@ static void stop_vmx(unsigned int cpuid)
     write_cr0(read_cr0() & ~CR0_PG);
     write_cr4(read_cr4() & ~CR4_PSE);
 
-    printk("VMXOFF done for cpu %u\n", cpuid);
+    printk(TBOOT_DETA"VMXOFF done for cpu %u\n", cpuid);
 }
 
 /* in tboot/common/boot.S */
@@ -323,7 +323,7 @@ static void construct_vmcs(void)
 
     __asm__ __volatile__ ("str  (%0) \n" :: "a"(&tr) : "memory");
     if ( tr == 0 )
-        printk("tr is 0 on ap, may vmlaunch fail.\n");
+        printk(TBOOT_ERR"tr is 0 on ap, may vmlaunch fail.\n");
     __vmwrite(GUEST_TR_SELECTOR, tr);
     __vmwrite(GUEST_TR_BASE, 0);
     __vmwrite(GUEST_TR_LIMIT, 0xffff);
@@ -359,7 +359,7 @@ static void construct_vmcs(void)
 
     /* IDT */
     __asm__ __volatile__ ("sidt (%0) \n" :: "a"(&xdt) : "memory");
-    /*printk("idt.base=0x%x, limit=0x%x.\n", xdt.base, xdt.limit);*/
+    /*printk(TBOOT_INFO"idt.base=0x%x, limit=0x%x.\n", xdt.base, xdt.limit);*/
     __vmwrite(GUEST_IDTR_BASE, xdt.base);
     __vmwrite(GUEST_IDTR_LIMIT, xdt.limit);
 
@@ -416,7 +416,7 @@ static void construct_vmcs(void)
 
     __vmwrite(EXCEPTION_BITMAP, MONITOR_DEFAULT_EXCEPTION_BITMAP);
 
-    /*printk("vmcs setup done.\n");*/
+    /*printk(TBOOT_INFO"vmcs setup done.\n");*/
 }
 
 static bool vmx_create_vmcs(unsigned int cpuid)
@@ -441,7 +441,7 @@ static void launch_mini_guest(unsigned int cpuid)
 {
     unsigned long error;
 
-    printk("launching mini-guest for cpu %u\n", cpuid);
+    printk(TBOOT_DETA"launching mini-guest for cpu %u\n", cpuid);
 
     /* this is close enough to entering wait-for-sipi, so inc counter */
     atomic_inc((atomic_t *)&_tboot_shared.num_in_wfs);
@@ -452,7 +452,7 @@ static void launch_mini_guest(unsigned int cpuid)
     atomic_dec(&ap_wfs_count);
     atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);
     error = __vmread(VM_INSTRUCTION_ERROR);
-    printk("vmlaunch failed for cpu %u, error code %lx\n", cpuid, error);
+    printk(TBOOT_ERR"vmlaunch failed for cpu %u, error code %lx\n", cpuid, error);
     apply_policy(TB_ERR_FATAL);
 }
 
@@ -461,21 +461,21 @@ static void print_failed_vmentry_reason(unsigned int exit_reason)
     unsigned long exit_qualification;
 
     exit_qualification = __vmread(EXIT_QUALIFICATION);
-    printk("Failed vm entry (exit reason 0x%x) ", exit_reason);
+    printk(TBOOT_ERR"Failed vm entry (exit reason 0x%x) ", exit_reason);
     switch ( (uint16_t)exit_reason )
         {
         case EXIT_REASON_INVALID_GUEST_STATE:
-            printk("caused by invalid guest state (%ld).\n",
+            printk(TBOOT_ERR"caused by invalid guest state (%ld).\n",
                    exit_qualification);
             break;
         case EXIT_REASON_MSR_LOADING:
-            printk("caused by MSR entry %ld loading.\n", exit_qualification);
+            printk(TBOOT_ERR"caused by MSR entry %ld loading.\n", exit_qualification);
             break;
         case EXIT_REASON_MACHINE_CHECK:
-            printk("caused by machine check.\n");
+            printk(TBOOT_ERR"caused by machine check.\n");
             break;
         default:
-            printk("reason not known yet!");
+            printk(TBOOT_ERR"reason not known yet!");
             break;
         }
 }
@@ -517,7 +517,7 @@ void vmx_vmexit_handler(void)
         cpu_wakeup(apicid, sipi_vec);
 
         /* cpu_wakeup() doesn't return, so we should never get here */
-        printk("cpu_wakeup() failed\n");
+        printk(TBOOT_ERR"cpu_wakeup() failed\n");
         apply_policy(TB_ERR_FATAL);
     }
     else if ( exit_reason == EXIT_REASON_VMCALL ) {
@@ -529,7 +529,7 @@ void vmx_vmexit_handler(void)
             __asm__ __volatile__("cli; hlt;");
     }
     else {
-        printk("can't handle vmexit due to 0x%x.\n", exit_reason);
+        printk(TBOOT_ERR"can't handle vmexit due to 0x%x.\n", exit_reason);
         __vmresume();
     }
 }
@@ -538,7 +538,7 @@ void vmx_vmexit_handler(void)
 void handle_init_sipi_sipi(unsigned int cpuid)
 {
     if ( cpuid >= NR_CPUS ) {
-        printk("cpuid (%u) exceeds # supported CPUs\n", cpuid);
+        printk(TBOOT_ERR"cpuid (%u) exceeds # supported CPUs\n", cpuid);
         apply_policy(TB_ERR_FATAL);
         mtx_leave(&ap_lock);
         return;
@@ -566,7 +566,7 @@ void handle_init_sipi_sipi(unsigned int cpuid)
         launch_mini_guest(cpuid);
     }
 
-    printk("control should not return here from launch_mini_guest\n");
+    printk(TBOOT_ERR"control should not return here from launch_mini_guest\n");
     apply_policy(TB_ERR_FATAL);
     return;
 }

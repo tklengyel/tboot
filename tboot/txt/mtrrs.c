@@ -80,7 +80,7 @@ static uint64_t get_maxphyaddr_mask(void)
 
     num_addr_bits.raw = cpuid_eax(0x80000008);
     if ( !printed_msg ) {
-        printk("CPU supports %u phys address bits\n", num_addr_bits.num_pa_bits);
+        printk(TBOOT_DETA"CPU supports %u phys address bits\n", num_addr_bits.num_pa_bits);
 	printed_msg = true;
     }
     return ((1ULL << num_addr_bits.num_pa_bits) - 1) >> PAGE_SHIFT;
@@ -160,7 +160,7 @@ void save_mtrrs(mtrr_state_t *saved_state)
     if ( mtrr_cap.vcnt > MAX_VARIABLE_MTRRS ) {
         /* print warning but continue saving what we can */
         /* (set_mem_type() won't exceed the array, so we're safe doing this) */
-        printk("actual # var MTRRs (%d) > MAX_VARIABLE_MTRRS (%d)\n",
+        printk(TBOOT_WARN"actual # var MTRRs (%d) > MAX_VARIABLE_MTRRS (%d)\n",
                mtrr_cap.vcnt, MAX_VARIABLE_MTRRS);
         saved_state->num_var_mtrrs = MAX_VARIABLE_MTRRS;
     }
@@ -180,13 +180,13 @@ void save_mtrrs(mtrr_state_t *saved_state)
 
 static void print_mtrrs(const mtrr_state_t *saved_state)
 {
-    printk("mtrr_def_type: e = %d, fe = %d, type = %x\n",
+    printk(TBOOT_DETA"mtrr_def_type: e = %d, fe = %d, type = %x\n",
            saved_state->mtrr_def_type.e, saved_state->mtrr_def_type.fe,
            saved_state->mtrr_def_type.type );
-    printk("mtrrs:\n");
-    printk("\t\t    base          mask      type  v\n");
+    printk(TBOOT_DETA"mtrrs:\n");
+    printk(TBOOT_DETA"\t\t    base          mask      type  v\n");
     for ( unsigned int i = 0; i < saved_state->num_var_mtrrs; i++ ) {
-        printk("\t\t%13.13Lx %13.13Lx  %2.2x  %d\n",
+        printk(TBOOT_DETA"\t\t%13.13Lx %13.13Lx  %2.2x  %d\n",
                (uint64_t)saved_state->mtrr_physbases[i].base,
                (uint64_t)saved_state->mtrr_physmasks[i].mask,
                saved_state->mtrr_physbases[i].type,
@@ -266,7 +266,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     if ( get_region_type(saved_state, TXT_PRIV_CONFIG_REGS_BASE,
                          TXT_CONFIG_REGS_SIZE >> PAGE_SHIFT)
            != MTRR_TYPE_UNCACHABLE ) {
-        printk("MMIO space for TXT private config space should be UC\n");
+        printk(TBOOT_ERR"MMIO space for TXT private config space should be UC\n");
         return false;
     }
 
@@ -274,7 +274,7 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     if ( get_region_type(saved_state, TXT_PUB_CONFIG_REGS_BASE,
                          TXT_CONFIG_REGS_SIZE >> PAGE_SHIFT)
            != MTRR_TYPE_UNCACHABLE ) {
-        printk("MMIO space for TXT public config space should be UC\n");
+        printk(TBOOT_ERR"MMIO space for TXT public config space should be UC\n");
         return false;
     }
 
@@ -282,14 +282,14 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     if ( get_region_type(saved_state, TPM_LOCALITY_BASE,
                          NR_TPM_LOCALITY_PAGES * TPM_NR_LOCALITIES)
            != MTRR_TYPE_UNCACHABLE ) {
-        printk("MMIO space for TPM should be UC\n");
+        printk(TBOOT_ERR"MMIO space for TPM should be UC\n");
         return false;
     }
 
     /* mmio space for APIC should be UC */
     if ( get_region_type(saved_state, MMIO_APIC_BASE, NR_MMIO_APIC_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
-        printk("MMIO space for APIC should be UC\n");
+        printk(TBOOT_ERR"MMIO space for APIC should be UC\n");
         return false;
     }
 
@@ -297,15 +297,15 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     /* mmio space for IOAPIC should be UC */
     acpi_table_ioapic = (acpi_table_ioapic_t *)get_acpi_ioapic_table();
     if ( acpi_table_ioapic == NULL) {
-        printk("acpi_table_ioapic == NULL\n");
+        printk(TBOOT_ERR"acpi_table_ioapic == NULL\n");
         return false;
     }
-    printk("acpi_table_ioapic @ %p, .address = %x\n",
+    printk(TBOOT_DETA"acpi_table_ioapic @ %p, .address = %x\n",
            acpi_table_ioapic, acpi_table_ioapic->address);
     if ( get_region_type(saved_state, acpi_table_ioapic->address,
                          NR_MMIO_IOAPIC_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
-        printk("MMIO space(%x) for IOAPIC should be UC\n",
+        printk(TBOOT_ERR"MMIO space(%x) for IOAPIC should be UC\n",
                acpi_table_ioapic->address);
         return false;
     }
@@ -314,15 +314,15 @@ static bool validate_mmio_regions(const mtrr_state_t *saved_state)
     /* mmio space for PCI config space should be UC */
     acpi_table_mcfg = (acpi_table_mcfg_t *)get_acpi_mcfg_table();
     if ( acpi_table_mcfg == NULL) {
-        printk("acpi_table_mcfg == NULL\n");
+        printk(TBOOT_ERR"acpi_table_mcfg == NULL\n");
         return false;
     }
-    printk("acpi_table_mcfg @ %p, .base_address = %x\n",
+    printk(TBOOT_DETA"acpi_table_mcfg @ %p, .base_address = %x\n",
            acpi_table_mcfg, acpi_table_mcfg->base_address);
     if ( get_region_type(saved_state, acpi_table_mcfg->base_address,
                          NR_MMIO_PCICFG_PAGES)
            != MTRR_TYPE_UNCACHABLE ) {
-        printk("MMIO space(%x) for PCI config space should be UC\n",
+        printk(TBOOT_ERR"MMIO space(%x) for PCI config space should be UC\n",
                acpi_table_mcfg->base_address);
         return false;
     }
@@ -343,7 +343,7 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
     /* number variable MTRRs */
     mtrr_cap.raw = rdmsr(MSR_MTRRcap);
     if ( mtrr_cap.vcnt < saved_state->num_var_mtrrs ) {
-        printk("actual # var MTRRs (%d) < saved # (%d)\n",
+        printk(TBOOT_ERR"actual # var MTRRs (%d) < saved # (%d)\n",
                mtrr_cap.vcnt, saved_state->num_var_mtrrs);
         return false;
     }
@@ -366,7 +366,7 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
                 break;
         }
         if ( tb != max_pages ) {
-	    printk("var MTRRs with non-contiguous regions: base=0x%Lx, mask=0x%Lx\n",
+	    printk(TBOOT_ERR"var MTRRs with non-contiguous regions: base=0x%Lx, mask=0x%Lx\n",
                    (uint64_t)saved_state->mtrr_physbases[ndx].base
                                   & maxphyaddr_mask,
                    (uint64_t)saved_state->mtrr_physmasks[ndx].mask
@@ -439,14 +439,14 @@ bool validate_mtrrs(const mtrr_state_t *saved_state)
             if ( j < saved_state->num_var_mtrrs )
                 continue;
 
-            printk("var MTRRs overlaping regions, invalid type combinations\n");
+            printk(TBOOT_ERR"var MTRRs overlaping regions, invalid type combinations\n");
             print_mtrrs(saved_state);
             return false;
         }
     }
 
     if ( !validate_mmio_regions(saved_state) ) {
-        printk("Some mmio region should be UC type\n");
+        printk(TBOOT_ERR"Some mmio region should be UC type\n");
         print_mtrrs(saved_state);
         return false;
     }
@@ -518,7 +518,7 @@ bool set_mem_type(const void *base, uint32_t size, uint32_t mem_type)
     num_pages = PAGE_UP(size) >> PAGE_SHIFT;
     ndx = 0;
 
-    printk("setting MTRRs for acmod: base=%p, size=%x, num_pages=%d\n",
+    printk(TBOOT_DETA"setting MTRRs for acmod: base=%p, size=%x, num_pages=%d\n",
            base, size, num_pages);
 
     while ( num_pages > 0 ) {
@@ -553,7 +553,7 @@ bool set_mem_type(const void *base, uint32_t size, uint32_t mem_type)
         num_pages -= pages_in_range;
         ndx++;
         if ( ndx == mtrr_cap.vcnt ) {
-            printk("exceeded number of var MTRRs when mapping range\n");
+            printk(TBOOT_ERR"exceeded number of var MTRRs when mapping range\n");
             return false;
         }
     }

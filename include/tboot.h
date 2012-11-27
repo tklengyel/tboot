@@ -150,17 +150,17 @@ static inline bool tboot_in_measured_env(void)
 
 static inline void print_tboot_shared(const tboot_shared_t *tboot_shared)
 {
-    printk("tboot_shared data:\n");
-    printk("\t version: %d\n", tboot_shared->version);
-    printk("\t log_addr: 0x%08x\n", tboot_shared->log_addr);
-    printk("\t shutdown_entry: 0x%08x\n", tboot_shared->shutdown_entry);
-    printk("\t shutdown_type: %d\n", tboot_shared->shutdown_type);
-    printk("\t tboot_base: 0x%08x\n", tboot_shared->tboot_base);
-    printk("\t tboot_size: 0x%x\n", tboot_shared->tboot_size);
-    printk("\t num_in_wfs: %u\n", tboot_shared->num_in_wfs);
-    printk("\t flags: 0x%8.8x\n", tboot_shared->flags);
-    printk("\t ap_wake_addr: 0x%08x\n", (uint32_t)tboot_shared->ap_wake_addr);
-    printk("\t ap_wake_trigger: %u\n", tboot_shared->ap_wake_trigger);
+    printk(TBOOT_DETA"tboot_shared data:\n");
+    printk(TBOOT_DETA"\t version: %d\n", tboot_shared->version);
+    printk(TBOOT_DETA"\t log_addr: 0x%08x\n", tboot_shared->log_addr);
+    printk(TBOOT_DETA"\t shutdown_entry: 0x%08x\n", tboot_shared->shutdown_entry);
+    printk(TBOOT_DETA"\t shutdown_type: %d\n", tboot_shared->shutdown_type);
+    printk(TBOOT_DETA"\t tboot_base: 0x%08x\n", tboot_shared->tboot_base);
+    printk(TBOOT_DETA"\t tboot_size: 0x%x\n", tboot_shared->tboot_size);
+    printk(TBOOT_DETA"\t num_in_wfs: %u\n", tboot_shared->num_in_wfs);
+    printk(TBOOT_DETA"\t flags: 0x%8.8x\n", tboot_shared->flags);
+    printk(TBOOT_DETA"\t ap_wake_addr: 0x%08x\n", (uint32_t)tboot_shared->ap_wake_addr);
+    printk(TBOOT_DETA"\t ap_wake_trigger: %u\n", tboot_shared->ap_wake_trigger);
 }
 
 #endif    /* __TBOOT_H__ */

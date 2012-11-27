@@ -122,7 +122,7 @@ static bool prepare_cpu(void)
 static void copy_s3_wakeup_entry(void)
 {
     if ( s3_wakeup_end - s3_wakeup_16 > PAGE_SIZE ) {
-        printk("S3 entry is too large to be copied into one page!\n");
+        printk(TBOOT_ERR"S3 entry is too large to be copied into one page!\n");
         return;
     }
 
@@ -149,7 +149,7 @@ static void post_launch(void)
     extern tboot_log_t *g_log;
     extern void shutdown_entry(void);
 
-    printk("measured launch succeeded\n");
+    printk(TBOOT_INFO"measured launch succeeded\n");
 
     /* init MLE/kernel shared data page early, .num_in_wfs used in ap wakeup*/
     _tboot_shared.num_in_wfs = 0;
@@ -180,20 +180,20 @@ static void post_launch(void)
     /* verify that tboot is in valid RAM (i.e. E820_RAM) */
     base = (uint64_t)TBOOT_BASE_ADDR;
     size = (uint64_t)((unsigned long)&_end - base);
-    printk("verifying tboot and its page table (%Lx - %Lx) in e820 table\n\t",
+    printk(TBOOT_INFO"verifying tboot and its page table (%Lx - %Lx) in e820 table\n\t",
            base, (base + size - 1));
     if ( e820_check_region(base, size) != E820_RAM ) {
-        printk(": failed.\n");
+        printk(TBOOT_ERR": failed.\n");
         apply_policy(TB_ERR_FATAL);
     }
     else
-        printk(": succeeded.\n");
+        printk(TBOOT_INFO": succeeded.\n");
 
     /* protect ourselves, MLE page table, and MLE/kernel shared page */
     base = (uint64_t)TBOOT_BASE_ADDR;
     size = (uint64_t)get_tboot_mem_end() - base;
     uint32_t mem_type = is_kernel_linux() ? E820_RESERVED : E820_UNUSABLE;
-    printk("protecting tboot (%Lx - %Lx) in e820 table\n", base,
+    printk(TBOOT_INFO"protecting tboot (%Lx - %Lx) in e820 table\n", base,
            (base + size - 1));
     if ( !e820_protect_region(base, size, mem_type) )
         apply_policy(TB_ERR_FATAL);
@@ -202,7 +202,7 @@ static void post_launch(void)
     if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY ) {
         base = TBOOT_SERIAL_LOG_ADDR;
         size = TBOOT_SERIAL_LOG_SIZE;
-        printk("reserving tboot memory log (%Lx - %Lx) in e820 table\n", base,
+        printk(TBOOT_INFO"reserving tboot memory log (%Lx - %Lx) in e820 table\n", base,
                (base + size - 1));
         if ( !e820_protect_region(base, size, E820_RESERVED) )
             apply_policy(TB_ERR_FATAL);
@@ -211,7 +211,7 @@ static void post_launch(void)
     /* replace map in mbi with copy */
     replace_e820_map(g_mbi);
 
-    printk("adjusted e820 map:\n");
+    printk(TBOOT_DETA"adjusted e820 map:\n");
     print_e820_map();
 
     /*
@@ -245,7 +245,7 @@ static void post_launch(void)
         _tboot_shared.ap_wake_trigger = AP_WAKE_TRIGGER_DEF;
     }
     else if ( get_tboot_mwait() ) {
-        printk("ap_wake_mwait specified but the CPU doesn't support it.\n");
+        printk(TBOOT_ERR"ap_wake_mwait specified but the CPU doesn't support it.\n");
     }
 
     print_tboot_shared(&_tboot_shared);
@@ -256,7 +256,7 @@ static void post_launch(void)
 
 void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec)
 {
-    printk("cpu %u waking up, SIPI vector=%x\n", cpuid, sipi_vec);
+    printk(TBOOT_INFO"cpu %u waking up, SIPI vector=%x\n", cpuid, sipi_vec);
 
     /* change to real mode and then jump to SIPI vector */
     _prot_to_real(sipi_vec);
@@ -286,13 +286,13 @@ void begin_launch(multiboot_info_t *mbi)
     /* initialize all logging targets */
     printk_init();
 
-    printk("******************* TBOOT *******************\n");
-    printk("   %s\n", TBOOT_CHANGESET);
-    printk("*********************************************\n");
+    printk(TBOOT_INFO"******************* TBOOT *******************\n");
+    printk(TBOOT_INFO"   %s\n", TBOOT_CHANGESET);
+    printk(TBOOT_INFO"*********************************************\n");
 
-    printk("command line: %s\n", g_cmdline);
+    printk(TBOOT_INFO"command line: %s\n", g_cmdline);
     if ( s3_flag )
-        printk("resume from S3\n");
+        printk(TBOOT_INFO"resume from S3\n");
 
     /* clear resume vector on S3 resume so any resets will not use it */
     if ( !is_launched() && s3_flag )
@@ -300,10 +300,10 @@ void begin_launch(multiboot_info_t *mbi)
 
     /* we should only be executing on the BSP */
     if ( !(rdmsr(MSR_APICBASE) & APICBASE_BSP) ) {
-        printk("entry processor is not BSP\n");
+        printk(TBOOT_INFO"entry processor is not BSP\n");
         apply_policy(TB_ERR_FATAL);
     }
-    printk("BSP is cpu %u\n", get_apicid());
+    printk(TBOOT_INFO"BSP is cpu %u\n", get_apicid());
 
     /* make copy of e820 map that we will use and adjust */
     if ( !s3_flag ) {
@@ -350,16 +350,16 @@ void begin_launch(multiboot_info_t *mbi)
     /* do s3 launch directly, if is a s3 resume */
     if ( s3_flag ) {
         txt_s3_launch_environment();
-        printk("we should never get here\n");
+        printk(TBOOT_ERR"we should never get here\n");
         apply_policy(TB_ERR_FATAL);
     }
 
     /* check for error from previous boot */
-    printk("checking previous errors on the last boot.\n\t");
+    printk(TBOOT_INFO"checking previous errors on the last boot.\n\t");
     if ( was_last_boot_error() )
-        printk("last boot has error.\n");
+        printk(TBOOT_INFO"last boot has error.\n");
     else
-        printk("last boot has no error.\n");
+        printk(TBOOT_INFO"last boot has no error.\n");
 
     if ( !prepare_tpm() )
         apply_policy(TB_ERR_TPM_NOT_READY);
@@ -406,7 +406,7 @@ static void shutdown_system(uint32_t shutdown_type)
         snprintf(type, sizeof(type), "unknown: %u", shutdown_type);
     else
         strncpy(type, types[shutdown_type], sizeof(type));
-    printk("shutdown_system() called for shutdown_type: %s\n", type);
+    printk(TBOOT_INFO"shutdown_system() called for shutdown_type: %s\n", type);
 
     switch( shutdown_type ) {
         case TB_SHUTDOWN_S3:
@@ -466,7 +466,7 @@ static void cap_pcrs(void)
         }
     }
 
-    printk("cap'ed dynamic PCRs\n");
+    printk(TBOOT_INFO"cap'ed dynamic PCRs\n");
 }
 
 void shutdown(void)
@@ -476,7 +476,7 @@ void shutdown(void)
         atomic_inc(&ap_wfs_count);
         _tboot_shared.ap_wake_trigger = 0;
         mtx_enter(&ap_lock);
-        printk("shutdown(): TB_SHUTDOWN_WFS\n");
+        printk(TBOOT_INFO"shutdown(): TB_SHUTDOWN_WFS\n");
         if ( use_mwait() )
             ap_wait(get_apicid());
         else
@@ -484,7 +484,7 @@ void shutdown(void)
         apply_policy(TB_ERR_FATAL);
     }
 
-    printk("wait until all APs ready for txt shutdown\n");
+    printk(TBOOT_INFO"wait until all APs ready for txt shutdown\n");
     while( atomic_read(&_tboot_shared.num_in_wfs)
            < atomic_read(&ap_wfs_count) )
         cpu_relax();
@@ -532,24 +532,24 @@ void shutdown(void)
         if ( !use_mwait() ) {
             /* force APs to exit mini-guests if any are in and wait until */
             /* all are out before shutting down TXT */
-            printk("waiting for APs (%u) to exit guests...\n",
+            printk(TBOOT_INFO"waiting for APs (%u) to exit guests...\n",
                    atomic_read(&ap_wfs_count));
             force_aps_exit();
             uint32_t timeout = AP_GUEST_EXIT_TIMEOUT;
             do {
                 if ( timeout % 0x8000 == 0 )
-                    printk(".");
+                    printk(TBOOT_INFO".");
                 else
                     cpu_relax();
                 if ( timeout % 0x200000 == 0 )
-                    printk("\n");
+                    printk(TBOOT_INFO"\n");
                 timeout--;
             } while ( ( atomic_read(&ap_wfs_count) > 0 ) && timeout > 0 );
-            printk("\n");
+            printk(TBOOT_INFO"\n");
             if ( timeout == 0 )
-                printk("AP guest exit loop timed-out\n");
+                printk(TBOOT_INFO"AP guest exit loop timed-out\n");
             else
-                printk("all APs exited guests\n");
+                printk(TBOOT_INFO"all APs exited guests\n");
         } else {
             /* reset ap_wfs_count to avoid tboot hash changing in S3 case */
             atomic_set(&ap_wfs_count, 0);
@@ -565,7 +565,7 @@ void shutdown(void)
 
 void handle_exception(void)
 {
-    printk("received exception; shutting down...\n");
+    printk(TBOOT_INFO"received exception; shutting down...\n");
     _tboot_shared.shutdown_type = TB_SHUTDOWN_REBOOT;
     shutdown();
 }

@@ -108,7 +108,7 @@ static const char* get_option_val(const cmdline_option_t *options,
         if ( strcmp(options[i].name, opt_name) == 0 )
             return vals[i];
     }
-    printk("requested unknown option: %s\n", opt_name);
+    printk(TBOOT_ERR"requested unknown option: %s\n", opt_name);
     return NULL;
 }
 
