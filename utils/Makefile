@@ -61,4 +61,4 @@ parse_err : parse_err.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
 
 %.o : %.c $(BUILD_DEPS)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -DNO_TBOOT_LOGLVL -c $< -o $@

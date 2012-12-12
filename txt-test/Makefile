@@ -49,4 +49,4 @@ $(MOD_TARGET) : $(BUILD_DEPS) txt-test.c
 	$(MAKE) -C $(LINUX_BUILD_DIR) M=$(CURDIR) modules
 
 %.o : %.c $(BUILD_DEPS)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -DNO_TBOOT_LOGLVL -c $< -o $@

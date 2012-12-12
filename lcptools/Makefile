@@ -128,4 +128,4 @@ HDRS := $(wildcard $(ROOTDIR)/include/*.h) $(wildcard $(CURDIR)/*.h)
 BUILD_DEPS := $(ROOTDIR)/Config.mk $(CURDIR)/Makefile
 
 %.o : %.c $(HDRS) $(BUILD_DEPS) trousers_dep
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -DNO_TBOOT_LOGLVL -c $< -o $@

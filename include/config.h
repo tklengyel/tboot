@@ -98,12 +98,21 @@ extern char _end[];              /* end of tboot */
 #define __packed   __attribute__ ((packed))
 
 /* tboot log level */
+#ifdef NO_TBOOT_LOGLVL
+#define TBOOT_NONE
+#define TBOOT_ERR
+#define TBOOT_WARN
+#define TBOOT_INFO
+#define TBOOT_DETA
+#define TBOOT_ALL
+#else /* NO_TBOOT_LOGLVL */
 #define TBOOT_NONE       "<0>"
 #define TBOOT_ERR        "<1>"
 #define TBOOT_WARN       "<2>"
 #define TBOOT_INFO       "<3>"
 #define TBOOT_DETA       "<4>"
 #define TBOOT_ALL        "<5>"
+#endif /* NO_TBOOT_LOGLVL */
 
 #endif /* __CONFIG_H__ */
 
