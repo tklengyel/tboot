@@ -55,7 +55,10 @@ static void display_errors(void)
      * display TXT.ERRORODE error
      */
     err = (txt_errorcode_t)read_pub_config_reg(TXTCR_ERRORCODE);
-    printk(TBOOT_ERR"TXT.ERRORCODE: 0x%Lx\n", err._raw);
+    if (err._raw == 0 || err._raw == 0xc0000001)
+        printk(TBOOT_INFO"TXT.ERRORCODE: 0x%Lx\n", err._raw);
+    else
+        printk(TBOOT_ERR"TXT.ERRORCODE: 0x%Lx\n", err._raw);
 
     /* AC module error (don't know how to parse other errors) */
     if ( err.valid ) {
@@ -67,9 +70,14 @@ static void display_errors(void)
                 printk(TBOOT_ERR"unknown SW error 0x%x:0x%x\n", sw_err.err1, sw_err.err2);
             else {                     /* ACM error */
                 acmod_err._raw = sw_err._raw;
-                printk(TBOOT_ERR"AC module error : acm_type=0x%x, progress=0x%02x, "
-                       "error=0x%x\n", acmod_err.acm_type, acmod_err.progress,
-                       acmod_err.error);
+                if (acmod_err._raw == 0x0 || acmod_err._raw == 0x1)
+                    printk(TBOOT_INFO"AC module error : acm_type=0x%x, progress=0x%02x, "
+                           "error=0x%x\n", acmod_err.acm_type, acmod_err.progress,
+                           acmod_err.error);
+                else
+                    printk(TBOOT_ERR"AC module error : acm_type=0x%x, progress=0x%02x, "
+                           "error=0x%x\n", acmod_err.acm_type, acmod_err.progress,
+                           acmod_err.error);
                 /* error = 0x0a, progress = 0x0d => TPM error */
                 if ( acmod_err.error == 0x0a && acmod_err.progress == 0x0d )
                     printk(TBOOT_ERR"TPM error code = 0x%x\n", acmod_err.tpm_err);
@@ -85,13 +93,19 @@ static void display_errors(void)
      * display TXT.ESTS error
      */
     ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
-    printk(TBOOT_ERR"TXT.ESTS: 0x%Lx\n", ests._raw);
+    if (ests._raw == 0)
+        printk(TBOOT_INFO"TXT.ESTS: 0x%Lx\n", ests._raw);
+    else
+        printk(TBOOT_ERR"TXT.ESTS: 0x%Lx\n", ests._raw);
 
     /*
      * display TXT.E2STS error
      */
     e2sts = (txt_e2sts_t)read_pub_config_reg(TXTCR_E2STS);
-    printk(TBOOT_ERR"TXT.E2STS: 0x%Lx\n", e2sts._raw);
+    if (e2sts._raw == 0 || e2sts._raw == 0x200000000)
+        printk(TBOOT_INFO"TXT.E2STS: 0x%Lx\n", e2sts._raw);
+    else
+        printk(TBOOT_ERR"TXT.E2STS: 0x%Lx\n", e2sts._raw);
 }
 
 bool txt_get_error(void)
