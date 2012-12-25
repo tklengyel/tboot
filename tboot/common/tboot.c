@@ -262,6 +262,52 @@ void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec)
     _prot_to_real(sipi_vec);
 }
 
+#define ICR_LOW 0x300
+
+void startup_rlps(void)
+{
+    uint32_t rlp_count = ((cpuid_ecx(1) >> 16) & 0xff) - 1;
+    uint32_t apicbase = (uint32_t)rdmsr(MSR_APICBASE) & 0xfffffffffffff000;
+
+    if ( rlp_count == 0 )
+        return;
+
+    /* send init ipi to all rlp -- Dest Shorthand: 11, Delivery Mode: 101 */
+    writel(apicbase + ICR_LOW, 0xc0500);
+}
+
+void launch_racm(void)
+{
+    tb_error_t err;
+
+    /* bsp check & tpm check done by caller */
+    /* SMX must be supported */
+    if ( !(cpuid_ecx(1) & CPUID_X86_FEATURE_SMX) )
+        apply_policy(TB_ERR_SMX_NOT_SUPPORTED);
+        
+    /* Enable SMX */
+    write_cr4(read_cr4() | CR4_SMXE);
+
+    /* prepare cpu */
+    if ( !prepare_cpu() )
+        apply_policy(TB_ERR_FATAL);
+
+    /* prepare tpm */
+    if ( !prepare_tpm() )
+        apply_policy(TB_ERR_TPM_NOT_READY);
+
+    /* Place RLPs in Wait for SIPI state */
+    startup_rlps();
+
+    /* Verify mbi */
+    if ( !verify_mbi(g_mbi) )
+        apply_policy(TB_ERR_FATAL);
+    
+    /* load racm */
+    err = txt_launch_racm(g_mbi);
+    apply_policy(err);
+}
+
 void begin_launch(multiboot_info_t *mbi)
 {
     tb_error_t err;
@@ -322,6 +368,10 @@ void begin_launch(multiboot_info_t *mbi)
     /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
     err = set_policy();
     apply_policy(err);
+
+    /* if telled to call revocation acm, go with simplified path */
+    if ( get_tboot_call_racm() )
+        launch_racm(); /* never return */
 
     /* need to verify that platform supports TXT before we can check error */
     /* (this includes TPM support) */

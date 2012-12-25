@@ -44,6 +44,7 @@ extern tb_error_t supports_txt(void);
 extern tb_error_t txt_verify_platform(void);
 extern bool txt_prepare_cpu(void);
 extern tb_error_t txt_launch_environment(const multiboot_info_t *mbi);
+extern tb_error_t txt_launch_racm(const multiboot_info_t *mbi);
 extern void txt_post_launch(void);
 extern tb_error_t txt_protect_mem_regions(void);
 extern tb_error_t txt_post_launch_verify_platform(void);

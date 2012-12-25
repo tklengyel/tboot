@@ -74,6 +74,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "ap_wake_mwait", "false" },    /* true|false */
     { "pcr_map", "legacy" },         /* legacy|da */
     { "min_ram", "0" },              /* size in bytes | 0 for no min */
+    { "call_racm", "false" },        /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -455,11 +456,6 @@ void get_tboot_min_ram(void)
     g_min_ram = strtoul(min_ram, NULL, 0);
 }
 
-
-/*
- * linux kernel command line parsing
- */
-
 bool get_tboot_mwait(void)
 {
     const char *mwait = get_option_val(g_tboot_cmdline_options,
@@ -468,6 +464,19 @@ bool get_tboot_mwait(void)
         return false;
     return true;
 }
+
+bool get_tboot_call_racm(void)
+{
+    const char *call_racm = get_option_val(g_tboot_cmdline_options,
+                                       g_tboot_param_values, "call_racm");
+    if ( call_racm == NULL || strcmp(call_racm, "false") == 0 )
+        return false;
+    return true;
+}
+
+/*
+ * linux kernel command line parsing
+ */
 
 bool get_linux_vga(int *vid_mode)
 {

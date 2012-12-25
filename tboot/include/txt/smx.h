@@ -45,6 +45,7 @@
 
 /* GETSEC leaf function codes */
 #define IA32_GETSEC_CAPABILITIES	0
+#define IA32_GETSEC_ENTERACCS		2
 #define IA32_GETSEC_SENTER		4
 #define IA32_GETSEC_SEXIT		5
 #define IA32_GETSEC_PARAMETERS		6
@@ -142,6 +143,18 @@ static inline void __getsec_parameters(uint32_t index, int* param_type,
     if ( peax != NULL )         *peax = eax;
     if ( pebx != NULL )         *pebx = ebx;
     if ( pecx != NULL )         *pecx = ecx;
+}
+
+static inline void __getsec_enteraccs(uint32_t acm_base, uint32_t acm_size,
+                                      uint32_t fn)
+{
+    __asm__ __volatile__ (IA32_GETSEC_OPCODE "\n"
+			  :
+			  : "a"(IA32_GETSEC_ENTERACCS),
+			    "b"(acm_base),
+			    "c"(acm_size),
+			    "D"(0),
+			    "S"(fn));
 }
 
 

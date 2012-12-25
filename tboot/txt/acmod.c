@@ -425,6 +425,26 @@ static bool is_acmod(const void *acmod_base, uint32_t acmod_size, uint8_t *type,
     return true;
 }
 
+bool is_racm_acmod(const void *acmod_base, uint32_t acmod_size, bool quiet)
+{
+    uint8_t type;
+
+    if ( !is_acmod(acmod_base, acmod_size, &type, quiet) )
+        return false;
+
+    if ( type != ACM_CHIPSET_TYPE_BIOS ) {
+        printk(TBOOT_ERR"ACM is not an BIOS ACM (%x)\n", type);
+        return false;
+    }
+
+    if ( acmod_size != 0x8000 && acmod_size != 0x10000 ) {
+        printk(TBOOT_ERR"ACM is not an RACM, bad size (0x%x)\n", acmod_size);
+        return false;
+    }
+
+    return true;
+}
+
 bool is_sinit_acmod(const void *acmod_base, uint32_t acmod_size, bool quiet)
 {
     uint8_t type;
@@ -561,6 +581,29 @@ acm_hdr_t *get_bios_sinit(const void *sinit_region_base)
     return (acm_hdr_t *)sinit_region_base;
 }
 
+static void *alloc_racm_region(uint32_t size)
+{
+    /* TODO: find a real unused memory place through mbi */
+    return (void *)(long)(0x2000000 + size - size); /* 32M */
+}
+
+acm_hdr_t *copy_racm(const acm_hdr_t *racm)
+{
+    /* find a 32KB aligned memory */
+    uint32_t racm_region_size = racm->size*4;
+    void *racm_region_base = alloc_racm_region(racm_region_size);
+    printk(TBOOT_DETA"RACM.BASE: %p\n", racm_region_base);
+    printk(TBOOT_DETA"RACM.SIZE: 0x%x (%u)\n", racm_region_size, racm_region_size);
+
+    /* copy it there */
+    memcpy(racm_region_base, racm, racm->size*4);
+
+    printk(TBOOT_DETA"copied RACM (size=%x) to %p\n", racm->size*4,
+           racm_region_base);
+
+    return (acm_hdr_t *)racm_region_base;
+}
+
 acm_hdr_t *copy_sinit(const acm_hdr_t *sinit)
 {
     /* get BIOS-reserved region from TXT.SINIT.BASE config reg */
@@ -618,6 +661,78 @@ acm_hdr_t *copy_sinit(const acm_hdr_t *sinit)
 }
 #endif    /* IS_INCLUDED */
 
+bool verify_racm(const acm_hdr_t *acm_hdr)
+{
+    getsec_parameters_t params;
+    uint32_t size;
+
+    /* assumes this already passed is_acmod() test */
+
+    size = acm_hdr->size * 4;        /* hdr size is in dwords, we want bytes */
+
+    /*
+     * AC mod must start on 4k page boundary
+     */
+
+    if ( (unsigned long)acm_hdr & 0xfff ) {
+        printk(TBOOT_ERR"AC mod base not 4K aligned (%p)\n", acm_hdr);
+        return false;
+    }
+    printk(TBOOT_INFO"AC mod base alignment OK\n");
+
+    /* AC mod size must:
+     * - be multiple of 64
+     * - greater than ???
+     * - less than max supported size for this processor
+     */
+
+    if ( (size == 0) || ((size % 64) != 0) ) {
+        printk(TBOOT_ERR"AC mod size %x bogus\n", size);
+        return false;
+    }
+
+    if ( !get_parameters(&params) ) {
+        printk(TBOOT_ERR"get_parameters() failed\n");
+        return false;
+    }
+
+    if ( size > params.acm_max_size ) {
+        printk(TBOOT_ERR"AC mod size too large: %x (max=%x)\n", size,
+               params.acm_max_size);
+        return false;
+    }
+
+    printk(TBOOT_INFO"AC mod size OK\n");
+
+    /*
+     * perform checks on AC mod structure
+     */
+
+    /* print it for debugging */
+    print_acm_hdr(acm_hdr, "RACM");
+
+    /* entry point is offset from base addr so make sure it is within module */
+    if ( acm_hdr->entry_point >= size ) {
+        printk(TBOOT_ERR"AC mod entry (%08x) >= AC mod size (%08x)\n",
+               acm_hdr->entry_point, size);
+        return false;
+    }
+
+    /* overflow? */
+    if ( plus_overflow_u32(acm_hdr->seg_sel, 8) ) {
+        printk(TBOOT_ERR"seg_sel plus 8 overflows\n");
+        return false;
+    }
+
+    if ( !acm_hdr->seg_sel           ||       /* invalid selector */
+         (acm_hdr->seg_sel & 0x07)   ||       /* LDT, PL!=0 */
+         (acm_hdr->seg_sel + 8 > acm_hdr->gdt_limit) ) {
+        printk(TBOOT_ERR"AC mod selector [%04x] bogus\n", acm_hdr->seg_sel);
+        return false;
+    }
+
+    return true;
+}
 
 /*
  * Do some AC module sanity checks because any violations will cause

@@ -65,6 +65,7 @@
 #include <txt/smx.h>
 #include <txt/verify.h>
 #include <txt/vmcs.h>
+#include <io.h>
 
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
 #define AP_WFS_TIMEOUT     0x01000000
@@ -198,6 +199,45 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     } while ( mle_off < mle_size );
 
     return ptab_base;
+}
+
+/*
+ * will go through all modules to find an RACM that matches the platform
+ * (size can be NULL)
+ */
+static bool find_platform_racm(const multiboot_info_t *mbi, void **base,
+                               uint32_t *size)
+{
+    if ( base != NULL )
+        *base = NULL;
+    if ( size != NULL )
+        *size = 0;
+
+    if ( mbi->mods_addr == 0 || mbi->mods_count == 0 ) {
+        printk(TBOOT_ERR"no module info\n");
+        return false;
+    }
+
+    for ( int i = mbi->mods_count - 1; i >= 0; i-- ) {
+        module_t *m = get_module(mbi, i);
+
+        printk(TBOOT_DETA"checking if module %s is an RACM for this platform...\n",
+               (const char *)m->string);
+        void *base2 = (void *)m->mod_start;
+        uint32_t size2 = m->mod_end - (unsigned long)(base2);
+        if ( is_racm_acmod(base2, size2, false) &&
+             does_acmod_match_platform((acm_hdr_t *)base2) ) {
+            if ( base != NULL )
+                *base = base2;
+            if ( size != NULL )
+                *size = size2;
+            printk(TBOOT_DETA"RACM matches platform\n");
+            return true;
+        }
+    }
+    /* no RACM found for this platform */
+    printk(TBOOT_ERR"no RACM found\n");
+    return false;
 }
 
 /*
@@ -630,6 +670,45 @@ bool txt_s3_launch_environment(void)
     __getsec_senter((uint32_t)sinit, (sinit->size)*4);
     printk(TBOOT_ERR"ERROR--we should not get here!\n");
     return false;
+}
+
+tb_error_t txt_launch_racm(const multiboot_info_t *mbi)
+{
+    acm_hdr_t *racm = NULL;
+
+    /*
+     * find correct revocation AC module in modules list
+     */
+    find_platform_racm(mbi, (void **)&racm, NULL);
+    /* copy it to a 32KB aligned memory address */
+    racm = copy_racm(racm);
+    if ( racm == NULL )
+        return TB_ERR_SINIT_NOT_PRESENT;
+    /* do some checks on it */
+    if ( !verify_racm(racm) )
+        return TB_ERR_ACMOD_VERIFY_FAILED;
+
+    /* save MTRRs before we alter them for RACM launch */
+    /*  - not needed by far since always reboot after RACM launch */
+    //save_mtrrs(...);
+
+    /* set MTRRs properly for AC module (RACM) */
+    if ( !set_mtrrs_for_acmod(racm) )
+        return TB_ERR_FATAL;
+
+    printk(TBOOT_INFO"executing GETSEC[ENTERACCS]...\n");
+    /* (optionally) pause before executing GETSEC[ENTERACCS] */
+    if ( g_vga_delay > 0 )
+        delay(g_vga_delay * 1000);
+    __getsec_enteraccs((uint32_t)racm, (racm->size)*4, 0xF0);
+    /* powercycle by writing 0x0a+0x0e to port 0xcf9, */
+    /* warm reset by write 0x06 to port 0xcf9 */
+    //outb(0xcf9, 0x0a);
+    //outb(0xcf9, 0x0e);
+    outb(0xcf9, 0x06);
+    
+    printk(TBOOT_ERR"ERROR--we should not get here!\n");
+    return TB_ERR_FATAL;
 }
 
 bool txt_prepare_cpu(void)
