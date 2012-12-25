@@ -21,7 +21,11 @@ prefix=/usr
 exec_prefix=${prefix}
 bindir=${exec_prefix}/bin
 libdir=${exec_prefix}/lib
-. ${libdir}/grub/grub-mkconfig_lib
+if test -e /usr/share/grub/grub-mkconfig_lib; then
+  . /usr/share/grub/grub-mkconfig_lib
+elif test -e ${libdir}/grub/grub-mkconfig_lib; then
+  . ${libdir}/grub/grub-mkconfig_lib
+fi
 
 export TEXTDOMAIN=grub
 export TEXTDOMAINDIR=${prefix}/share/locale
