@@ -202,6 +202,25 @@ o  Previously tboot tried to avoid including any reserved e820 region (in 1M
 
    A suggested practical value for min_ram is 32M(0x2000000).
 
+o  Tboot provides support to launch Revocation ACM (RACM) to revoke old buggy
+   SINIT version if following command line option is used (default vaule is
+   false):
+       call_racm=true|false
+
+   RACM is also loaded into memory via bootload like grub or syslinux, and is
+   launched with getsec[ENTERACCS] instruction. Below is a example GRUB entry
+   for RACM launch:
+
+       title RACM Launch
+           root (hd0,1)
+           kernel /tboot.gz logging=serial,vga,memory call_racm=true
+           module /racm.bin
+
+   Tboot will always warm reset platform after RACM was launched & executed.
+   Whether RACM launch has succeeded or not could be checked via doing a normal
+   tboot launch right after the warm reset and looking into the TXT.ERRORCODE
+   value output by the normal tboot launch.
+
 
 PCR Usage:
 ---------
