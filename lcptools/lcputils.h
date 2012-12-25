@@ -134,6 +134,6 @@ calc_sizeofselect(uint32_t num_indices,
 void print_locality(unsigned char loc);
 void print_permissions(UINT32 perms, const char *prefix);
 
-int str_split(const char *str_in, char **str_out, unsigned int *number);
+void str_split(char *str_in, uint32_t ints[], unsigned int *number);
 
 #endif

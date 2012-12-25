@@ -217,42 +217,23 @@ print_hexmsg(const char *header_msg, int datalength, const unsigned char *data)
 }
 
 /* split the input string in the format: num1,num2,...,numN
- * into the array = {num1, num2, ... , numN}
+ * into the numeric array = {num1, num2, ... , numN}
 */
-int 
-str_split(const char *str_in, char **str_out, unsigned int *number)
+void
+str_split(char *str_in, uint32_t ints[], unsigned int *nr_ints)
 {
-    char * temp;
-    int num = 0;
-    const char *sep = ",";
-    size_t str_length = 0;
-    char *string = (char *)malloc(strlen(str_in) + 1);
+    unsigned int nr = 0;
+    char *str = NULL;
 
-    if ( string == NULL )
-        return -1;
-    if ( str_in == NULL || str_out == NULL || number == NULL ) {
-        free(string);
-        return -1;
+    while ( true ) {
+        str = strsep(&str_in, ",");
+        if ( str == NULL || nr == *nr_ints )
+            break;
+        ints[nr++] = strtoul(str, NULL, 0);
     }
-    strcpy(string, str_in);
-    temp =strtok(string, sep);
-    if ( temp != NULL && str_out[num] )
-        strcpy(str_out[num], temp);//strtok(string, sep));
-    while (str_out[num] != NULL) {
-        str_length += strlen(str_out[num]);
-        num++;
-        temp = strtok(NULL, sep);
-        if ( temp != NULL )
-            strcpy(str_out[num], temp);
-        else
-            str_out[num] = NULL;
-    }
-    free(string);
-    *number = num;
-    str_length += num - 1;
-    if ( str_length != strlen(str_in) )
-        return -1;
-    return 0;
+    if ( nr == *nr_ints && str != NULL )
+        log_error("Error: too many items in list\n");
+    *nr_ints = nr;
 }
 
 uint16_t

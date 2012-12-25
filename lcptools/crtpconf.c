@@ -109,14 +109,12 @@ main(int argc, char *argv[])
     uint16_t i = 0;
     uint32_t index[MAX_INDEX] = {0};
     uint32_t idx_num = 0;
-    unsigned char *pcr_num[MAX_INDEX] = {NULL};
     FILE *p_file = NULL;
     unsigned char* srtm_data = NULL;
     uint32_t data_len = 0;
     TPM_LOCALITY_SELECTION local_sel;
 
     lcp_result_t ret_value = LCP_E_COMD_INTERNAL_ERR;
-    uint32_t temp = 0;
 
     /*
      * No parameter input will print out the help message.
@@ -151,28 +149,13 @@ main(int argc, char *argv[])
         ret_value = LCP_E_INVALID_PARAMETER;
         goto _error_end;
     }
-
-    for (i = 0; i < MAX_INDEX; i++) {
-        pcr_num[i] = (unsigned char *)malloc(10);
-        if ( pcr_num[i] == NULL ) {
-            ret_value = LCP_E_OUTOFMEMORY;
-            goto _error_end;
-        }
-    }
-    if ( str_split((char *)pcr_val, (char **)&pcr_num, &idx_num) < 0 ) {
-        ret_value = LCP_E_INVALID_PARAMETER;
-        goto _error_end;
-    }
+    idx_num = MAX_INDEX;
+    str_split((char *)pcr_val, index, &idx_num);
     for ( i = 0; i < idx_num; i++ ) {
-      if ( strtonum((char *)pcr_num[i], &temp) < 0 ) {
+        if ( index[i] > 23 ) {
             ret_value = LCP_E_INVALID_PARAMETER;
             goto _error_end;
         }
-        if ( temp > 23 ) {
-            ret_value = LCP_E_INVALID_PARAMETER;
-            goto _error_end;
-        }
-        index[i] = temp;
     }
 
     local_sel = (TPM_LOCALITY_SELECTION)locality;
@@ -200,8 +183,7 @@ main(int argc, char *argv[])
             fclose(p_file);
         } else
             print_hexmsg("the PConf data is:\n", data_len, srtm_data);
-        if(srtm_data)
-            free(srtm_data);
+        free(srtm_data);
     } else
         goto _error_end;
 
@@ -210,9 +192,8 @@ _error_end:
     /*
      * Error when execute.
      */
-    for (i = 0; i < MAX_INDEX; i++)
-        free(pcr_num[i]);
-    free(srtm_data);
+    if ( srtm_data )
+        free(srtm_data);
     log_error("\nCommand CrtPConf failed:\n");
     print_error(ret_value);
     return ret_value;
