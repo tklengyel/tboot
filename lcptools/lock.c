@@ -91,7 +91,8 @@ parse_cmdline(int argc, const char * argv[])
 int
 main (int argc, char *argv[])
 {
-    char confirm_lock[1024] = {0};
+    char confirm_lock[4] = {0};
+    char c;
     in_nv_definespace_t in_defspace;
     lcp_result_t ret_value = LCP_E_COMD_INTERNAL_ERR;
 
@@ -119,12 +120,12 @@ main (int argc, char *argv[])
          */
         do {
             log_info("Really want to lock TPM NV? (Y/N) ");
-            dummy = scanf("%s", confirm_lock);
+            dummy = scanf("%3s", confirm_lock);
             if ( dummy <= 0 )
                 return LCP_E_COMD_INTERNAL_ERR;
-        } while (strcmp(confirm_lock, "N") && strcmp(confirm_lock, "n") &&
-		 strcmp(confirm_lock, "Y") && strcmp(confirm_lock, "y"));
-        if ( !strcmp(confirm_lock, "N") || !strcmp(confirm_lock, "n") ) {
+            c = confirm_lock[0] | ' ';
+        } while ( (c != 'n') && (c != 'y') );
+        if ( c == 'n') {
             ret_value = LCP_SUCCESS;
             return ret_value;
         }
