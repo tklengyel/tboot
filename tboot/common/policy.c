@@ -506,8 +506,23 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
     size_t size = module->mod_end - module->mod_start;
     char *cmdline = (char *)module->string;
 
-    if ( pol_entry != NULL )
-        printk(TBOOT_INFO"verifying module \"%s\"...\n", cmdline);
+    if ( pol_entry != NULL ) {
+        /* chunk the command line into 80 byte chunks */
+#define CHUNK_SIZE 80
+        int      cmdlen = strlen(cmdline);
+        char    *cptr = cmdline;
+        char     cmdchunk[CHUNK_SIZE+1];
+        printk(TBOOT_INFO"verifying module \"");
+        while (cmdlen > 0) {
+            strncpy(cmdchunk, cptr, CHUNK_SIZE);
+            cmdchunk[CHUNK_SIZE] = 0;
+            printk(TBOOT_INFO"\n%s", cmdchunk);
+            cmdlen -= CHUNK_SIZE;
+            cptr += CHUNK_SIZE;
+        }
+        printk(TBOOT_INFO"\"...\n");
+    }
+
     tb_hash_t hash;
     if ( !hash_module(&hash, TB_HALG_SHA1, cmdline, base, size) ) {
         printk(TBOOT_ERR"\t hash cannot be generated.\n");

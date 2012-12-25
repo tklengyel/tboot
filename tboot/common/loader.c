@@ -91,8 +91,23 @@ void print_mbi(const multiboot_info_t *mbi)
         printk(TBOOT_DETA"\t boot_device.third_partition: 0x%x\n",
                mbi->boot_device.third_partition);
     }
-    if ( mbi->flags & MBI_CMDLINE )
-        printk(TBOOT_DETA"\t cmdline@0x%x: \"%s\"\n", mbi->cmdline, (char *)mbi->cmdline);
+    if ( mbi->flags & MBI_CMDLINE ) {
+# define CHUNK_SIZE 72 
+        /* Break the command line up into 72 byte chunks */
+        int   cmdlen = strlen(mbi->cmdline);
+        char *cmdptr = (char *)mbi->cmdline;
+        char  chunk[CHUNK_SIZE+1];
+        printk(TBOOT_DETA"\t cmdline@0x%x: ", mbi->cmdline);
+        chunk[CHUNK_SIZE] = '\0';
+        while (cmdlen > 0) {
+            strncpy(chunk, cmdptr, CHUNK_SIZE); 
+            printk(TBOOT_DETA"\n\t\"%s\"", chunk);
+            cmdptr += CHUNK_SIZE;
+            cmdlen -= CHUNK_SIZE;
+        }
+        printk(TBOOT_DETA"\n");
+    }
+
     if ( mbi->flags & MBI_MODULES ) {
         printk(TBOOT_DETA"\t mods_count: %u, mods_addr: 0x%x\n", mbi->mods_count,
                mbi->mods_addr);
