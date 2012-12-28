@@ -1,3 +1,18 @@
+20121228  v1.7.3
+	Update README with updated code repository url.
+	Fix grub2 scripts to be compatible with more distros.
+	Update README for RACM launch support
+	Add a new option "call_racm=true|false" for revocation acm(RACM) launch
+	Fix potential buffer overrun & memory leak in crtpconf.c
+	Fix a potential buffer overrun in lcptools/lock.c
+	Print cmdline in multi-lines
+	Optional print TXT.ERRORCODE under level error or info
+	Fix side effects of tboot log level macros in tools
+	Update readme for the new detail log level
+	Classify all logs into different log levels
+	Add detail log level and the macros defined for log level
+	Fix acmod_error_t type to correctly align all bits in 4bytes
+
 20120929: v1.7.2
 	Add Makefile for docs to install man pages.
 	Add man pages for tools
