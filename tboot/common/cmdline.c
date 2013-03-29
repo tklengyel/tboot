@@ -74,7 +74,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "ap_wake_mwait", "false" },    /* true|false */
     { "pcr_map", "legacy" },         /* legacy|da */
     { "min_ram", "0" },              /* size in bytes | 0 for no min */
-    { "call_racm", "false" },        /* true|false */
+    { "call_racm", "false" },        /* true|false|check */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -469,7 +469,16 @@ bool get_tboot_call_racm(void)
 {
     const char *call_racm = get_option_val(g_tboot_cmdline_options,
                                        g_tboot_param_values, "call_racm");
-    if ( call_racm == NULL || strcmp(call_racm, "false") == 0 )
+    if ( call_racm == NULL || strcmp(call_racm, "true") != 0 )
+        return false;
+    return true;
+}
+
+bool get_tboot_call_racm_check(void)
+{
+    const char *call_racm = get_option_val(g_tboot_cmdline_options,
+                                       g_tboot_param_values, "call_racm");
+    if ( call_racm == NULL || strcmp(call_racm, "check") != 0 )
         return false;
     return true;
 }

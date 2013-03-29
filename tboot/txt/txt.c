@@ -696,6 +696,10 @@ tb_error_t txt_launch_racm(const multiboot_info_t *mbi)
     if ( !set_mtrrs_for_acmod(racm) )
         return TB_ERR_FATAL;
 
+    /* clear MSEG_BASE/SIZE registers */
+    write_pub_config_reg(TXTCR_MSEG_BASE, 0);
+    write_pub_config_reg(TXTCR_MSEG_SIZE, 0);
+
     printk(TBOOT_INFO"executing GETSEC[ENTERACCS]...\n");
     /* (optionally) pause before executing GETSEC[ENTERACCS] */
     if ( g_vga_delay > 0 )

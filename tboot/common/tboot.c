@@ -308,6 +308,13 @@ void launch_racm(void)
     apply_policy(err);
 }
 
+static void shutdown_system(uint32_t);
+void check_racm_result(void)
+{
+    txt_get_racm_error();
+    shutdown_system(TB_SHUTDOWN_HALT); 
+}
+
 void begin_launch(multiboot_info_t *mbi)
 {
     tb_error_t err;
@@ -337,6 +344,10 @@ void begin_launch(multiboot_info_t *mbi)
     printk(TBOOT_INFO"*********************************************\n");
 
     printk(TBOOT_INFO"command line: %s\n", g_cmdline);
+    /* if telled to check revocation acm result, go with simplified path */
+    if ( get_tboot_call_racm_check() )
+        check_racm_result(); /* never return */
+
     if ( s3_flag )
         printk(TBOOT_INFO"resume from S3\n");
 

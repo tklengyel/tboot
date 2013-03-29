@@ -205,7 +205,7 @@ o  Previously tboot tried to avoid including any reserved e820 region (in 1M
 o  Tboot provides support to launch Revocation ACM (RACM) to revoke old buggy
    SINIT version if following command line option is used (default vaule is
    false):
-       call_racm=true|false
+       call_racm=true|false|check
 
    RACM is also loaded into memory via bootload like grub or syslinux, and is
    launched with getsec[ENTERACCS] instruction. Below is a example GRUB entry
@@ -217,9 +217,10 @@ o  Tboot provides support to launch Revocation ACM (RACM) to revoke old buggy
            module /racm.bin
 
    Tboot will always warm reset platform after RACM was launched & executed.
-   Whether RACM launch has succeeded or not could be checked via doing a normal
-   tboot launch right after the warm reset and looking into the TXT.ERRORCODE
-   value output by the normal tboot launch.
+   Whether RACM launch has succeeded or not could be checked via doing a tboot
+   launch with "call_racm=check" right after the warm reset. This tboot launch
+   will end with halt right after the RACM launch result was output, and the
+   system need manually reset.
 
 
 PCR Usage:
