@@ -432,8 +432,9 @@ bool is_racm_acmod(const void *acmod_base, uint32_t acmod_size, bool quiet)
     if ( !is_acmod(acmod_base, acmod_size, &type, quiet) )
         return false;
 
-    if ( type != ACM_CHIPSET_TYPE_BIOS ) {
-        printk(TBOOT_ERR"ACM is not an BIOS ACM (%x)\n", type);
+    if ( type != ACM_CHIPSET_TYPE_BIOS_REVOC &&
+         type != ACM_CHIPSET_TYPE_SINIT_REVOC ) {
+        printk(TBOOT_ERR"ACM is not an revocation ACM (%x)\n", type);
         return false;
     }
 

@@ -108,6 +108,8 @@ typedef struct __packed {
 /* chipset_acm_type field values */
 #define ACM_CHIPSET_TYPE_BIOS         0x00
 #define ACM_CHIPSET_TYPE_SINIT        0x01
+#define ACM_CHIPSET_TYPE_BIOS_REVOC   0x08
+#define ACM_CHIPSET_TYPE_SINIT_REVOC  0x09
 
 typedef struct __packed {
     uint32_t  flags;
