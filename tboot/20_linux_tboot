@@ -127,7 +127,7 @@ sinit_list=`for i in /boot/*sinit* /boot/*SINIT*; do
       done`
 prepare_boot_cache=
 
-while [ "x${tboot_list}" != "x" ] ; do
+while [ "x${tboot_list}" != "x" ] && [ "x$linux_list" != "x" ] ; do
     list="${linux_list}"
     current_tboot=`version_find_latest $tboot_list`
     tboot_basename=`basename ${current_tboot}`
