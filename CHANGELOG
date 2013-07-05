@@ -1,4 +1,9 @@
-20121228  v1.7.3
+20130705: v1.7.4
+	Fix possible empty submenu block in generated grub.cfg
+	Add a call_racm=check option for easy RACM launch result check
+	Fix type check for revocation ACM.
+
+20121228: v1.7.3
 	Update README with updated code repository url.
 	Fix grub2 scripts to be compatible with more distros.
 	Update README for RACM launch support
