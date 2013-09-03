@@ -1,5 +1,5 @@
 ******************************************************************************
-* This version of tboot will not work with Xen versions <3.4 (c/s < 19115)   *
+* This version of tboot will not work with Xen versions < 3.4 (c/s < 19115)  *
 ******************************************************************************
 
 Trusted Boot (tboot) is an open source, pre-kernel/VMM module that uses
