@@ -283,6 +283,11 @@ static bool verify_ext_data_elts(const heap_ext_data_element_t elts[],
             printk(TBOOT_ERR"heap ext data elements too small\n");
             return false;
         }
+        if ( elts_size < elt->size || elt->size == 0 ) {
+            printk(TBOOT_ERR"invalid element size:  type: %u, size: %u\n",
+                   elt->type, elt->size);
+            return false;
+        }
         switch ( elt->type ) {
             case HEAP_EXTDATA_TYPE_END:
                 return true;
@@ -377,9 +382,9 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
         return false;
     }
 
-    if ( bios_data->version >= 4 ) {
+    if ( bios_data->version >= 4 && size > sizeof(*bios_data) + sizeof(size) ) {
         if ( !verify_ext_data_elts(bios_data->ext_data_elts,
-                                   size - sizeof(*bios_data)) )
+                                   size - sizeof(*bios_data) - sizeof(size)) )
             return false;
     }
 
@@ -503,7 +508,7 @@ static bool verify_os_sinit_data(const txt_heap_t *txt_heap)
 
     if ( os_sinit_data->version >= 6 ) {
         if ( !verify_ext_data_elts(os_sinit_data->ext_data_elts,
-                                   size - sizeof(*os_sinit_data)) )
+                                   size - sizeof(*os_sinit_data) - sizeof(size)) )
             return false;
     }
 
