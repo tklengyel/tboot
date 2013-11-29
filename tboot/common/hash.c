@@ -134,7 +134,7 @@ void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
 void copy_hash(tb_hash_t *dest_hash, const tb_hash_t *src_hash,
                uint8_t hash_alg)
 {
-    if ( dest_hash == NULL || dest_hash == NULL ) {
+    if ( dest_hash == NULL || src_hash == NULL ) {
         printk(TBOOT_WARN"hashes are NULL\n");
         return;
     }
