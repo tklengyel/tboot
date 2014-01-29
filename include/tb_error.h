@@ -64,6 +64,8 @@ typedef enum {
                                                failed */
 
     TB_ERR_FATAL,                           /* generic fatal error */
+    TB_ERR_NV_VERIFICATION_FAILED,          /* NV failed to verify against
+                                               policy */
     TB_ERR_MAX
 } tb_error_t;
 

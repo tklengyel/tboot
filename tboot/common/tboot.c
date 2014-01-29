@@ -73,6 +73,7 @@
 extern void _prot_to_real(uint32_t dist_addr);
 extern bool set_policy(void);
 extern void verify_all_modules(loader_ctx *lctx);
+extern void verify_all_nvindices(void);
 extern void apply_policy(tb_error_t error);
 void s3_launch(void);
 
@@ -221,6 +222,12 @@ static void post_launch(void)
      * verify modules against policy
      */
     verify_all_modules(g_ldr_ctx);
+
+    /*
+     * verify nv indices against policy
+     */
+    if ( get_tboot_measure_nv() )
+        verify_all_nvindices();
 
     /*
      * seal hashes of modules and VL policy to current value of PCR17 & 18

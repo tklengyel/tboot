@@ -256,6 +256,23 @@ extern bool tpm_cmp_creation_pcrs(
 extern uint32_t tpm_get_nvindex_size(uint32_t locality,
                                      tpm_nv_index_t index, uint32_t *size);
 
+#define TPM_NV_PER_WRITE_STCLEAR  (1<<14) 
+#define TPM_NV_PER_WRITEDEFINE    (1<<13)
+#define TPM_NV_PER_WRITEALL       (1<<12)
+#define TPM_NV_PER_AUTHWRITE      (1<<2)
+#define TPM_NV_PER_OWNERWRITE     (1<<1)
+#define TPM_NV_PER_PPWRITE        (1<<0)
+
+/*
+ * tpm_get_nvindex_permission use TPM_GETCAPABILITY cmd to  get the permission
+ * of the NV index given as index.
+ *
+ * return       : TPM_SUCCESS for success, error code defined as TPM_xxx
+ */
+extern uint32_t tpm_get_nvindex_permission(uint32_t locality,
+                                           tpm_nv_index_t index,
+                                           uint32_t *attribute);
+
 /*
  * tpm_save_state save all volatile state info into non-volatile memory.
  *

@@ -60,7 +60,9 @@ enum {
 
 #define TB_POL_MAX_MOD_NUM     127    /* largest supported module number */
 #define TB_POL_MOD_NUM_ANY     129    /* matches any module number */
-                                      /* (should be last entry) */
+                                      /* (should be last entry of modules) */
+#define TB_POL_MOD_NUM_NV      130    /* indicate this is a nv index entry */
+#define TB_POL_MOD_NUM_NV_RAW  131    /* a nv entry verified by raw content */
 
 #define TB_POL_MAX_PCR         23     /* largest supported PCR number */
 #define TB_POL_PCR_NONE        255    /* don't extend measurement into a PCR */
@@ -74,7 +76,14 @@ typedef struct __packed {
     uint8_t      mod_num;         /* 0-based or TB_POL_MOD_NUM_* */
     uint8_t      pcr;             /* PCR number (0-23) or TB_POL_PCR_* */
     uint8_t      hash_type;       /* TB_HTYPE_* */
-    uint32_t     reserved;
+    uint32_t     nv_index;        /* nv index to be measured, effective when */
+                                  /* mod_num==TB_POL_MOD_NUM_{NV | NV_RAW} */
+                                  /* mod_num: */
+                                  /*   TB_POL_MOD_NUM_NV_RAW: */
+                                  /*     check index size==hash size, */
+                                  /*     no hashing before verify and extend */
+                                  /*   TB_POL_MOD_NUM_NV: */
+                                  /*     hashing before verify and extend */
     uint8_t      num_hashes;
     tb_hash_t    hashes[];
 } tb_policy_entry_t;
@@ -298,7 +307,9 @@ static inline bool verify_policy(const tb_policy_t *policy, size_t size,
         if ( print ) PRINT(TBOOT_DETA"\t policy entry[%d]:\n", i);
 
         if ( pol_entry->mod_num > TB_POL_MAX_MOD_NUM &&
-             pol_entry->mod_num != TB_POL_MOD_NUM_ANY ) {
+             pol_entry->mod_num != TB_POL_MOD_NUM_ANY &&
+             pol_entry->mod_num != TB_POL_MOD_NUM_NV &&
+             pol_entry->mod_num != TB_POL_MOD_NUM_NV_RAW ) {
             if ( print ) PRINT(TBOOT_ERR"mod_num invalid (%u)\n", pol_entry->mod_num);
             return false;
         }
@@ -306,7 +317,19 @@ static inline bool verify_policy(const tb_policy_t *policy, size_t size,
         if ( pol_entry->mod_num == TB_POL_MOD_NUM_ANY ) {
             if ( print ) PRINT(TBOOT_DETA"any\n");
         }
-        else
+        else if ( pol_entry->mod_num == TB_POL_MOD_NUM_NV ) {
+            if ( print )
+                PRINT(TBOOT_DETA"nv\n"
+                                "\t\t nv_index: %08x\n",
+                      pol_entry->nv_index);
+        }
+        else if ( pol_entry->mod_num == TB_POL_MOD_NUM_NV_RAW ) {
+            if ( print )
+                PRINT(TBOOT_DETA"nv_raw\n"
+                                "\t\t nv_index: %08x\n",
+                      pol_entry->nv_index);
+        }
+	else
             if ( print ) PRINT(TBOOT_DETA"%u\n", pol_entry->mod_num);
 
         if ( pol_entry->pcr > TB_POL_MAX_PCR &&

@@ -111,6 +111,9 @@ void print_tb_error_msg(tb_error_t error)
         case TB_ERR_FATAL:
             printk(TBOOT_ERR"generic fatal error.\n");
             break;
+        case TB_ERR_NV_VERIFICATION_FAILED:
+            printk(TBOOT_ERR"verifying nv against policy failed.\n");
+            break;
         default:
             printk(TBOOT_ERR"unknown error (%d).\n", error);
             break;

@@ -75,6 +75,7 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "pcr_map", "legacy" },         /* legacy|da */
     { "min_ram", "0" },              /* size in bytes | 0 for no min */
     { "call_racm", "false" },        /* true|false|check */
+    { "measure_nv", "false" },       /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -482,6 +483,16 @@ bool get_tboot_call_racm_check(void)
         return false;
     return true;
 }
+
+bool get_tboot_measure_nv(void)
+{
+    const char *measure_nv = get_option_val(g_tboot_cmdline_options,
+                                       g_tboot_param_values, "measure_nv");
+    if ( measure_nv == NULL || strcmp(measure_nv, "true") != 0 )
+        return false;
+    return true;
+}
+
 
 /*
  * linux kernel command line parsing

@@ -110,6 +110,7 @@ static const tb_policy_map_t g_policy_map[] = {
     { TB_POLTYPE_CONT_VERIFY_FAIL,             TB_POLACT_HALT,
       {
           {TB_ERR_MODULE_VERIFICATION_FAILED,  TB_POLACT_CONTINUE},
+          {TB_ERR_NV_VERIFICATION_FAILED,      TB_POLACT_CONTINUE},
           {TB_ERR_POLICY_NOT_PRESENT,          TB_POLACT_CONTINUE},
           {TB_ERR_POLICY_INVALID,              TB_POLACT_CONTINUE},
           {TB_ERR_NONE,                        TB_POLACT_CONTINUE},
@@ -135,7 +136,7 @@ static const tb_policy_t _def_policy = {
     version        : 2,
     policy_type    : TB_POLTYPE_CONT_NON_FATAL,
     policy_control : TB_POLCTL_EXTEND_PCR17,
-    num_entries    : 2,
+    num_entries    : 3,
     entries        : {
         {   /* mod 0 is extended to PCR 18 by default, so don't re-extend it */
             mod_num    : 0,
@@ -148,6 +149,13 @@ static const tb_policy_t _def_policy = {
             pcr        : 19,
             hash_type  : TB_HTYPE_ANY,
             num_hashes : 0
+        },
+        {   /* NV index for geo-tagging will be extended to PCR 22 */
+            mod_num    : TB_POL_MOD_NUM_NV_RAW,
+            pcr        : 22,
+            hash_type  : TB_HTYPE_ANY,
+            nv_index   : 0x40000010,
+            num_hashes : 0
         }
     }
 };
@@ -157,7 +165,7 @@ static const tb_policy_t _def_policy_da = {
     version        : 2,
     policy_type    : TB_POLTYPE_CONT_NON_FATAL,
     policy_control : TB_POLCTL_EXTEND_PCR17,
-    num_entries    : 2,
+    num_entries    : 3,
     entries        : {
         {   /* mod 0 is extended to PCR 17 by default, so don't re-extend it */
             mod_num    : 0,
@@ -169,6 +177,13 @@ static const tb_policy_t _def_policy_da = {
             mod_num    : TB_POL_MOD_NUM_ANY,
             pcr        : 17,
             hash_type  : TB_HTYPE_ANY,
+            num_hashes : 0
+        },
+        {   /* NV index for geo-tagging will be extended to PCR 22 */
+            mod_num    : TB_POL_MOD_NUM_NV_RAW,
+            pcr        : 22,
+            hash_type  : TB_HTYPE_ANY,
+            nv_index   : 0x40000010,
             num_hashes : 0
         }
     }
@@ -612,6 +627,131 @@ void verify_all_modules(loader_ctx *lctx)
     printk(TBOOT_INFO"all modules are verified\n");
 }
 
+static int find_first_nvpolicy_entry(const tb_policy_t *policy)
+{
+    if ( policy == NULL ) {
+        PRINT(TBOOT_ERR"Error: policy pointer is NULL\n");
+        return -1;
+    }
+
+    for ( int i = 0; i < policy->num_entries; i++ ) {
+        tb_policy_entry_t *pol_entry = get_policy_entry(policy, i);
+        if ( pol_entry == NULL )
+            return -1;
+
+        if ( pol_entry->mod_num == TB_POL_MOD_NUM_NV ||
+             pol_entry->mod_num == TB_POL_MOD_NUM_NV_RAW )
+            return i;
+    }
+
+    return -1;
+}
+
+static int find_next_nvpolicy_entry(const tb_policy_t *policy, int i)
+{
+    if ( policy == NULL || i < 0 || i >= policy->num_entries )
+        return -1;
+
+    for ( i++; i < policy->num_entries; i++ ) {
+        tb_policy_entry_t *pol_entry = get_policy_entry(policy, i);
+        if ( pol_entry == NULL )
+            return -1;
+
+        if ( pol_entry->mod_num == TB_POL_MOD_NUM_NV ||
+             pol_entry->mod_num == TB_POL_MOD_NUM_NV_RAW )
+            return i;
+    }
+
+    return -1;
+}
+
+static uint8_t nv_buf[4096];
+
+static tb_error_t verify_nvindex(tb_policy_entry_t *pol_entry,
+                                 uint8_t hash_alg)
+{
+    size_t nv_size = sizeof(nv_buf);
+    tb_hash_t digest;
+    uint32_t attribute;
+
+    if ( pol_entry == NULL )
+        return TB_ERR_NV_VERIFICATION_FAILED;
+
+    printk(TBOOT_INFO"verifying nv index 0x%08X\n", pol_entry->nv_index);
+
+    /* check nv attribute */
+    if ( TPM_SUCCESS != tpm_get_nvindex_permission(0, pol_entry->nv_index,
+                                                   &attribute) ) {
+        printk(TBOOT_ERR"\t :reading nv index permission failed\n");
+        return TB_ERR_NV_VERIFICATION_FAILED;
+    }
+    if ( !(attribute & TPM_NV_PER_OWNERWRITE) ) {
+        printk(TBOOT_ERR"\t :nv index should be OWNERWRITE, bad permission\n");
+        return TB_ERR_NV_VERIFICATION_FAILED;
+    }
+
+    /* get nv content */
+    memset(nv_buf, 0, sizeof(nv_buf));
+    if ( !read_policy_from_tpm(pol_entry->nv_index,
+                nv_buf, &nv_size) ) {
+        printk(TBOOT_ERR"\t :reading nv index 0x%08X failed\n",
+               pol_entry->nv_index);
+        return TB_ERR_NV_VERIFICATION_FAILED;
+    }
+
+    /* hash the buffer if needed */
+    switch ( pol_entry->mod_num ) {
+    case TB_POL_MOD_NUM_NV:
+        if ( !hash_buffer((const uint8_t*)nv_buf, nv_size, &digest,
+                          TB_HALG_SHA1) ) {
+            printk(TBOOT_ERR"\t :nv content hash failed\n");
+            return TB_ERR_NV_VERIFICATION_FAILED;
+        }
+        break;
+    case TB_POL_MOD_NUM_NV_RAW:
+        if ( nv_size != sizeof(digest.sha1) ) {
+            printk(TBOOT_ERR"\t :raw nv with wrong size (%d), should be %d\n",
+                   (int)nv_size, sizeof(digest.sha1));
+            return TB_ERR_NV_VERIFICATION_FAILED;
+        }
+        memcpy(digest.sha1, nv_buf, nv_size);
+        break;
+    default:
+        printk(TBOOT_ERR"\t :bad mod number for NV measuring in policy entry: %d\n",
+               pol_entry->mod_num);
+        return TB_ERR_NV_VERIFICATION_FAILED;
+    }
+
+    /* add new hash to list (unless it doesn't get put in a PCR)
+       we'll just drop it if the list is full, but that will mean S3 resume
+       PCRs won't match pre-S3 */
+    if ( NUM_VL_ENTRIES >= MAX_VL_HASHES )
+        printk(TBOOT_WARN"\t too many hashes to save\n");
+    else if ( pol_entry->pcr != TB_POL_PCR_NONE ) {
+        VL_ENTRIES(NUM_VL_ENTRIES).pcr = pol_entry->pcr;
+        VL_ENTRIES(NUM_VL_ENTRIES++).hash = digest;
+    }
+
+    /* verify nv content */
+    if ( !is_hash_in_policy_entry(pol_entry, &digest, hash_alg) ) {
+        printk(TBOOT_ERR"\t verification failed\n");
+        return TB_ERR_NV_VERIFICATION_FAILED;
+    }
+
+    printk(TBOOT_DETA"\t OK : "); print_hash(&digest, hash_alg);
+    return TB_ERR_NONE;
+}
+
+void verify_all_nvindices(void)
+{
+    /* go through nv policies in tb policy */
+    for ( int i = find_first_nvpolicy_entry(g_policy);
+          i >= 0;
+          i = find_next_nvpolicy_entry(g_policy, i) ) {
+        tb_policy_entry_t *pol_entry = get_policy_entry(g_policy, i);
+        apply_policy(verify_nvindex(pol_entry, g_policy->hash_alg));
+    }
+}
 
 /*
  * Local variables:
