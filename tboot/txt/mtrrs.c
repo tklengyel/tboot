@@ -44,6 +44,7 @@
 #include <misc.h>
 #include <page.h>
 #include <tboot.h>
+#include <loader.h>
 #include <acpi.h>
 #include <mle.h>
 #include <txt/config_regs.h>

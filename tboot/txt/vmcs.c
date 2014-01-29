@@ -44,9 +44,10 @@
 #include <page.h>
 #include <processor.h>
 #include <printk.h>
+#include <uuid.h>
+#include <loader.h>
 #include <mutex.h>
 #include <atomic.h>
-#include <uuid.h>
 #include <tboot.h>
 #include <txt/txt.h>
 #include <txt/vmcs.h>

@@ -38,7 +38,6 @@
 #include <stdbool.h>
 #include <types.h>
 #include <tb_error.h>
-#include <multiboot.h>
 #include <msr.h>
 #include <compiler.h>
 #include <string.h>
@@ -49,14 +48,15 @@
 #include <atomic.h>
 #include <mutex.h>
 #include <tpm.h>
-#include <e820.h>
 #include <uuid.h>
 #include <loader.h>
+#include <e820.h>
 #include <tboot.h>
 #include <mle.h>
 #include <hash.h>
 #include <lcp2.h>
 #include <cmdline.h>
+#include <acpi.h>
 #include <txt/txt.h>
 #include <txt/config_regs.h>
 #include <txt/mtrrs.h>
@@ -150,7 +150,8 @@ static void print_mle_hdr(const mle_hdr_t *mle_hdr)
 /* 1 ptable = 3 pages and just 1 loop loop for ptable MLE page table */
 /* can only contain 4k pages */
 
-static __mlept uint8_t g_mle_pt[3 * PAGE_SIZE];  /* pgdir ptr + pgdir + ptab = 3 */
+static __mlept uint8_t g_mle_pt[3 * PAGE_SIZE];  
+/* pgdir ptr + pgdir + ptab = 3 */
 
 static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
 {
@@ -159,8 +160,8 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     void *pg_dir_ptr_tab, *pg_dir, *pg_tab;
     uint64_t *pte;
 
-    printk(TBOOT_DETA"MLE start=%x, end=%x, size=%x\n", mle_start, mle_start+mle_size,
-           mle_size);
+    printk(TBOOT_DETA"MLE start=%x, end=%x, size=%x\n", 
+           mle_start, mle_start+mle_size, mle_size);
     if ( mle_size > 512*PAGE_SIZE ) {
         printk(TBOOT_ERR"MLE size too big for single page table\n");
         return NULL;
@@ -201,120 +202,6 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     return ptab_base;
 }
 
-/*
- * will go through all modules to find an RACM that matches the platform
- * (size can be NULL)
- */
-static bool find_platform_racm(const multiboot_info_t *mbi, void **base,
-                               uint32_t *size)
-{
-    if ( base != NULL )
-        *base = NULL;
-    if ( size != NULL )
-        *size = 0;
-
-    if ( mbi->mods_addr == 0 || mbi->mods_count == 0 ) {
-        printk(TBOOT_ERR"no module info\n");
-        return false;
-    }
-
-    for ( int i = mbi->mods_count - 1; i >= 0; i-- ) {
-        module_t *m = get_module(mbi, i);
-
-        printk(TBOOT_DETA"checking if module %s is an RACM for this platform...\n",
-               (const char *)m->string);
-        void *base2 = (void *)m->mod_start;
-        uint32_t size2 = m->mod_end - (unsigned long)(base2);
-        if ( is_racm_acmod(base2, size2, false) &&
-             does_acmod_match_platform((acm_hdr_t *)base2) ) {
-            if ( base != NULL )
-                *base = base2;
-            if ( size != NULL )
-                *size = size2;
-            printk(TBOOT_DETA"RACM matches platform\n");
-            return true;
-        }
-    }
-    /* no RACM found for this platform */
-    printk(TBOOT_ERR"no RACM found\n");
-    return false;
-}
-
-/*
- * will go through all modules to find an SINIT that matches the platform
- * (size can be NULL)
- */
-static bool find_platform_sinit_module(const multiboot_info_t *mbi, void **base,
-                                       uint32_t *size)
-{
-    if ( base != NULL )
-        *base = NULL;
-    if ( size != NULL )
-        *size = 0;
-
-    if ( mbi->mods_addr == 0 || mbi->mods_count == 0 ) {
-        printk(TBOOT_ERR"no module info\n");
-        return false;
-    }
-
-    for ( unsigned int i = mbi->mods_count - 1; i > 0; i-- ) {
-        module_t *m = get_module(mbi, i);
-
-        printk(TBOOT_DETA"checking if module %s is an SINIT for this platform...\n",
-               (const char *)m->string);
-        void *base2 = (void *)m->mod_start;
-        uint32_t size2 = m->mod_end - (unsigned long)(base2);
-        if ( is_sinit_acmod(base2, size2, false) &&
-             does_acmod_match_platform((acm_hdr_t *)base2) ) {
-            if ( base != NULL )
-                *base = base2;
-            if ( size != NULL )
-                *size = size2;
-            printk(TBOOT_DETA"SINIT matches platform\n");
-            return true;
-        }
-    }
-    /* no SINIT found for this platform */
-    printk(TBOOT_ERR"no SINIT AC module found\n");
-    return false;
-}
-
-bool find_lcp_module(const multiboot_info_t *mbi, void **base, uint32_t *size)
-{
-    size_t size2 = 0;
-    void *base2 = NULL;
-
-    if ( base != NULL )
-        *base = NULL;
-    if ( size != NULL )
-        *size = 0;
-
-    /* try policy data file for old version (0x00 or 0x01) */
-    find_module_by_uuid(mbi, &base2, &size2, &((uuid_t)LCP_POLICY_DATA_UUID));
-
-    /* not found */
-    if ( base2 == NULL ) {
-        /* try policy data file for new version (0x0202) */
-        find_module_by_file_signature(mbi, &base2, &size2,
-                                      LCP_POLICY_DATA_FILE_SIGNATURE);
-
-        if ( base2 == NULL ) {
-            printk(TBOOT_WARN"no LCP module found\n");
-            return false;
-        }
-        else
-            printk(TBOOT_INFO"v2 LCP policy data found\n");
-    }
-    else
-        printk(TBOOT_INFO"v1 LCP policy data found\n");
-
-
-    if ( base != NULL )
-        *base = base2;
-    if ( size != NULL )
-        *size = size2;
-    return true;
-}
 
 static __data event_log_container_t *g_elog = NULL;
 
@@ -380,7 +267,7 @@ __data uint32_t g_using_da = 0;
  * sets up TXT heap
  */
 static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
-                                 const multiboot_info_t *mbi)
+                                 loader_ctx *lctx)
 {
     txt_heap_t *txt_heap;
     uint64_t *size;
@@ -401,7 +288,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     *size = sizeof(*os_mle_data) + sizeof(uint64_t);
     memset(os_mle_data, 0, sizeof(*os_mle_data));
     os_mle_data->version = 3;
-    os_mle_data->mbi = (multiboot_info_t *)(unsigned long)mbi;
+    os_mle_data->lctx_addr = lctx->addr;
     os_mle_data->saved_misc_enable_msr = rdmsr(MSR_IA32_MISC_ENABLE);
 
     /*
@@ -410,7 +297,8 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     /* check sinit supported os_sinit_data version */
     uint32_t version = get_supported_os_sinit_data_ver(sinit);
     if ( version < MIN_OS_SINIT_DATA_VER ) {
-        printk(TBOOT_ERR"unsupported OS to SINIT data version(%u) in sinit\n", version);
+        printk(TBOOT_ERR"unsupported OS to SINIT data version(%u) in sinit\n",
+               version);
         return NULL;
     }
     if ( version > MAX_OS_SINIT_DATA_VER )
@@ -430,17 +318,21 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
         (uint64_t)(unsigned long)&_mle_start;
     /* VT-d PMRs */
     uint64_t min_lo_ram, max_lo_ram, min_hi_ram, max_hi_ram;
+    
     if ( !get_ram_ranges(&min_lo_ram, &max_lo_ram, &min_hi_ram, &max_hi_ram) )
         return NULL;
+
     set_vtd_pmrs(os_sinit_data, min_lo_ram, max_lo_ram, min_hi_ram,
                  max_hi_ram);
     /* LCP owner policy data */
     void *lcp_base = NULL;
     uint32_t lcp_size = 0;
-    if ( find_lcp_module(mbi, &lcp_base, &lcp_size) && lcp_size > 0 ) {
+
+    if ( find_lcp_module(lctx, &lcp_base, &lcp_size) && lcp_size > 0 ) {
         /* copy to heap */
         if ( lcp_size > sizeof(os_mle_data->lcp_po_data) ) {
-            printk(TBOOT_ERR"LCP owner policy data file is too large (%u)\n", lcp_size);
+            printk(TBOOT_ERR"LCP owner policy data file is too large (%u)\n",
+                   lcp_size);
             return NULL;
         }
         memcpy(os_mle_data->lcp_po_data, lcp_base, lcp_size);
@@ -459,7 +351,8 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     else if ( sinit_caps.rlp_wake_getsec )
         os_sinit_data->capabilities.rlp_wake_getsec = 1;
     else {     /* should have been detected in verify_acmod() */
-        printk(TBOOT_ERR"SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
+        printk(TBOOT_ERR"SINIT capabilities are incompatible (0x%x)\n", 
+               sinit_caps._raw);
         return NULL;
     }
     /* capabilities : require MLE pagetable in ECX on launch */
@@ -467,7 +360,25 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
      * os_sinit_data->capabilities.ecx_pgtbl = 1;
      */
     os_sinit_data->capabilities.ecx_pgtbl = 0;
-    /* TODO: when tboot supports EFI then set efi_rsdt_ptr */
+    if (is_loader_launch_efi(lctx)){
+        /* we were launched EFI, set efi_rsdt_ptr */
+        struct acpi_rsdp *rsdp = get_rsdp(lctx);
+        if (rsdp != NULL){
+            if (version < 6){
+                /* rsdt */
+                /* NOTE: Winston Wang says this doesn't work for v5 */
+                os_sinit_data->efi_rsdt_ptr = (uint64_t) rsdp->rsdp1.rsdt;
+            } else {
+                /* rsdp */
+                os_sinit_data->efi_rsdt_ptr = (uint64_t)((uint32_t) rsdp);
+            }
+        } else {
+            /* per discussions--if we don't have an ACPI pointer, die */
+            printk(TBOOT_ERR"Failed to find RSDP for EFI launch\n");
+            return NULL;
+        }
+    }
+        
     /* capabilities : choose DA/LG */
     os_sinit_data->capabilities.pcr_map_no_legacy = 1;
     if ( sinit_caps.pcr_map_da && get_tboot_prefer_da() )
@@ -475,11 +386,13 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
     else if ( !sinit_caps.pcr_map_no_legacy )
         os_sinit_data->capabilities.pcr_map_no_legacy = 0;
     else if ( sinit_caps.pcr_map_da ) {
-        printk(TBOOT_INFO"DA is the only supported PCR mapping by SINIT, use it\n");
+        printk(TBOOT_INFO
+               "DA is the only supported PCR mapping by SINIT, use it\n");
         os_sinit_data->capabilities.pcr_map_da = 1;
     }
     else {
-        printk(TBOOT_ERR"SINIT capabilities are icompatible (0x%x)\n", sinit_caps._raw);
+        printk(TBOOT_ERR"SINIT capabilities are incompatible (0x%x)\n", 
+               sinit_caps._raw);
         return NULL;
     }
     g_using_da = os_sinit_data->capabilities.pcr_map_da;
@@ -539,7 +452,8 @@ static void txt_wakeup_cpus(void)
     /* choose wakeup mechanism based on capabilities used */
     if ( os_sinit_data->capabilities.rlp_wake_monitor ) {
         printk(TBOOT_INFO"joining RLPs to MLE with MONITOR wakeup\n");
-        printk(TBOOT_DETA"rlp_wakeup_addr = 0x%x\n", sinit_mle_data->rlp_wakeup_addr);
+        printk(TBOOT_DETA"rlp_wakeup_addr = 0x%x\n", 
+               sinit_mle_data->rlp_wakeup_addr);
         *((uint32_t *)(unsigned long)(sinit_mle_data->rlp_wakeup_addr)) = 0x01;
     }
     else {
@@ -589,7 +503,7 @@ bool txt_is_launched(void)
     return sts.senter_done_sts;
 }
 
-tb_error_t txt_launch_environment(const multiboot_info_t *mbi)
+tb_error_t txt_launch_environment(loader_ctx *lctx)
 {
     acm_hdr_t *sinit = NULL;
     void *mle_ptab_base;
@@ -599,7 +513,7 @@ tb_error_t txt_launch_environment(const multiboot_info_t *mbi)
     /*
      * find correct SINIT AC module in modules list
      */
-    find_platform_sinit_module(mbi, (void **)&sinit, NULL);
+    find_platform_sinit_module(lctx, (void **)&sinit, NULL);
     /* if it is newer than BIOS-provided version, then copy it to */
     /* BIOS reserved region */
     sinit = copy_sinit(sinit);
@@ -621,7 +535,7 @@ tb_error_t txt_launch_environment(const multiboot_info_t *mbi)
         return TB_ERR_FATAL;
 
     /* initialize TXT heap */
-    txt_heap = init_txt_heap(mle_ptab_base, sinit, mbi);
+    txt_heap = init_txt_heap(mle_ptab_base, sinit, lctx);
     if ( txt_heap == NULL )
         return TB_ERR_TXT_NOT_SUPPORTED;
 
@@ -672,14 +586,14 @@ bool txt_s3_launch_environment(void)
     return false;
 }
 
-tb_error_t txt_launch_racm(const multiboot_info_t *mbi)
+tb_error_t txt_launch_racm(loader_ctx *lctx)
 {
     acm_hdr_t *racm = NULL;
 
     /*
      * find correct revocation AC module in modules list
      */
-    find_platform_racm(mbi, (void **)&racm, NULL);
+    find_platform_racm(lctx, (void **)&racm, NULL);
     /* copy it to a 32KB aligned memory address */
     racm = copy_racm(racm);
     if ( racm == NULL )
@@ -967,7 +881,8 @@ tb_error_t txt_protect_mem_regions(void)
     /* TXT private space */
     base = TXT_PRIV_CONFIG_REGS_BASE;
     size = TXT_CONFIG_REGS_SIZE;
-    printk(TBOOT_INFO"protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
+    printk(TBOOT_INFO
+           "protecting TXT Private Space (%Lx - %Lx) in e820 table\n",
            base, (base + size - 1));
     if ( !e820_protect_region(base, size, E820_RESERVED) )
         return TB_ERR_FATAL;
@@ -1015,7 +930,8 @@ void txt_shutdown(void)
     /* if some APs are still in wait-for-sipi then SEXIT will hang */
     /* so TXT reset the platform instead, expect mwait case */
     if ( (!use_mwait()) && atomic_read(&ap_wfs_count) > 0 ) {
-        printk(TBOOT_INFO"exiting with some APs still in wait-for-sipi state (%u)\n",
+        printk(TBOOT_INFO
+               "exiting with some APs still in wait-for-sipi state (%u)\n",
                atomic_read(&ap_wfs_count));
         write_priv_config_reg(TXTCR_CMD_RESET, 0x01);
     }
@@ -1110,7 +1026,8 @@ bool get_parameters(getsec_parameters_t *params)
             params->preserve_mce = (eax & 0x00000040) ? true : false;
         }
         else {
-            printk(TBOOT_WARN"unknown GETSEC[PARAMETERS] type: %d\n", param_type);
+            printk(TBOOT_WARN"unknown GETSEC[PARAMETERS] type: %d\n", 
+                   param_type);
             param_type = 0;    /* set so that we break out of the loop */
         }
     } while ( param_type != 0 );

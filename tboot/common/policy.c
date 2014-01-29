@@ -44,7 +44,7 @@
 #include <processor.h>
 #include <misc.h>
 #include <uuid.h>
-#include <multiboot.h>
+#include <loader.h>
 #include <hash.h>
 #include <tb_error.h>
 #define PRINT printk
@@ -184,8 +184,9 @@ static const tb_policy_t* g_policy = &_def_policy;
  *
  * policy_index_size is in/out
  */
-static bool read_policy_from_tpm(tpm_nv_index_t index,
-                void* policy_index, size_t *policy_index_size)
+static bool 
+read_policy_from_tpm(tpm_nv_index_t index,
+                     void* policy_index, size_t *policy_index_size)
 {
 #define NV_READ_SEG_SIZE    256
     unsigned int offset = 0;
@@ -245,6 +246,9 @@ static bool unwrap_lcp_policy(void)
     void* lcp_base;
     uint32_t lcp_size;
 
+    // scaffolding
+    printk(TBOOT_INFO"in unwrap_lcp_policy\n");
+
     if ( txt_is_launched() ) {
         txt_heap_t *txt_heap = get_txt_heap();
         os_sinit_data_t *os_sinit_data = get_os_sinit_data_start(txt_heap);
@@ -253,8 +257,8 @@ static bool unwrap_lcp_policy(void)
         lcp_size = (uint32_t)os_sinit_data->lcp_po_size;
     }
     else {
-        extern multiboot_info_t *g_mbi;
-        if ( !find_lcp_module(g_mbi, &lcp_base, &lcp_size) )
+        extern loader_ctx *g_ldr_ctx;
+        if ( !find_lcp_module(g_ldr_ctx, &lcp_base, &lcp_size) )
             return false;
     }
 
@@ -504,7 +508,7 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
 
     void *base = (void *)module->mod_start;
     size_t size = module->mod_end - module->mod_start;
-    char *cmdline = (char *)module->string;
+    char *cmdline = get_module_cmd(g_ldr_ctx, module);
 
     if ( pol_entry != NULL ) {
         /* chunk the command line into 80 byte chunks */
@@ -554,7 +558,7 @@ static tb_error_t verify_module(module_t *module, tb_policy_entry_t *pol_entry,
     return TB_ERR_NONE;
 }
 
-void verify_all_modules(multiboot_info_t *mbi)
+void verify_all_modules(loader_ctx *lctx)
 {
     /* assumes mbi is valid */
 
@@ -587,11 +591,11 @@ void verify_all_modules(multiboot_info_t *mbi)
     }
 
     /* module 0 is always extended to PCR 18, so add entry for it */
-    apply_policy(verify_module(get_module(mbi, 0), NULL, g_policy->hash_alg));
+    apply_policy(verify_module(get_module(lctx, 0), NULL, g_policy->hash_alg));
 
     /* now verify each module and add its hash */
-    for ( unsigned int i = 0; i < mbi->mods_count; i++ ) {
-        module_t *module = get_module(mbi, i);
+    for ( unsigned int i = 0; i < get_module_count(lctx); i++ ) {
+        module_t *module = get_module(lctx, i);
         tb_policy_entry_t *pol_entry = find_policy_entry(g_policy, i);
         if ( module == NULL ) {
             printk(TBOOT_ERR"missing module entry %u\n", i);

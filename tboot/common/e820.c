@@ -38,14 +38,16 @@
 #include <stdbool.h>
 #include <printk.h>
 #include <cmdline.h>
-#include <multiboot.h>
+#include <string.h>
+#include <uuid.h>
+#include <loader.h>
 #include <stdarg.h>
 #include <misc.h>
 #include <pci_cfgreg.h>
 #include <e820.h>
 #include <txt/config_regs.h>
 
-/* minimum size of RAM (type 1) region that cannot be marked as resreved even
+/* minimum size of RAM (type 1) region that cannot be marked as reserved even
    if it comes after a reserved region; 0 for no minimum (i.e. current
    behavior) */
 uint32_t g_min_ram = 0;
@@ -57,6 +59,9 @@ uint32_t g_min_ram = 0;
 #define MAX_E820_ENTRIES      (TBOOT_E820_COPY_SIZE / sizeof(memory_map_t))
 static unsigned int g_nr_map;
 static memory_map_t *g_copy_e820_map = (memory_map_t *)TBOOT_E820_COPY_ADDR;
+
+static efi_memory_desc_t *efi_memmap_addr = NULL;
+static uint32_t efi_memmap_size = 0;
 
 static inline void split64b(uint64_t val, uint32_t *val_lo, uint32_t *val_hi)
 {
@@ -267,6 +272,17 @@ static bool is_overlapped(uint64_t base, uint64_t end, uint64_t e820_base,
     return false;
 }
 
+/* helper funcs for loader.c */
+memory_map_t *get_e820_copy()
+{
+    return g_copy_e820_map;
+}
+
+unsigned int get_nr_map()
+{
+    return g_nr_map;
+}
+
 /*
  * copy_e820_map
  *
@@ -274,23 +290,24 @@ static bool is_overlapped(uint64_t base, uint64_t end, uint64_t e820_base,
  *
  * return:  false = error (no table or table too big for new space)
  */
-bool copy_e820_map(const multiboot_info_t *mbi)
+bool copy_e820_map(loader_ctx *lctx)
 {
     get_tboot_min_ram();
 
     g_nr_map = 0;
 
-    if ( mbi->flags & MBI_MEMMAP ) {
+    if (have_loader_memmap(lctx)){
+        uint32_t memmap_length = get_loader_memmap_length(lctx);
+        memory_map_t *memmap = get_loader_memmap(lctx);
         printk(TBOOT_DETA"original e820 map:\n");
-        print_map((memory_map_t *)mbi->mmap_addr,
-                  mbi->mmap_length/sizeof(memory_map_t));
+        print_map(memmap, memmap_length/sizeof(memory_map_t));
 
         uint32_t entry_offset = 0;
 
-        while ( entry_offset < mbi->mmap_length &&
+        while ( entry_offset < memmap_length &&
                 g_nr_map < MAX_E820_ENTRIES ) {
             memory_map_t *entry = (memory_map_t *)
-                                       (mbi->mmap_addr + entry_offset);
+                (((uint32_t) memmap) + entry_offset);
 
             /* we want to support unordered and/or overlapping entries */
             /* so use protect_region() to insert into existing map, since */
@@ -299,21 +316,30 @@ bool copy_e820_map(const multiboot_info_t *mbi)
                                  e820_base_64(entry), e820_length_64(entry),
                                  entry->type) )
                 return false;
-            entry_offset += entry->size + sizeof(entry->size);
+            if (lctx->type == 1)
+                entry_offset += entry->size + sizeof(entry->size);
+            if (lctx->type == 2)
+                /* the MB2 memory map entries don't have a size--
+                 * they have a "zero" with a value of zero. Additionally,
+                 * because they *end* with a size and the MB1 guys *start*
+                 * with a size, we get into trouble if we try to use them,
+                 */
+                entry_offset += sizeof(memory_map_t);
+
         }
         if ( g_nr_map == MAX_E820_ENTRIES ) {
             printk(TBOOT_ERR"Too many e820 entries\n");
             return false;
         }
     }
-    else if ( mbi->flags & MBI_MEMLIMITS ) {
+    else if ( have_loader_memlimits(lctx) ) {
         printk(TBOOT_DETA"no e820 map, mem_lower=%x, mem_upper=%x\n",
-               mbi->mem_lower, mbi->mem_upper);
+               get_loader_mem_lower(lctx), get_loader_mem_upper(lctx));
 
         /* lower limit is 0x00000000 - <mem_lower>*0x400 (i.e. in kb) */
         g_copy_e820_map[0].base_addr_low = 0;
         g_copy_e820_map[0].base_addr_high = 0;
-        g_copy_e820_map[0].length_low = mbi->mem_lower << 10;
+        g_copy_e820_map[0].length_low = (get_loader_mem_lower(lctx)) << 10;
         g_copy_e820_map[0].length_high = 0;
         g_copy_e820_map[0].type = E820_RAM;
         g_copy_e820_map[0].size = sizeof(memory_map_t) - sizeof(uint32_t);
@@ -321,7 +347,7 @@ bool copy_e820_map(const multiboot_info_t *mbi)
         /* upper limit is 0x00100000 - <mem_upper>*0x400 */
         g_copy_e820_map[1].base_addr_low = 0x100000;
         g_copy_e820_map[1].base_addr_high = 0;
-        split64b((uint64_t)mbi->mem_upper << 10,
+        split64b((uint64_t)(get_loader_mem_upper(lctx)) << 10,
                  &(g_copy_e820_map[1].length_low),
                  &(g_copy_e820_map[1].length_high));
         g_copy_e820_map[1].type = E820_RAM;
@@ -335,14 +361,6 @@ bool copy_e820_map(const multiboot_info_t *mbi)
     }
 
     return true;
-}
-
-void replace_e820_map(multiboot_info_t *mbi)
-{
-    /* replace original with the copy */
-    mbi->mmap_addr = (uint32_t)g_copy_e820_map;
-    mbi->mmap_length = g_nr_map * sizeof(memory_map_t);
-    mbi->flags |= MBI_MEMMAP;   /* in case only MBI_MEMLIMITS was set */
 }
 
 bool e820_protect_region(uint64_t addr, uint64_t size, uint32_t type)
@@ -671,6 +689,73 @@ void get_highest_sized_ram(uint64_t size, uint64_t limit,
 
     *ram_base = last_fit_base;
     *ram_size = last_fit_size;
+}
+
+#define PAGE_4K (1 << 12)
+
+efi_memory_desc_t
+*get_efi_memmap(uint32_t *memmap_size)
+{
+    unsigned int i;
+    memory_map_t *mp;
+    efi_memory_desc_t *ep;
+    uint32_t space_required;
+    
+    if (efi_memmap_addr == NULL){
+        /* we haven't done the conversion yet--is there room? */
+        space_required = sizeof(memory_map_t) * g_nr_map +
+            sizeof(efi_memory_desc_t) * g_nr_map + 0xf;
+        if (space_required >= TBOOT_E820_COPY_SIZE){
+            printk(TBOOT_ERR
+                   "Insufficient space to make EFI copy of E820 [%d => %d]\n",
+                   space_required, TBOOT_E820_COPY_SIZE);
+            return NULL;
+        }
+        /* for fun, we'll align the entries to 0x10 */
+        ep = efi_memmap_addr = (efi_memory_desc_t *)
+            ((TBOOT_E820_COPY_ADDR + sizeof(memory_map_t) * g_nr_map + 0xf)
+             & ~0xf);
+        /* printk(TBOOT_INFO"efi memmap base now at %p\n", ep); */
+        mp = g_copy_e820_map;
+        for (i = 0; i < g_nr_map; i++){
+            uint64_t length;
+            ep[i].phys_addr = ep[i].virt_addr = e820_base_64(mp + i);
+            ep[i].pad = 0;
+            length = e820_length_64(mp + i);
+            length += PAGE_4K - 1;
+            length &= ~(PAGE_4K - 1);
+            ep[i].num_pages = length / PAGE_4K;
+            switch (mp[i].type){
+            case E820_RAM:
+                ep[i].type = EFI_CONVENTIONAL_MEMORY;
+                ep[i].attribute |= EFI_MEMORY_WB;
+                break;
+            case E820_ACPI:
+                ep[i].type = EFI_ACPI_RECLAIM_MEMORY;
+                break;
+            case E820_NVS:
+                ep[i].type = EFI_ACPI_MEMORY_NVS;
+                break;
+            case E820_UNUSABLE:
+                ep[i].type = EFI_UNUSABLE_MEMORY;
+                break;
+            case E820_GAP:
+            case E820_MIXED:
+            case E820_RESERVED:
+            default:
+                ep[i].type = EFI_RESERVED_TYPE;
+                break;
+            }
+            /*
+              printk(TBOOT_INFO
+              "EFI entry %d at %016Lx type %d with %Lx pages\n",
+              i, ep[i].phys_addr, ep[i].type, ep[i].num_pages);
+            */
+            efi_memmap_size += sizeof(efi_memory_desc_t);
+        }
+    }
+    *memmap_size = efi_memmap_size;
+    return efi_memmap_addr;
 }
 
 /*

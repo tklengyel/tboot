@@ -39,7 +39,8 @@
 #include <printk.h>
 #include <compiler.h>
 #include <string.h>
-#include <multiboot.h>
+#include <uuid.h>
+#include <loader.h>
 #include <page.h>
 #include <e820.h>
 #include <tboot.h>
@@ -48,8 +49,9 @@
 #include <misc.h>
 #include <hash.h>
 #include <integrity.h>
+#include <processor.h>
 
-extern multiboot_info_t *g_mbi;
+extern loader_ctx *g_ldr_ctx;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
@@ -58,6 +60,22 @@ static boot_params_t *boot_params;
 
 extern void *get_tboot_mem_end(void);
 
+static void
+printk_long(const char *what)
+{
+    /* chunk the command line into 70 byte chunks */
+#define CHUNK_SIZE 70
+    int      cmdlen = strlen(what);
+    const char    *cptr = what;
+    char     cmdchunk[CHUNK_SIZE+1];
+    while (cmdlen > 0) {
+        strncpy(cmdchunk, cptr, CHUNK_SIZE);
+        cmdchunk[CHUNK_SIZE] = 0;
+        printk(TBOOT_INFO"\t%s\n", cmdchunk);
+        cmdlen -= CHUNK_SIZE;
+        cptr += CHUNK_SIZE;
+    }
+}
 
 /* expand linux kernel with kernel image and initrd image */
 bool expand_linux_image(const void *linux_image, size_t linux_size,
@@ -111,25 +129,28 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     if ( hdr->setup_sects == 0 )
         hdr->setup_sects = DEFAULT_SECTOR_NUM;
     if ( hdr->setup_sects > MAX_SECTOR_NUM ) {
-        printk(TBOOT_ERR"Error: Linux setup sectors %d exceed maximum limitation 64.\n",
+        printk(TBOOT_ERR
+               "Error: Linux setup sectors %d exceed maximum limitation 64.\n",
                 hdr->setup_sects);
         return false;
     }
 
     /* set vid_mode */
-    linux_parse_cmdline((char *)g_mbi->cmdline);
+    linux_parse_cmdline(get_cmdline(g_ldr_ctx));
     if ( get_linux_vga(&vid_mode) )
         hdr->vid_mode = vid_mode;
 
     /* compare to the magic number */
     if ( hdr->header != HDRS_MAGIC ) {
         /* old kernel */
-        printk(TBOOT_ERR"Error: Old kernel (< 2.6.20) is not supported by tboot.\n");
+        printk(TBOOT_ERR
+               "Error: Old kernel (< 2.6.20) is not supported by tboot.\n");
         return false;
     }
 
     if ( hdr->version < 0x0205 ) {
-        printk(TBOOT_ERR"Error: Old kernel (<2.6.20) is not supported by tboot.\n");
+        printk(TBOOT_ERR
+               "Error: Old kernel (<2.6.20) is not supported by tboot.\n");
         return false;
     }
 
@@ -193,8 +214,9 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
 
     /* calc location of real mode part */
     real_mode_base = LEGACY_REAL_START;
-    if ( g_mbi->flags & MBI_MEMLIMITS )
-        real_mode_base = (g_mbi->mem_lower << 10) - REAL_MODE_SIZE;
+    if ( have_loader_memlimits(g_ldr_ctx))
+        real_mode_base = 
+            ((get_loader_mem_lower(g_ldr_ctx)) << 10) - REAL_MODE_SIZE;
     if ( real_mode_base < TBOOT_KERNEL_CMDLINE_ADDR +
          TBOOT_KERNEL_CMDLINE_SIZE )
         real_mode_base = TBOOT_KERNEL_CMDLINE_ADDR +
@@ -218,9 +240,9 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         /* fix possible mbi overwrite in grub2 case */
         /* assuming grub2 only used for relocatable kernel */
         /* assuming mbi & components are contiguous */
-        unsigned long mbi_end = get_mbi_mem_end(g_mbi);
-        if ( mbi_end > protected_mode_base )
-            protected_mode_base = mbi_end;
+        unsigned long ldr_ctx_end = get_loader_ctx_end(g_ldr_ctx);
+        if ( ldr_ctx_end > protected_mode_base )
+            protected_mode_base = ldr_ctx_end;
         /* overflow? */
         if ( plus_overflow_u32(protected_mode_base,
                  hdr->kernel_alignment - 1) ) {
@@ -237,21 +259,26 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
                 /* bzImage:0x100000 */
         /* overflow? */
         if ( plus_overflow_u32(protected_mode_base, protected_mode_size) ) {
-            printk(TBOOT_ERR"protected_mode_base plus protected_mode_size overflows\n");
+            printk(TBOOT_ERR
+                   "protected_mode_base plus protected_mode_size overflows\n");
             return false;
         }
         /* Check: protected mode part cannot exceed mem_upper */
-        if ( g_mbi->flags & MBI_MEMLIMITS )
+        if ( have_loader_memlimits(g_ldr_ctx)){
+            uint32_t mem_upper = get_loader_mem_upper(g_ldr_ctx);
             if ( (protected_mode_base + protected_mode_size)
-                    > ((g_mbi->mem_upper << 10) + 0x100000) ) {
-                printk(TBOOT_ERR"Error: Linux protected mode part (0x%lx ~ 0x%lx) "
+                    > ((mem_upper << 10) + 0x100000) ) {
+                printk(TBOOT_ERR
+                       "Error: Linux protected mode part (0x%lx ~ 0x%lx) "
                        "exceeds mem_upper (0x%lx ~ 0x%lx).\n",
                        (unsigned long)protected_mode_base,
-                       (unsigned long)(protected_mode_base + protected_mode_size),
+                       (unsigned long)
+                       (protected_mode_base + protected_mode_size),
                        (unsigned long)0x100000,
-                       (unsigned long)((g_mbi->mem_upper << 10) + 0x100000));
+                       (unsigned long)((mem_upper << 10) + 0x100000));
                 return false;
             }
+        }
     }
     else {
         printk(TBOOT_ERR"Error: Linux protected mode not loaded high\n");
@@ -275,7 +302,11 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
            (unsigned long)(real_mode_base + real_mode_size));
 
     /* copy cmdline */
-    const char *kernel_cmdline = skip_filename((const char *)g_mbi->cmdline);
+    const char *kernel_cmdline = skip_filename(get_cmdline(g_ldr_ctx));
+
+    printk(TBOOT_INFO"Linux cmdline placed in header: ");
+    printk_long(kernel_cmdline);
+    printk(TBOOT_INFO"\n");
     memcpy((void *)hdr->cmd_line_ptr, kernel_cmdline, strlen(kernel_cmdline));
 
     /* need to put boot_params in real mode area so it gets mapped */
@@ -283,12 +314,64 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     memset(boot_params, 0, sizeof(*boot_params));
     memcpy(&boot_params->hdr, hdr, sizeof(*hdr));
 
+    /* need to handle a few EFI things here if such is our parentage */
+    if (is_loader_launch_efi(g_ldr_ctx)){
+        struct efi_info *efi = (struct efi_info *)(boot_params->efi_info);
+        struct screen_info_t *scr = 
+            (struct screen_info_t *)(boot_params->screen_info);
+        uint32_t address = 0;
+        uint64_t long_address = 0UL;
+
+        /* loader signature */
+        memcpy(&efi->efi_ldr_sig, "EL64", sizeof(uint32_t));
+
+        /* EFI system table addr */
+        {
+            if (get_loader_efi_ptr(g_ldr_ctx, &address, &long_address)){
+                if (long_address){
+                    efi->efi_systable = (uint32_t) (long_address & 0xffffffff);
+                    efi->efi_systable_hi = long_address >> 32;
+                } else {
+                    efi->efi_systable = address;
+                    efi->efi_systable_hi = 0;
+                }
+            } else {
+                printk(TBOOT_INFO"failed to get efi system table ptr\n");
+            }
+        }
+
+        /* EFI memmap descriptor size */
+        efi->efi_memdescr_size = 0x30;
+
+        /* EFI memmap descriptor version */
+        efi->efi_memdescr_ver = 1;
+
+#if 1   /* EFI memmap addr */
+        {
+            uint32_t length;
+            efi->efi_memmap = (uint32_t) get_efi_memmap(&length);
+            /* EFI memmap size */
+            efi->efi_memmap_size = length;
+        }
+#else
+        efi->efi_memmap = 0;
+        efi->efi_memmap_size = 0x70;
+#endif
+
+        /* EFI memmap high--since we're consing our own, we know this == 0 */
+        efi->efi_memmap_hi = 0;
+        /* if we're here, GRUB2 probably threw a framebuffer tag at us */
+        load_framebuffer_info(g_ldr_ctx, (void *)scr);
+    }
+    
     /* detect e820 table */
-    if ( g_mbi->flags & MBI_MEMMAP ) {
+    if (have_loader_memmap(g_ldr_ctx)) {
         int i;
 
-        memory_map_t *p = (memory_map_t *)g_mbi->mmap_addr;
-        for ( i = 0; (uint32_t)p < g_mbi->mmap_addr + g_mbi->mmap_length; i++ )
+        memory_map_t *p = get_loader_memmap(g_ldr_ctx);
+        uint32_t memmap_start = (uint32_t) p;
+        uint32_t memmap_length = get_loader_memmap_length(g_ldr_ctx);
+        for ( i = 0; (uint32_t)p < memmap_start + memmap_length; i++ )
         {
             boot_params->e820_map[i].addr = ((uint64_t)p->base_addr_high << 32)
                                             | (uint64_t)p->base_addr_low;
@@ -300,23 +383,25 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         boot_params->e820_entries = i;
     }
 
-    screen_info_t *screen = (screen_info_t *)&boot_params->screen_info;
-    screen->orig_video_mode = 3;       /* BIOS 80*25 text mode */
-    screen->orig_video_lines = 25;
-    screen->orig_video_cols = 80;
-    screen->orig_video_points = 16;    /* set font height to 16 pixels */
-    screen->orig_video_isVGA = 1;      /* use VGA text screen setups */
-    screen->orig_y = 24;               /* start display text in the last line
-                                          of screen */
+    if (0 == is_loader_launch_efi(g_ldr_ctx)){
+        screen_info_t *screen = (screen_info_t *)&boot_params->screen_info;
+        screen->orig_video_mode = 3;       /* BIOS 80*25 text mode */
+        screen->orig_video_lines = 25;
+        screen->orig_video_cols = 80;
+        screen->orig_video_points = 16;    /* set font height to 16 pixels */
+        screen->orig_video_isVGA = 1;      /* use VGA text screen setups */
+        screen->orig_y = 24;               /* start display text @ screen end*/
+    }
 
     /* set address of tboot shared page */
     if ( is_measured_launch )
         *(uint64_t *)&boot_params->tboot_shared_addr =
-                                             (uintptr_t)&_tboot_shared;
+            (uintptr_t)&_tboot_shared;
 
     *entry_point = (void *)hdr->code32_start;
     return true;
 }
+
 
 /* jump to protected-mode code of kernel */
 bool jump_linux_image(void *entry_point)

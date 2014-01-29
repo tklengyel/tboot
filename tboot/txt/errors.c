@@ -36,7 +36,10 @@
 #include <config.h>
 #include <stdbool.h>
 #include <types.h>
+#include <string.h>
 #include <printk.h>
+#include <uuid.h>
+#include <loader.h>
 #include <tb_error.h>
 #include <txt/txt.h>
 #include <txt/config_regs.h>

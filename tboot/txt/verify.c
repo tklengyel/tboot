@@ -43,7 +43,8 @@
 #include <processor.h>
 #include <page.h>
 #include <printk.h>
-#include <multiboot.h>
+#include <uuid.h>
+#include <loader.h>
 #include <tb_error.h>
 #include <e820.h>
 #include <tboot.h>

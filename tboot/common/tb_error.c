@@ -40,7 +40,8 @@
 #include <compiler.h>
 #include <string.h>
 #include <misc.h>
-#include <multiboot.h>
+#include <uuid.h>
+#include <loader.h>
 #include <uuid.h>
 #include <hash.h>
 #include <tb_error.h>

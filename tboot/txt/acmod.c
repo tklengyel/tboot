@@ -45,7 +45,6 @@
 #include <msr.h>
 #include <misc.h>
 #include <uuid.h>
-#include <multiboot.h>
 #include <mle.h>
 #include <hash.h>
 #include <txt/acmod.h>

@@ -40,6 +40,7 @@
 #include <string.h>
 #include <printk.h>
 #include <tboot.h>
+#include <loader.h>
 #include <acpi.h>
 #include <misc.h>
 #include <cmdline.h>
@@ -123,11 +124,22 @@ static bool find_rsdp_in_range(void *start, void *end)
     return false;
 }
 
+extern loader_ctx *g_ldr_ctx;
+
 static bool find_rsdp(void)
 {
+    uint32_t length;
+    uint8_t *ldr_rsdp = NULL;
 
     if ( rsdp != NULL )
         return true;
+
+    /* for grins, let's try asking the loader_ctx if it has a copy */
+    ldr_rsdp = get_loader_rsdp(g_ldr_ctx, &length);
+    if (ldr_rsdp != NULL){
+        rsdp = (struct acpi_rsdp *) ldr_rsdp;
+        return true;
+    }
 
     /*  0x00 - 0x400 */
     if ( find_rsdp_in_range(RSDP_SCOPE1_LOW, RSDP_SCOPE1_HIGH) )
@@ -137,9 +149,27 @@ static bool find_rsdp(void)
     if ( find_rsdp_in_range(RSDP_SCOPE2_LOW, RSDP_SCOPE2_HIGH) )
         return true;
 
-    printk(TBOOT_ERR"cann't find RSDP\n");
+    printk(TBOOT_ERR"can't find RSDP\n");
     rsdp = NULL;
     return false;
+}
+
+struct acpi_rsdp
+*get_rsdp(loader_ctx *lctx)
+{
+    if (rsdp != NULL)
+        return rsdp;
+    if (true == find_rsdp())
+        return rsdp;
+    /* so far we're striking out.  Must have been an EFI lauch */
+    if (false == is_loader_launch_efi(lctx)){
+        /* uncle */
+        return NULL;
+    }
+    /* EFI launch, and the loader didn't grace us with an ACPI tag.
+     * We can try to find this the hard way, right?
+     */
+    return NULL;
 }
 
 /* this function can find dmar table whether or not it was hidden */
@@ -149,10 +179,10 @@ static struct acpi_table_header *find_table(const char *table_name)
         printk(TBOOT_ERR"no rsdp to use\n");
         return NULL;
     }
-   
+
     struct acpi_table_header *table = NULL;
     struct acpi_xsdt *xsdt = get_xsdt(); /* it is ok even on 1.0 tables */
-                                         /* because the value will be ignored */
+                                         /* because value will be ignored */
 
     if ( rsdp->rsdp1.revision >= 2 && xsdt != NULL ) { /*  ACPI 2.0+ */
         for ( uint64_t *curr_table = xsdt->table_offsets;

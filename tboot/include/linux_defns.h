@@ -145,6 +145,31 @@ typedef struct __attribute__ ((packed)) {
         u8  orig_video_isVGA;   /* distinguish between VGA text
                                 and vesa lfb based screen setups */ /* 0x0f */
         u16 orig_video_points;  /* font height */                   /* 0x10 */
+
+        u16 lfb_width;												/* 0x12 */
+        u16 lfb_height;												/* 0x14 */
+        u16 lfb_depth;												/* 0x16 */
+        u32 lfb_base;												/* 0x18 */
+        u32 lfb_size;												/* 0x1c */
+        
+        u16 cl_magic;												/* 0x20 */
+        u16 cl_offset;												/* 0x22 */
+
+        u16 lfb_line_len;											/* 0x24 */
+        u8  red_mask_size;											/* 0x26 */
+        u8  red_field_pos;											/* 0x27 */
+        u8  green_mask_size;										/* 0x28 */
+        u8  green_field_pos;										/* 0x29 */
+        u8  blue_mask_size;											/* 0x2a */
+        u8  blue_field_pos;											/* 0x2b */
+        u8  reserved_mask_size;										/* 0x2c */
+        u8  reserved_field_pos;										/* 0x2d */
+        u16 vesapm_segment;											/* 0x2e */
+        u16 vesapm_offset;											/* 0x30 */
+        u16 lfb_pages;												/* 0x32 */
+        u16 vesa_attrib;											/* 0x34 */
+        u32 capabilities;											/* 0x36 */
+        /* padding out to 0x40 */
 } screen_info_t;
 
 /* recommended layout
@@ -181,6 +206,19 @@ typedef struct __attribute__ ((packed)) {
 #define REAL_END_OFFSET         0x9100
 
 #define REAL_MODE_SIZE          REAL_END_OFFSET - REAL_KERNEL_OFFSET
+
+struct efi_info {
+	uint32_t efi_ldr_sig;
+	uint32_t efi_systable;
+	uint32_t efi_memdescr_size;
+	uint32_t efi_memdescr_ver;
+	uint32_t efi_memmap;
+	uint32_t efi_memmap_size;
+	uint32_t efi_systable_hi;
+	uint32_t efi_memmap_hi;
+};
+
+
 
 #endif /* __LINUX_DEFNS_H__ */
 

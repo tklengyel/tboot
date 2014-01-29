@@ -75,11 +75,24 @@ linux_entry ()
   else
     title="$(gettext_quoted "%s, with tboot %s and Linux %s")"
   fi
+
+  if [ -d /sys/firmware/efi ] ; then
+      mb_directive="multiboot2"
+      mb_mod_directive="module2"
+      mb_extra_kernel="noefi"
+  else
+      mb_directive="multiboot"
+      mb_mod_directive="module"
+      mb_extra_kernel=""
+  fi
+
   printf "menuentry '${title}' ${CLASS} {\n" "${os}" "${tboot_version}" "${version}"
   if ! ${recovery} ; then
       save_default_entry | sed -e "s/^/\t/"
   fi
-
+  if [ -d /sys/firmware/efi ] ; then
+      printf "\tinsmod multiboot2\n"
+  fi
   if [ -z "${prepare_boot_cache}" ]; then
     prepare_boot_cache="$(prepare_grub_to_access_device ${GRUB_DEVICE_BOOT} | sed -e "s/^/\t/")"
   fi
@@ -88,15 +101,15 @@ linux_entry ()
   lmessage="$(gettext_printf "Loading Linux %s ..." ${version})"
   cat << EOF
 	echo	'$xmessage'
-	multiboot	${rel_tboot_dirname}/${tboot_basename} ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}
+	${mb_directive}	${rel_tboot_dirname}/${tboot_basename} ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}
 	echo	'$lmessage'
-	module	${rel_dirname}/${basename} ${rel_dirname}/${basename} root=${linux_root_device_thisversion} ro ${args} ${iommu_args}
+	${mb_mod_directive} ${rel_dirname}/${basename} ${rel_dirname}/${basename} root=${linux_root_device_thisversion} ro ${args} ${iommu_args} ${mb_extra_kernel}
 EOF
   if test -n "${initrd}" ; then
     message="$(gettext_printf "Loading initial ramdisk ...")"
     cat << EOF
 	echo	'$message'
-	module	${rel_dirname}/${initrd} ${rel_dirname}/${initrd}
+	${mb_mod_directive} ${rel_dirname}/${initrd} ${rel_dirname}/${initrd}
 EOF
   fi
   if test -n "${sinit_list}" ; then
@@ -104,7 +117,7 @@ EOF
       message="$(gettext_printf "Loading sinit $i ...")"
       cat << EOF
 	echo	'$message'
-	module	${rel_dirname}/${i} ${rel_dirname}/${i}
+	${mb_mod_directive} ${rel_dirname}/${i} ${rel_dirname}/${i}
 EOF
     done
   fi
@@ -164,12 +177,19 @@ while [ "x${tboot_list}" != "x" ] && [ "x$linux_list" != "x" ] ; do
     # "UUID=" magic is parsed by initrds.  Since there's no initrd, it can't work here.
 	    linux_root_device_thisversion=${GRUB_DEVICE}
 	fi
+	
+	if [ -d /sys/firmware/efi ] ; then
+	    # there's no vga console available under EFI
+	    tboot_log="logging=serial,memory"
+	else
+	    tboot_log="logging=serial,vga,memory"
+	fi
 
 	linux_entry "${OS}" "${version}" "${tboot_version}" false \
-	    "${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT}" "logging=serial,vga,memory" "intel_iommu=on"
+	    "${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT}" ${tboot_log} "intel_iommu=on"
 	if [ "x${GRUB_DISABLE_RECOVERY}" != "xtrue" ]; then
 	    linux_entry "${OS}" "${version}" "${tboot_version}" true \
-		"single ${GRUB_CMDLINE_LINUX}" "logging=serial,vga,memory" "intel_iommu=on"
+		"single ${GRUB_CMDLINE_LINUX}" ${tboot_log} "intel_iommu=on"
 	fi
 
 	list=`echo $list | tr ' ' '\n' | grep -vx $linux | tr '\n' ' '`

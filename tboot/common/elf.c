@@ -39,10 +39,11 @@
 #include <printk.h>
 #include <compiler.h>
 #include <string.h>
-#include <multiboot.h>
+#include <uuid.h>
+#include <loader.h>
 #include <elf_defns.h>
 
-extern multiboot_info_t *g_mbi;
+extern loader_ctx *g_ldr_ctx;
 
 bool is_elf_image(const void *image, size_t size)
 {
@@ -180,12 +181,12 @@ bool expand_elf_image(const elf_header_t *elf, void **entry_point)
     return true;
 }
 
-bool jump_elf_image(void *entry_point)
+bool jump_elf_image(void *entry_point, uint32_t magic)
 {
     __asm__ __volatile__ (
       "    jmp *%%ecx;    "
       "    ud2;           "
-      :: "a" (MB_MAGIC), "b" (g_mbi), "c" (entry_point));
+      :: "a" (magic), "b" (g_ldr_ctx->addr), "c" (entry_point));
 
     return true;
 }

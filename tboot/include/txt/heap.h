@@ -152,7 +152,7 @@ typedef struct __packed {
 typedef struct __packed {
     uint32_t          version;           /* currently 3 */
     mtrr_state_t      saved_mtrr_state;  /* saved prior to changes for SINIT */
-    multiboot_info_t* mbi;               /* needs to be restored to ebx */
+    void 			 *lctx_addr;         /* needs to be restored to ebx */
     uint32_t          saved_misc_enable_msr;  /* saved prior to SENTER */
                                          /* PO policy data */
     uint8_t           lcp_po_data[MAX_LCP_PO_DATA_SIZE];

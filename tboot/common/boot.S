@@ -77,6 +77,19 @@
         /* checksum: negated sum of above */
         .long -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 
+/* multiboot2 header */
+        .align 8
+multiboot2_header:
+        .long MB2_HEADER_MAGIC
+        .long MB2_ARCH_X86
+        .long multiboot2_header_end - multiboot2_header
+        /* checksum */
+        .long -(MB2_HEADER_MAGIC + MB2_ARCH_X86 + (multiboot2_header_end - multiboot2_header))
+multiboot2_header_end:	
+        /* tag requests here--RLM, fix me!! Well, maybe! */
+        .short MB2_HDR_TAG_END
+        .short 0
+        .long 8
 
 	.text
 
@@ -161,6 +174,11 @@ ENTRY(__start)
         pushl   $0
         popf
 
+        /* preserve EAX to be a param to begin_launch--it should
+         *  contain either MULTIBOOT_MAGIC or MULTIBOOT2_MAGIC--we'll need
+         * to figure out which */
+        mov     %eax,%edx
+
         /* Initialize BSS (no nasty surprises!) */
         mov     $__bss_start,%edi
         mov     $_end,%ecx
@@ -176,7 +194,8 @@ ENTRY(__start)
         or      $CR4_MCE,%eax
         mov     %eax,%cr4
 
-        /* pass multiboot info struct and call measured launch code */
+        /* pass multiboot info struct, magic and call measured launch code */
+        push    %edx
         push    %ebx
         call    begin_launch
         ud2

@@ -401,7 +401,7 @@ static void print_os_mle_data(const os_mle_data_t *os_mle_data)
            *((uint64_t *)os_mle_data - 1));
     printk(TBOOT_DETA"\t version: %u\n", os_mle_data->version);
     /* TBD: perhaps eventually print saved_mtrr_state field */
-    printk(TBOOT_DETA"\t mbi: %p\n", os_mle_data->mbi);
+    printk(TBOOT_DETA"\t loader context addr: %p\n", os_mle_data->lctx_addr);
 }
 
 static bool verify_os_mle_data(const txt_heap_t *txt_heap)
@@ -439,8 +439,8 @@ static bool verify_os_mle_data(const txt_heap_t *txt_heap)
     }
 
     /* field checks */
-    if ( os_mle_data->mbi == NULL ) {
-        printk(TBOOT_ERR"OS to MLE data mbi field is NULL\n");
+    if ( os_mle_data->lctx_addr == NULL ) {
+        printk(TBOOT_ERR"OS to MLE data loader context addr field is NULL\n");
         return false;
     }
 
