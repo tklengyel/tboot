@@ -87,6 +87,7 @@ extern tboot_shared_t _tboot_shared;
 extern void apply_policy(tb_error_t error);
 extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 extern void print_event(const tpm12_pcr_event_t *evt);
+extern void print_event_2(void *evt, uint16_t alg);
 
 /*
  * this is the structure whose addr we'll put in TXT heap
@@ -204,6 +205,7 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
 
 
 static __data event_log_container_t *g_elog = NULL;
+static __data heap_event_log_ptr_elt2_t *g_elog_2 = NULL;
 
 /* should be called after os_mle_data initialized */
 static void *init_event_log(void)
@@ -224,6 +226,63 @@ static void *init_event_log(void)
     return (void *)g_elog;
 }
 
+static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
+{
+    unsigned int i;
+    os_mle_data_t *os_mle_data = get_os_mle_data_start(get_txt_heap());
+
+    switch (g_tpm->extpol) {
+    case TB_EXTPOL_AGILE:
+        for (i=0; i<evt_log->count; i++) {
+            evt_log->event_log_descr[i].alg = g_tpm->algs_banks[i];
+            evt_log->event_log_descr[i].phys_addr =
+                    (uint64_t)(unsigned long)(os_mle_data->event_log_buffer + i*4096);
+            evt_log->event_log_descr[i].size = 4096;
+            evt_log->event_log_descr[i].pcr_events_offset = 0;
+            evt_log->event_log_descr[i].next_event_offset = 0;
+            if (g_tpm->algs_banks[i] != TB_HALG_SHA1) {
+                evt_log->event_log_descr[i].pcr_events_offset =
+                        32 + sizeof(tpm20_log_descr_t);
+                evt_log->event_log_descr[i].next_event_offset =
+                        32 + sizeof(tpm20_log_descr_t);
+            }
+        }
+        break;
+    case TB_EXTPOL_EMBEDDED:
+        for (i=0; i<evt_log->count; i++) {
+            evt_log->event_log_descr[i].alg = g_tpm->algs[i];
+            evt_log->event_log_descr[i].phys_addr =
+                    (uint64_t)(unsigned long)(os_mle_data->event_log_buffer + i*4096);
+            evt_log->event_log_descr[i].size = 4096;
+            evt_log->event_log_descr[i].pcr_events_offset = 0;
+            evt_log->event_log_descr[i].next_event_offset = 0;
+            if (g_tpm->algs[i] != TB_HALG_SHA1) {
+                evt_log->event_log_descr[i].pcr_events_offset =
+                        32 + sizeof(tpm20_log_descr_t);
+                evt_log->event_log_descr[i].next_event_offset =
+                        32 + sizeof(tpm20_log_descr_t);
+            }
+        }
+        break;
+    case TB_EXTPOL_FIXED:
+        evt_log->event_log_descr[0].alg = g_tpm->cur_alg;
+        evt_log->event_log_descr[0].phys_addr =
+                    (uint64_t)(unsigned long)os_mle_data->event_log_buffer;
+        evt_log->event_log_descr[0].size = 4096;
+        evt_log->event_log_descr[0].pcr_events_offset = 0;
+        evt_log->event_log_descr[0].next_event_offset = 0;
+        if (g_tpm->cur_alg != TB_HALG_SHA1) {
+            evt_log->event_log_descr[0].pcr_events_offset =
+                    32 + sizeof(tpm20_log_descr_t);
+            evt_log->event_log_descr[0].next_event_offset =
+                    32 + sizeof(tpm20_log_descr_t);
+        }
+        break;
+    default:
+        return;
+    }
+}
+
 static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
 {
     heap_ext_data_element_t* elt = elts;
@@ -234,12 +293,29 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
     elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR;
     elt->size = sizeof(*elt) + sizeof(*evt_log);
 
+    if ( g_tpm->major == TPM20_VER_MAJOR ) {
+        g_elog_2 = (heap_event_log_ptr_elt2_t *)elt->data;
+
+        if ( g_tpm->extpol == TB_EXTPOL_AGILE )
+            g_elog_2->count = g_tpm->banks;
+        else if ( g_tpm->extpol == TB_EXTPOL_EMBEDDED )
+            g_elog_2->count = g_tpm->alg_count;
+        else
+            g_elog_2->count = 1;
+
+        init_evtlog_desc(g_elog_2);
+
+        elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2;
+        elt->size = sizeof(*elt) + sizeof(u32) +
+                g_elog_2->count * sizeof(heap_event_log_descr_t);
+    }
+
     elt = (void *)elt + elt->size;
     elt->type = HEAP_EXTDATA_TYPE_END;
     elt->size = sizeof(*elt);
 }
 
-bool evtlog_append(uint8_t pcr, tb_hash_t *hash, uint32_t type)
+bool evtlog_append_tpm12(uint8_t pcr, tb_hash_t *hash, uint32_t type)
 {
     if ( g_elog == NULL )
         return true;
@@ -261,7 +337,93 @@ bool evtlog_append(uint8_t pcr, tb_hash_t *hash, uint32_t type)
     return true;
 }
 
+void dump_event_2(void)
+{
+    heap_event_log_descr_t *log_descr;
+
+    for ( unsigned int i=0; i<g_elog_2->count; i++ ) {
+        log_descr = &g_elog_2->event_log_descr[i];
+        printk(TBOOT_DETA"\t\t\t Log Descrption:\n");
+        printk(TBOOT_DETA"\t\t\t             Alg: %u\n", log_descr->alg);
+        printk(TBOOT_DETA"\t\t\t            Size: %u\n", log_descr->size);
+        printk(TBOOT_DETA"\t\t\t    EventsOffset: [%u,%u)\n",
+                log_descr->pcr_events_offset,
+                log_descr->next_event_offset);
+
+        uint32_t hash_size, data_size; 
+        hash_size = get_hash_size(log_descr->alg); 
+        if ( hash_size == 0 )
+            return;
+
+        void *curr, *next;
+        *((u64 *)(&curr)) = log_descr->phys_addr +
+                log_descr->pcr_events_offset;
+        *((u64 *)(&next)) = log_descr->phys_addr +
+                log_descr->next_event_offset;
+
+        while ( curr < next ) {
+            print_event_2(curr, log_descr->alg);
+            data_size = *(uint32_t *)(curr + 2*sizeof(uint32_t) + hash_size);
+            curr += 3*sizeof(uint32_t) + hash_size + data_size;
+        }
+    }
+}
+
+bool evtlog_append_tpm20(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t type)
+{
+    heap_event_log_descr_t *cur_desc = NULL;
+    uint32_t hash_size; 
+    void *cur, *next;
+
+    for ( unsigned int i=0; i<g_elog_2->count; i++ ) {
+        if ( g_elog_2->event_log_descr[i].alg == alg ) {
+            cur_desc = &g_elog_2->event_log_descr[i];
+            break;
+        }
+    }
+    if ( !cur_desc )
+        return false;
+   
+    hash_size = get_hash_size(alg); 
+    if ( hash_size == 0 )
+        return false;
+    *((u64 *)(&cur)) = *((u64 *)(&next)) =
+          cur_desc->phys_addr + cur_desc->next_event_offset;
+    if ( cur_desc->next_event_offset + 32 > cur_desc->size )
+        return false;
+    *((u32 *)next) = pcr;
+    next += sizeof(u32);
+    *((u32 *)next) = type;
+    next += sizeof(u32);
+    memcpy((uint8_t *)next, hash, hash_size);
+    next += hash_size/sizeof(uint32_t);
+    *((u32 *)next) = 0;
+    cur_desc->next_event_offset += 3*sizeof(uint32_t) + hash_size; 
+
+    print_event_2(cur, alg);
+    return true;
+}
+
+bool evtlog_append(uint8_t pcr, hash_list_t *hl, uint32_t type)
+{
+    switch (g_tpm->major) {
+    case TPM12_VER_MAJOR:
+        evtlog_append_tpm12(pcr, &hl->entries[0].hash, type);
+        break;
+    case TPM20_VER_MAJOR:
+        for (unsigned int i=0; i<hl->count; i++)
+            evtlog_append_tpm20(pcr, hl->entries[i].alg,
+                    &hl->entries[i].hash, type);
+        break;
+    default:
+        return false;
+    }
+
+    return true;
+}
+
 __data uint32_t g_using_da = 0;
+__data acm_hdr_t *g_sinit = 0;
 
 /*
  * sets up TXT heap
@@ -396,7 +558,15 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
         return NULL;
     }
     g_using_da = os_sinit_data->capabilities.pcr_map_da;
-        
+
+    /* PCR mapping selection MUST be zero in TPM2.0 mode
+     * since D/A mapping is the only supported by TPM2.0 */
+    if ( g_tpm->major >= TPM20_VER_MAJOR ) {
+        os_sinit_data->flags = (g_tpm->extpol == TB_EXTPOL_AGILE) ? 0 : 1;
+        os_sinit_data->capabilities.pcr_map_no_legacy = 0;
+        os_sinit_data->capabilities.pcr_map_da = 0;
+        g_using_da = 1;
+    }   
 
     /* Event log initialization */
     if ( os_sinit_data->version >= 6 )
@@ -505,7 +675,6 @@ bool txt_is_launched(void)
 
 tb_error_t txt_launch_environment(loader_ctx *lctx)
 {
-    acm_hdr_t *sinit = NULL;
     void *mle_ptab_base;
     os_mle_data_t *os_mle_data;
     txt_heap_t *txt_heap;
@@ -513,14 +682,14 @@ tb_error_t txt_launch_environment(loader_ctx *lctx)
     /*
      * find correct SINIT AC module in modules list
      */
-    find_platform_sinit_module(lctx, (void **)&sinit, NULL);
+    find_platform_sinit_module(lctx, (void **)&g_sinit, NULL);
     /* if it is newer than BIOS-provided version, then copy it to */
     /* BIOS reserved region */
-    sinit = copy_sinit(sinit);
-    if ( sinit == NULL )
+    g_sinit = copy_sinit(g_sinit);
+    if ( g_sinit == NULL )
         return TB_ERR_SINIT_NOT_PRESENT;
     /* do some checks on it */
-    if ( !verify_acmod(sinit) )
+    if ( !verify_acmod(g_sinit) )
         return TB_ERR_ACMOD_VERIFY_FAILED;
 
     /* print some debug info */
@@ -535,7 +704,7 @@ tb_error_t txt_launch_environment(loader_ctx *lctx)
         return TB_ERR_FATAL;
 
     /* initialize TXT heap */
-    txt_heap = init_txt_heap(mle_ptab_base, sinit, lctx);
+    txt_heap = init_txt_heap(mle_ptab_base, g_sinit, lctx);
     if ( txt_heap == NULL )
         return TB_ERR_TXT_NOT_SUPPORTED;
 
@@ -544,22 +713,20 @@ tb_error_t txt_launch_environment(loader_ctx *lctx)
     save_mtrrs(&(os_mle_data->saved_mtrr_state));
 
     /* set MTRRs properly for AC module (SINIT) */
-    if ( !set_mtrrs_for_acmod(sinit) )
+    if ( !set_mtrrs_for_acmod(g_sinit) )
         return TB_ERR_FATAL;
 
     printk(TBOOT_INFO"executing GETSEC[SENTER]...\n");
     /* (optionally) pause before executing GETSEC[SENTER] */
     if ( g_vga_delay > 0 )
         delay(g_vga_delay * 1000);
-    __getsec_senter((uint32_t)sinit, (sinit->size)*4);
+    __getsec_senter((uint32_t)g_sinit, (g_sinit->size)*4);
     printk(TBOOT_INFO"ERROR--we should not get here!\n");
     return TB_ERR_FATAL;
 }
 
 bool txt_s3_launch_environment(void)
 {
-    acm_hdr_t *sinit;
-
     /* initial launch's TXT heap data is still in place and assumed valid */
     /* so don't re-create; this is OK because it was untrusted initially */
     /* and would be untrusted now */
@@ -570,18 +737,18 @@ bool txt_s3_launch_environment(void)
         g_elog = (event_log_container_t *)init_event_log();
 
     /* get sinit binary loaded */
-    sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
-    if ( sinit == NULL )
+    g_sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
+    if ( g_sinit == NULL )
         return false;
 
     /* set MTRRs properly for AC module (SINIT) */
-    set_mtrrs_for_acmod(sinit);
+    set_mtrrs_for_acmod(g_sinit);
 
     printk(TBOOT_INFO"executing GETSEC[SENTER]...\n");
     /* (optionally) pause before executing GETSEC[SENTER] */
     if ( g_vga_delay > 0 )
         delay(g_vga_delay * 1000);
-    __getsec_senter((uint32_t)sinit, (sinit->size)*4);
+    __getsec_senter((uint32_t)g_sinit, (g_sinit->size)*4);
     printk(TBOOT_ERR"ERROR--we should not get here!\n");
     return false;
 }

@@ -120,6 +120,54 @@ typedef struct __packed {
 } event_log_container_t;
 
 /*
+ * HEAP_EVENT_LOG_POINTER_ELEMENT2
+ */
+#define HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2  7 
+
+#define DIGEST_ALG_ID_SHA_1       0x00000001
+#define DIGEST_ALG_ID_SHA_256     0x00000002
+#define DIGEST_ALG_ID_SHA_384     0x00000003
+#define DIGEST_ALG_ID_SHA_512     0x00000004
+#define DIGEST_ALG_ID_SM3         0x00000005
+static inline unsigned int get_evtlog_digest_id(uint16_t hash_alg)
+{
+    if ( hash_alg == TB_HALG_SHA1 )
+        return DIGEST_ALG_ID_SHA_1;
+    else if ( hash_alg == TB_HALG_SHA256 )
+        return DIGEST_ALG_ID_SHA_256;
+    else if ( hash_alg == TB_HALG_SM3 )
+        return DIGEST_ALG_ID_SM3;
+    else if ( hash_alg == TB_HALG_SHA384 )
+        return DIGEST_ALG_ID_SHA_384;
+    else if ( hash_alg == TB_HALG_SHA512 )
+        return DIGEST_ALG_ID_SHA_512;
+    else
+        return 0;
+}
+
+typedef struct __packed {
+    uint8_t    signature[16];
+    uint32_t   revision;
+    uint32_t   digest_id;
+    uint32_t   digest_size;
+} tpm20_log_descr_t;
+
+typedef struct __packed {
+    uint16_t   alg;
+    uint16_t   reserved;
+    uint64_t   phys_addr;
+    uint32_t   size;
+    uint32_t   pcr_events_offset;
+    uint32_t   next_event_offset;
+} heap_event_log_descr_t;
+
+typedef struct __packed {
+    uint32_t   count;
+    heap_event_log_descr_t event_log_descr[];
+} heap_event_log_ptr_elt2_t;
+
+
+/*
  * data-passing structures contained in TXT heap:
  *   - BIOS
  *   - OS/loader to MLE
@@ -137,7 +185,7 @@ typedef struct __packed {
     uint64_t  lcp_pd_size;
     uint32_t  num_logical_procs;
     /* versions >= 3 */
-    uint64_t  flags;
+    uint64_t  flags; /* For TPM2, it is divided into sinit_flag and mle_flag */
     /* versions >= 4 */
     heap_ext_data_element_t  ext_data_elts[];
 } bios_data_t;
@@ -147,7 +195,7 @@ typedef struct __packed {
  *   - private to tboot (so can be any format we need)
  */
 #define MAX_LCP_PO_DATA_SIZE     64*1024  /* 64k */
-#define MAX_EVENT_LOG_SIZE       4*1024   /* 4k */
+#define MAX_EVENT_LOG_SIZE       5*4*1024   /* 4k*5 */
 
 typedef struct __packed {
     uint32_t          version;           /* currently 3 */
@@ -161,13 +209,14 @@ typedef struct __packed {
 } os_mle_data_t;
 
 #define MIN_OS_SINIT_DATA_VER    4
-#define MAX_OS_SINIT_DATA_VER    6
+#define MAX_OS_SINIT_DATA_VER    7
+#define OS_SINIT_FLAGS_EXTPOL_MASK  0x00000001
 /*
  * OS/loader to SINIT structure
  */
 typedef struct __packed {
-    uint32_t    version;           /* currently 4-6 */
-    uint32_t    reserved;
+    uint32_t    version;           /* currently 4-7 */
+    uint32_t    flags;  /* For TPM2: BIT0:= PCR Extend Policy Control */
     uint64_t    mle_ptab;
     uint64_t    mle_size;
     uint64_t    mle_hdr_base;
@@ -201,15 +250,15 @@ typedef struct __packed {
 } sinit_mdr_t;
 
 typedef struct __packed {
-    uint32_t     version;             /* currently 6-8 */
-    sha1_hash_t  bios_acm_id;
-    uint32_t     edx_senter_flags;
-    uint64_t     mseg_valid;
-    sha1_hash_t  sinit_hash;
-    sha1_hash_t  mle_hash;
-    sha1_hash_t  stm_hash;
-    sha1_hash_t  lcp_policy_hash;
-    uint32_t     lcp_policy_control;
+    uint32_t     version;             /* currently 6-9 */
+    sha1_hash_t  bios_acm_id;         /* only for tpm1.2 */
+    uint32_t     edx_senter_flags;    /* only for tpm1.2 */
+    uint64_t     mseg_valid;          /* only for tpm1.2 */
+    sha1_hash_t  sinit_hash;          /* only for tpm1.2 */
+    sha1_hash_t  mle_hash;            /* only for tpm1.2 */
+    sha1_hash_t  stm_hash;            /* only for tpm1.2 */
+    sha1_hash_t  lcp_policy_hash;     /* only for tpm1.2 */
+    uint32_t     lcp_policy_control;  /* only for tpm1.2 */
     uint32_t     rlp_wakeup_addr;
     uint32_t     reserved;
     uint32_t     num_mdrs;
@@ -217,7 +266,9 @@ typedef struct __packed {
     uint32_t     num_vtd_dmars;
     uint32_t     vtd_dmars_off;
     /* versions >= 8 */
-    uint32_t     proc_scrtm_status;
+    uint32_t     proc_scrtm_status;   /* only for tpm1.2 */
+    /* versions >= 9 */
+    heap_ext_data_element_t  ext_data_elts[];
 } sinit_mle_data_t;
 
 
@@ -307,23 +358,7 @@ static inline sinit_mle_data_t *get_sinit_mle_data_start(const txt_heap_t *heap)
                                 sizeof(uint64_t));
 }
 
-/*
- * Make sure version is in [MIN_OS_SINIT_DATA_VER, MAX_OS_SINIT_DATA_VER]
- * before calling calc_os_sinit_data_size
- */
-static inline uint64_t calc_os_sinit_data_size(uint32_t version)
-{
-    uint64_t size[] = {
-        offsetof(os_sinit_data_t, efi_rsdt_ptr) + sizeof(uint64_t),
-        sizeof(os_sinit_data_t) + sizeof(uint64_t),
-        sizeof(os_sinit_data_t) + sizeof(uint64_t) +
-            2 * sizeof(heap_ext_data_element_t) +
-            sizeof(heap_event_log_ptr_elt_t)
-   };
-
-   return size[version - MIN_OS_SINIT_DATA_VER];
-}
-
+extern uint64_t calc_os_sinit_data_size(uint32_t version);
 extern bool verify_txt_heap(const txt_heap_t *txt_heap, bool bios_data_only);
 extern bool verify_bios_data(const txt_heap_t *txt_heap);
 extern void print_os_sinit_data(const os_sinit_data_t *os_sinit_data);

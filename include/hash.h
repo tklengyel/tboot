@@ -36,27 +36,45 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
-#define TB_HALG_SHA1    0
+#define TB_HALG_SHA1    0x0004 
+#define TB_HALG_SHA256  0x000B 
+#define TB_HALG_SM3     0x0012 
+#define TB_HALG_SHA384  0x000C
+#define TB_HALG_SHA512  0x000D
+#define TB_HALG_NULL    0x0010
 
-#ifndef SHA1_LENGTH
 #define SHA1_LENGTH        20
-#endif
-#ifndef SHA256_LENGTH
 #define SHA256_LENGTH      32
-#endif
+#define SM3_LENGTH         32
+#define SHA384_LENGTH      48
+#define SHA512_LENGTH      64 
 
 typedef uint8_t sha1_hash_t[SHA1_LENGTH];
+typedef uint8_t sha256_hash_t[SHA256_LENGTH];
+typedef uint8_t sm3_hash_t[SM3_LENGTH];
+typedef uint8_t sha384_hash_t[SHA384_LENGTH];
+typedef uint8_t sha512_hash_t[SHA512_LENGTH];
 
 typedef union {
     uint8_t    sha1[SHA1_LENGTH];
     uint8_t    sha256[SHA256_LENGTH];
+    uint8_t    sm3[SM3_LENGTH];
+    uint8_t    sha384[SHA384_LENGTH];
+    uint8_t    sha512[SHA512_LENGTH];
 } tb_hash_t;
 
-
-static inline const char *hash_alg_to_string(uint8_t hash_alg)
+static inline const char *hash_alg_to_string(uint16_t hash_alg)
 {
     if ( hash_alg == TB_HALG_SHA1 )
         return "TB_HALG_SHA1";
+    else if ( hash_alg == TB_HALG_SHA256 )
+        return "TB_HALG_SHA256";
+    else if ( hash_alg == TB_HALG_SM3 )
+        return "TB_HALG_SM3";
+    else if ( hash_alg == TB_HALG_SHA384 )
+        return "TB_HALG_SHA256";
+    else if ( hash_alg == TB_HALG_SHA512 )
+        return "TB_HALG_SHA256";
     else {
         static char buf[32];
         snprintf(buf, sizeof(buf), "unsupported (%u)", hash_alg);
@@ -64,21 +82,31 @@ static inline const char *hash_alg_to_string(uint8_t hash_alg)
     }
 }
 
-
-static inline unsigned int get_hash_size(uint8_t hash_alg)
+static inline unsigned int get_hash_size(uint16_t hash_alg)
 {
-    return (hash_alg == TB_HALG_SHA1) ? SHA1_LENGTH : 0;
+    if ( hash_alg == TB_HALG_SHA1 )
+        return SHA1_LENGTH;
+    else if ( hash_alg == TB_HALG_SHA256 )
+        return SHA256_LENGTH;
+    else if ( hash_alg == TB_HALG_SM3 )
+        return SM3_LENGTH;
+    else if ( hash_alg == TB_HALG_SHA384 )
+        return SHA384_LENGTH;
+    else if ( hash_alg == TB_HALG_SHA512 )
+        return SHA512_LENGTH;
+    else
+        return 0;
 }
 
 extern bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
-                             uint8_t hash_alg);
+                             uint16_t hash_alg);
 extern bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
-                        uint8_t hash_alg);
+                        uint16_t hash_alg);
 extern bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2,
-                        uint8_t hash_alg);
-extern void print_hash(const tb_hash_t *hash, uint8_t hash_alg);
+                        uint16_t hash_alg);
+extern void print_hash(const tb_hash_t *hash, uint16_t hash_alg);
 extern void copy_hash(tb_hash_t *dest_hash, const tb_hash_t *src_hash,
-                      uint8_t hash_alg);
+                      uint16_t hash_alg);
 
 
 #endif    /* __HASH_H__ */

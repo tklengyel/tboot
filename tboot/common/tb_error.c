@@ -129,7 +129,6 @@ void print_tb_error_msg(tb_error_t error)
 bool read_tb_error_code(tb_error_t *error)
 {
     uint32_t size = sizeof(tb_error_t);
-    uint32_t ret;
 
     if ( error == NULL ) {
         printk(TBOOT_ERR"Error: error pointer is zero.\n");
@@ -139,10 +138,10 @@ bool read_tb_error_code(tb_error_t *error)
     memset(error, 0, size);
 
     /* read! */
-    ret = tpm_nv_read_value(0, TB_LAUNCH_ERR_IDX, 0, (uint8_t *)error, &size);
-    if ( ret != TPM_SUCCESS ) {
-        printk(TBOOT_WARN"Error: read TPM error: 0x%x.\n", ret);
-	no_err_idx = true;
+    if ( !g_tpm->nv_read(g_tpm, 0, g_tpm->tb_err_index, 0,
+                (uint8_t *)error, &size) ) {
+        printk(TBOOT_WARN"Error: read TPM error: 0x%x.\n", g_tpm->error);
+        no_err_idx = true;
         return false;
     }
 
@@ -161,11 +160,10 @@ bool write_tb_error_code(tb_error_t error)
     if ( no_err_idx )
         return false;
 
-    uint32_t ret = tpm_nv_write_value(0, TB_LAUNCH_ERR_IDX, 0,
-				      (uint8_t *)&error, sizeof(tb_error_t));
-    if ( ret != TPM_SUCCESS ) {
-        printk(TBOOT_WARN"Error: write TPM error: 0x%x.\n", ret);
-	no_err_idx = true;
+    if ( !g_tpm->nv_write(g_tpm, 0, g_tpm->tb_err_index, 0,
+				      (uint8_t *)&error, sizeof(tb_error_t)) ) {
+        printk(TBOOT_WARN"Error: write TPM error: 0x%x.\n", g_tpm->error);
+        no_err_idx = true;
         return false;
     }
 

@@ -217,14 +217,77 @@ static acm_processor_id_list_t *get_acmod_processor_list(const acm_hdr_t* hdr)
     return proc_id_list;
 }
 
+tpm_info_list_t *get_tpm_info_list(const acm_hdr_t* hdr)
+{
+    acm_info_table_t* info_table;
+    uint32_t size, tpm_info_off;
+    tpm_info_list_t *tpm_info;
+
+    /* this fn assumes that the ACM has already passed the is_acmod() checks */
+
+    info_table = get_acmod_info_table(hdr);
+    if ( info_table == NULL )
+        return NULL;
+    tpm_info_off = info_table->tpm_info_list_off;
+
+    size = hdr->size * 4;
+
+    /* overflow? */
+    if ( plus_overflow_u32(tpm_info_off, sizeof(tpm_info_list_t)) ) {
+        printk("tpm_info_off plus tpm_info_list_t size overflows\n");
+        return NULL;
+    }
+
+    /* check that tpm info list is w/in ACM */
+    if ( tpm_info_off + sizeof(tpm_info_list_t) > size ) {
+        printk("TPM info list is too big: tpm_info_list=%x\n",
+               tpm_info_off);
+        return NULL;
+    }
+
+    /* overflow? */
+    if ( plus_overflow_u32((unsigned long)hdr, tpm_info_off) ) {
+        printk("hdr plus tpm_info_off overflows\n");
+        return NULL;
+    }
+
+    tpm_info = (tpm_info_list_t *)
+                             ((unsigned long)hdr + tpm_info_off);
+
+    /* overflow? */
+    if ( multiply_overflow_u32(tpm_info->count,
+             sizeof(uint16_t)) ) {
+        printk("size of tpm_info_list overflows\n");
+        return NULL;
+    }
+    if ( plus_overflow_u32(tpm_info_off + sizeof(tpm_info_list_t),
+        tpm_info->count * sizeof(uint16_t)) ) {
+        printk("size of all entries overflows\n");
+        return NULL;
+    }
+
+    /* check that all entries are w/in ACM */
+    if ( tpm_info_off + sizeof(tpm_info_list_t) +
+         tpm_info->count * sizeof(uint16_t) > size ) {
+        printk("TPM info list entries are too big:"
+               " tpm_info_list->count=%x\n", tpm_info->count);
+        return NULL;
+    }
+
+    return tpm_info;
+}
+
 void print_txt_caps(const char *prefix, txt_caps_t caps)
 {
     printk(TBOOT_DETA"%scapabilities: 0x%08x\n", prefix, caps._raw);
     printk(TBOOT_DETA"%s    rlp_wake_getsec: %d\n", prefix, caps.rlp_wake_getsec);
     printk(TBOOT_DETA"%s    rlp_wake_monitor: %d\n", prefix, caps.rlp_wake_monitor);
     printk(TBOOT_DETA"%s    ecx_pgtbl: %d\n", prefix, caps.ecx_pgtbl);
+    printk(TBOOT_DETA"%s    stm: %d\n", prefix, caps.stm);
     printk(TBOOT_DETA"%s    pcr_map_no_legacy: %d\n", prefix, caps.pcr_map_no_legacy);
     printk(TBOOT_DETA"%s    pcr_map_da: %d\n", prefix, caps.pcr_map_da);
+    printk(TBOOT_DETA"%s    platform_type: %d\n", prefix, caps.platform_type);
+    printk(TBOOT_DETA"%s    max_phy_addr: %d\n", prefix, caps.max_phy_addr);
 }
 
 static void print_acm_hdr(const acm_hdr_t *hdr, const char *mod_name)
@@ -327,6 +390,25 @@ static void print_acm_hdr(const acm_hdr_t *hdr, const char *mod_name)
             printk(TBOOT_DETA"\t\t     fms_mask: 0x%x\n", proc_id->fms_mask);
             printk(TBOOT_DETA"\t\t     platform_id: 0x%Lx\n", (unsigned long long)proc_id->platform_id);
             printk(TBOOT_DETA"\t\t     platform_mask: 0x%Lx\n", (unsigned long long)proc_id->platform_mask);
+        }
+    }
+
+    if ( info_table->version >= 5 ){
+        /* tpm infor list */
+        printk(TBOOT_DETA"\t TPM info list:\n");
+        tpm_info_list_t *info_list = get_tpm_info_list(hdr);
+        if ( info_list == NULL ) {
+            printk(TBOOT_ERR"\t\t <invalid>\n");
+            return;
+        }
+        printk(TBOOT_DETA"\t\t TPM capability:\n");
+        printk(TBOOT_DETA"\t\t      ext_policy: 0x%x\n",
+                info_list->capabilities.ext_policy);
+        printk(TBOOT_DETA"\t\t      tpm_family : 0x%x\n",
+                info_list->capabilities.tpm_family);
+        printk(TBOOT_DETA"\t\t alg count: %u\n", info_list->count);
+        for ( unsigned int i = 0; i < info_list->count; i++ ) {
+            printk(TBOOT_DETA"\t\t     alg_id: 0x%x\n", info_list->alg_id[i]);
         }
     }
 }

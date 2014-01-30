@@ -45,10 +45,12 @@ typedef union {
         uint32_t  rlp_wake_getsec     : 1;
         uint32_t  rlp_wake_monitor    : 1;
         uint32_t  ecx_pgtbl           : 1;
-        uint32_t  reserved1           : 1;
+        uint32_t  stm                 : 1;
         uint32_t  pcr_map_no_legacy   : 1;
         uint32_t  pcr_map_da          : 1;
-        uint32_t  reserved2           : 26;
+        uint32_t  platform_type       : 2;
+        uint32_t  max_phy_addr        : 1;
+        uint32_t  reserved1           : 23;
     };
 } txt_caps_t;
 

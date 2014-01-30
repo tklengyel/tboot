@@ -38,12 +38,24 @@
 #define _TBOOT_INTEGRITY_H_
 
 #include <vmac.h>
+#include <hash.h>
 
 /*
  * state that must be saved across S3 and will be sealed for integrity
  * before extending PCRs and launching kernel
  */
 #define MAX_VL_HASHES 32
+#define MAX_ALG_NUM 5 
+
+typedef struct {
+    uint16_t  alg;
+    tb_hash_t hash;
+} hash_entry_t;
+
+typedef struct {
+    uint32_t  count;
+    hash_entry_t entries[MAX_ALG_NUM];
+} hash_list_t;
 
 typedef struct {
     /* low and high memory regions to protect w/ VT-d PMRs */
@@ -58,8 +70,8 @@ typedef struct {
      * order it appears in the list */
     uint8_t num_vl_entries;
     struct {
-        uint8_t   pcr;
-        tb_hash_t hash;
+        uint8_t pcr;
+        hash_list_t hl;
     } vl_entries[MAX_VL_HASHES];
 } pre_k_s3_state_t;
 

@@ -93,6 +93,7 @@ typedef struct __packed {
 typedef struct __packed {
     uint8_t             version;          /* currently 2 */
     uint8_t             policy_type;      /* TB_POLTYPE_* */
+    /* TODO should be changed to 16bit for TPM 2.0 */
     uint8_t             hash_alg;         /* TB_HALG_* */
     uint32_t            policy_control;   /* bitwise OR of TB_POLCTL_* */
     uint32_t            reserved;
@@ -157,7 +158,7 @@ static inline const char *policy_control_to_string(uint32_t policy_control)
 }
 
 static inline size_t calc_policy_entry_size(const tb_policy_entry_t *pol_entry,
-                                            uint8_t hash_alg)
+                                            uint16_t hash_alg)
 {
     if ( pol_entry == NULL )
         return 0;
@@ -188,7 +189,7 @@ static inline size_t calc_policy_size(const tb_policy_t *policy)
 }
 
 static inline tb_hash_t *get_policy_entry_hash(
-                const tb_policy_entry_t *pol_entry, uint8_t hash_alg, int i)
+                const tb_policy_entry_t *pol_entry, uint16_t hash_alg, int i)
 {
     /* assumes policy has already been validated */
 
@@ -285,8 +286,6 @@ static inline bool verify_policy(const tb_policy_t *policy, size_t size,
 
     if ( print ) PRINT(TBOOT_DETA"\t hash_alg: %s\n",
                        hash_alg_to_string(policy->hash_alg));
-    if ( policy->hash_alg != TB_HALG_SHA1 )
-        return false;
 
     if ( print ) PRINT(TBOOT_DETA"\t policy_control: %08x (%s)\n",
                        policy->policy_control,

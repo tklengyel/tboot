@@ -76,6 +76,7 @@ typedef struct {
     uint32_t     scratch[143];
     uint8_t      user_area[];
 } acm_hdr_t;
+extern acm_hdr_t *g_sinit;
 
 /* value of module_type field */
 #define ACM_TYPE_CHIPSET        0x02
@@ -85,6 +86,34 @@ typedef struct {
 
 /* value of module_vendor field */
 #define ACM_VENDOR_INTEL        0x8086
+
+typedef union {
+    uint32_t _raw;
+    struct {
+        uint32_t  ext_policy        : 2;
+        uint32_t  tpm_family        : 4;
+        uint32_t  reserved          : 26;
+    };
+} tpm_cap_t;
+
+/* ext_policy field values */
+#define TPM_EXT_POLICY_ILLEGAL          0x00
+#define TPM_EXT_POLICY_ALG_AGILE_CMD    0x01
+#define TPM_EXT_POLICY_EMBEDED_ALGS     0x10
+#define TPM_EXT_POLICY_BOTH             0x11
+
+/* tpm_family field values */
+#define TPM_FAMILY_ILLEGAL      0x0000
+#define TPM_FAMILY_DTPM_12      0x0001
+#define TPM_FAMILY_DTPM_20      0x0010
+#define TPM_FAMILY_DTPM_BOTH    0x0011
+#define TPM_FAMILY_PTT_20       0x1000
+
+typedef struct {
+    tpm_cap_t   capabilities;
+    uint16_t    count;
+    uint16_t    alg_id[];
+} tpm_info_list_t;
 
 typedef struct __packed {
     uuid_t      uuid;
@@ -99,6 +128,8 @@ typedef struct __packed {
     uint8_t     reserved[3];
     /* versions >= 4 */
     uint32_t    processor_id_list;
+    /* versions >= 5 */
+    uint32_t    tpm_info_list_off;
 } acm_info_table_t;
 
 /* ACM UUID value */
@@ -147,6 +178,7 @@ extern acm_hdr_t *copy_sinit(const acm_hdr_t *sinit);
 extern bool verify_acmod(const acm_hdr_t *acm_hdr);
 extern uint32_t get_supported_os_sinit_data_ver(const acm_hdr_t* hdr);
 extern txt_caps_t get_sinit_capabilities(const acm_hdr_t* hdr);
+extern tpm_info_list_t *get_tpm_info_list(const acm_hdr_t* hdr);
 
 #endif /* __TXT_ACMOD_H__ */
 

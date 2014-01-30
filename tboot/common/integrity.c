@@ -42,12 +42,12 @@
 #include <compiler.h>
 #include <string.h>
 #include <hash.h>
-#include <tpm.h>
 #include <tboot.h>
 #include <tb_policy.h>
 #include <tb_error.h>
 #include <vmac.h>
 #include <integrity.h>
+#include <tpm.h>
 
 #include <page.h>
 #include <paging.h>
@@ -60,24 +60,24 @@ __data pre_k_s3_state_t g_pre_k_s3_state;
 __data post_k_s3_state_t g_post_k_s3_state;
 
 /* state sealed before extending PCRs and launching kernel */
-static __data uint8_t  sealed_pre_k_state[512];
+static __data uint8_t  sealed_pre_k_state[2048];
 static __data uint32_t sealed_pre_k_state_size;
 
 /* state sealed just before entering S3 (after kernel shuts down) */
-static __data uint8_t  sealed_post_k_state[512];
+static __data uint8_t  sealed_post_k_state[2048];
 static __data uint32_t sealed_post_k_state_size;
 
 /* PCR 17+18 values post-launch and before extending (used to seal verified
    launch hashes and memory integrity UMAC) */
-static __data tpm_pcr_value_t post_launch_pcr17, post_launch_pcr18;
+__data tpm_pcr_value_t post_launch_pcr17, post_launch_pcr18;
 
 extern tboot_shared_t _tboot_shared;
 
-extern bool hash_policy(tb_hash_t *hash, uint8_t hash_alg);
+extern bool hash_policy(tb_hash_t *hash, uint16_t hash_alg);
 extern void apply_policy(tb_error_t error);
 
 #define EVTTYPE_TB_MEASUREMENT (0x400 + 0x101)
-extern bool evtlog_append(uint8_t pcr, tb_hash_t *hash, uint32_t type);
+extern bool evtlog_append(uint8_t pcr, hash_list_t *hl, uint32_t type);
 
 typedef struct {
     uint8_t mac_key[VMAC_KEY_LEN/8];
@@ -87,30 +87,15 @@ typedef struct {
 
 static bool extend_pcrs(void)
 {
-    tpm_pcr_value_t pcr17, pcr18;
-
-    tpm_pcr_read(2, 17, &pcr17);
-    tpm_pcr_read(2, 18, &pcr18);
-    printk(TBOOT_DETA"PCRs before extending:\n");
-    printk(TBOOT_DETA"  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk(TBOOT_DETA"  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
-
     for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
-        if ( tpm_pcr_extend(2, g_pre_k_s3_state.vl_entries[i].pcr,
-                     (tpm_pcr_value_t *)&g_pre_k_s3_state.vl_entries[i].hash,
-                     NULL) != TPM_SUCCESS )
+        if ( !g_tpm->pcr_extend(g_tpm, 2, g_pre_k_s3_state.vl_entries[i].pcr,
+                    &g_pre_k_s3_state.vl_entries[i].hl) )
             return false;
         if ( !evtlog_append(g_pre_k_s3_state.vl_entries[i].pcr,
-                            &g_pre_k_s3_state.vl_entries[i].hash,
+                            &g_pre_k_s3_state.vl_entries[i].hl,
                             EVTTYPE_TB_MEASUREMENT) )
             return false;
     }
-
-    tpm_pcr_read(2, 17, &pcr17);
-    tpm_pcr_read(2, 18, &pcr18);
-    printk(TBOOT_DETA"PCRs after extending:\n");
-    printk(TBOOT_DETA"  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk(TBOOT_DETA"  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
 
     return true;
 }
@@ -123,11 +108,18 @@ static void print_pre_k_s3_state(void)
     printk(TBOOT_DETA"\t vtd_pmr_hi_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_base);
     printk(TBOOT_DETA"\t vtd_pmr_hi_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_size);
     printk(TBOOT_DETA"\t pol_hash: ");
-    print_hash(&g_pre_k_s3_state.pol_hash, TB_HALG_SHA1);
+    print_hash(&g_pre_k_s3_state.pol_hash, g_tpm->cur_alg);
     printk(TBOOT_DETA"\t VL measurements:\n");
-    for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
-        printk(TBOOT_DETA"\t   PCR %d: ", g_pre_k_s3_state.vl_entries[i].pcr);
-        print_hash(&g_pre_k_s3_state.vl_entries[i].hash, TB_HALG_SHA1);
+    for ( unsigned int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
+        printk(TBOOT_DETA"\t   PCR %d (alg count %d):\n",
+                g_pre_k_s3_state.vl_entries[i].pcr,
+                g_pre_k_s3_state.vl_entries[i].hl.count);
+        for ( unsigned int j = 0; j < g_pre_k_s3_state.vl_entries[i].hl.count; j++ ) {
+            printk(TBOOT_DETA"\t\t   alg %04X: ",
+                    g_pre_k_s3_state.vl_entries[i].hl.entries[j].alg);
+            print_hash(&g_pre_k_s3_state.vl_entries[i].hl.entries[j].hash,
+                    g_pre_k_s3_state.vl_entries[i].hl.entries[j].alg);
+        }
     }
 }
 
@@ -143,10 +135,7 @@ static void print_post_k_s3_state(void)
 
 static bool seal_data(const void *data, size_t data_size,
                    const void *secrets, size_t secrets_size,
-                   uint8_t *sealed_data, uint32_t *sealed_data_size,
-                   const uint8_t pcr_indcs_create[], int nr_pcr_indcs_create,
-                   const uint8_t pcr_indcs_release[], int nr_pcr_indcs_release,
-                   const tpm_pcr_value_t *pcr_values_release[])
+                   uint8_t *sealed_data, uint32_t *sealed_data_size)
 {
     /* TPM_Seal can only seal small data (like key or hash), so hash data */
     struct __packed {
@@ -156,7 +145,7 @@ static bool seal_data(const void *data, size_t data_size,
     uint32_t err;
 
     memset(&blob, 0, sizeof(blob));
-    if ( !hash_buffer(data, data_size, &blob.data_hash, TB_HALG_SHA1) ) {
+    if ( !hash_buffer(data, data_size, &blob.data_hash, g_tpm->cur_alg) ) {
         printk(TBOOT_ERR"failed to hash data\n");
         return false;
     }
@@ -164,19 +153,16 @@ static bool seal_data(const void *data, size_t data_size,
     if ( secrets != NULL && secrets_size > 0 )
         memcpy(blob.secrets, secrets, secrets_size);
 
-    err = tpm_seal(2, TPM_LOC_TWO,
-                   nr_pcr_indcs_create, pcr_indcs_create,
-                   nr_pcr_indcs_release, pcr_indcs_release,
-                   pcr_values_release,
+    err = g_tpm->seal(g_tpm, 2,
                    sizeof(blob), (const uint8_t *)&blob,
                    sealed_data_size, sealed_data);
-    if ( err != TPM_SUCCESS )
+    if ( !err )
         printk(TBOOT_WARN"failed to seal data\n");
 
     /* since blob might contain secret, clear it */
     memset(&blob, 0, sizeof(blob));
 
-    return (err == TPM_SUCCESS) ? true : false;
+    return err;
 }
 
 static bool verify_sealed_data(const uint8_t *sealed_data,
@@ -192,8 +178,8 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
     bool err = true;
 
     uint32_t data_size = sizeof(blob);
-    if ( tpm_unseal(2, sealed_data_size, sealed_data,
-                    &data_size, (uint8_t *)&blob) != TPM_SUCCESS ) {
+    if ( !g_tpm->unseal(g_tpm, 2, sealed_data_size, sealed_data,
+                    &data_size, (uint8_t *)&blob) ) {
         printk(TBOOT_ERR"failed to unseal blob\n");
         return false;
     }
@@ -206,11 +192,11 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
     tb_hash_t curr_data_hash;
     memset(&curr_data_hash, 0, sizeof(curr_data_hash));
     if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash,
-                      TB_HALG_SHA1) ) {
+                      g_tpm->cur_alg) ) {
         printk(TBOOT_WARN"failed to hash state data\n");
         goto done;
     }
-    if ( !are_hashes_equal(&blob.data_hash, &curr_data_hash, TB_HALG_SHA1) ) {
+    if ( !are_hashes_equal(&blob.data_hash, &curr_data_hash, g_tpm->cur_alg) ) {
         printk(TBOOT_WARN"sealed hash does not match current hash\n");
         goto done;
     }
@@ -233,32 +219,26 @@ static bool verify_sealed_data(const uint8_t *sealed_data,
  */
 bool seal_pre_k_state(void)
 {
-    const uint8_t pcr_indcs_create[]  = {17, 18};
-    const uint8_t pcr_indcs_release[] = {17, 18};
-    const tpm_pcr_value_t *pcr_values_release[] = {&post_launch_pcr17,
-                                                   &post_launch_pcr18};
-
     /* save hash of current policy into g_pre_k_s3_state */
     memset(&g_pre_k_s3_state.pol_hash, 0, sizeof(g_pre_k_s3_state.pol_hash));
-    if ( !hash_policy(&g_pre_k_s3_state.pol_hash, TB_HALG_SHA1) ) {
+    if ( !hash_policy(&g_pre_k_s3_state.pol_hash, g_tpm->cur_alg) ) {
         printk(TBOOT_ERR"failed to hash policy\n");
         goto error;
     }
 
     print_pre_k_s3_state();
 
-    /* read PCR 17/18 */
-    if ( tpm_pcr_read(2, 17, &post_launch_pcr17) != TPM_SUCCESS ||
-         tpm_pcr_read(2, 18, &post_launch_pcr18) != TPM_SUCCESS )
-        goto error;
+    /* read PCR 17/18, only for tpm1.2 */
+    if ( g_tpm->major == TPM12_VER_MAJOR ) {
+        if ( !g_tpm->pcr_read(g_tpm, 2, 17, &post_launch_pcr17) ||
+             !g_tpm->pcr_read(g_tpm, 2, 18, &post_launch_pcr18) )
+            goto error;
+    }
 
     sealed_pre_k_state_size = sizeof(sealed_pre_k_state);
     if ( !seal_data(&g_pre_k_s3_state, sizeof(g_pre_k_s3_state),
                     NULL, 0,
-                    sealed_pre_k_state, &sealed_pre_k_state_size,
-                    pcr_indcs_create, ARRAY_SIZE(pcr_indcs_create),
-                    pcr_indcs_release, ARRAY_SIZE(pcr_indcs_release),
-                    pcr_values_release) )
+                    sealed_pre_k_state, &sealed_pre_k_state_size) )
         goto error;
 
     /* we can't leave the system in a state without valid measurements of
@@ -401,17 +381,19 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
  */
 bool verify_integrity(void)
 {
-    unsigned int i;
-    uint8_t pcr_indcs_create[] = {17, 18};
-    tpm_pcr_value_t  pcr17, pcr18;
-    const tpm_pcr_value_t *pcr_values_create[] = {&pcr17, &pcr18};
-    tpm_pcr_value_t cap_val;   /* use whatever val is on stack */
+    tpm_pcr_value_t pcr17, pcr18;
 
-    tpm_pcr_read(2, 17, &pcr17);
-    tpm_pcr_read(2, 18, &pcr18);
-    printk(TBOOT_DETA"PCRs before unseal:\n");
-    printk(TBOOT_DETA"  PCR 17: "); print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
-    printk(TBOOT_DETA"  PCR 18: "); print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    /* read PCR 17/18, only for tpm1.2 */
+    if ( g_tpm->major == TPM12_VER_MAJOR ) {
+        if ( !g_tpm->pcr_read(g_tpm, 2, 17, &pcr17) ||
+             !g_tpm->pcr_read(g_tpm, 2, 18, &pcr18) )
+            goto error;
+        printk(TBOOT_DETA"PCRs before unseal:\n");
+        printk(TBOOT_DETA"  PCR 17: ");
+        print_hash((tb_hash_t *)&pcr17, TB_HALG_SHA1);
+        printk(TBOOT_DETA"  PCR 18: ");
+        print_hash((tb_hash_t *)&pcr18, TB_HALG_SHA1);
+    }
 
     /* verify integrity of pre-kernel state data */
     printk(TBOOT_INFO"verifying pre_k_s3_state\n");
@@ -420,21 +402,7 @@ bool verify_integrity(void)
                              NULL, 0) )
         goto error;
 
-    /* to prevent rollback attack using old sealed measurements,
-       verify that (creation) PCRs at mem integrity seal time are same as
-       if we extend current PCRs with unsealed VL measurements */
-    /* TBD: we should check all DRTM PCRs */
-    for ( i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
-        if ( g_pre_k_s3_state.vl_entries[i].pcr == 17 )
-            extend_hash((tb_hash_t *)&pcr17,
-                        &g_pre_k_s3_state.vl_entries[i].hash, TB_HALG_SHA1);
-        else if ( g_pre_k_s3_state.vl_entries[i].pcr == 18 )
-            extend_hash((tb_hash_t *)&pcr18,
-                        &g_pre_k_s3_state.vl_entries[i].hash, TB_HALG_SHA1);
-    }
-    if ( !tpm_cmp_creation_pcrs(ARRAY_SIZE(pcr_indcs_create),
-                                pcr_indcs_create, pcr_values_create,
-                                sealed_post_k_state_size,
+    if ( !g_tpm->verify_creation(g_tpm, sealed_post_k_state_size,
                                 sealed_post_k_state) ) {
         printk(TBOOT_ERR"extended PCR values don't match creation values in sealed blob.\n");
         goto error;
@@ -484,7 +452,7 @@ bool verify_integrity(void)
     /* since we can't leave the system without any measurments representing the
        code-about-to-execute, and yet there is no integrity of that code,
        just cap PCR 18 */
-    if ( tpm_pcr_extend(2, 18, &cap_val, NULL) != TPM_SUCCESS )
+    if ( !g_tpm->cap_pcrs(g_tpm, 2, 18) )
         apply_policy(TB_ERR_FATAL);
     return false;
 }
@@ -495,10 +463,6 @@ bool verify_integrity(void)
  */
 bool seal_post_k_state(void)
 {
-    const uint8_t pcr_indcs_create[]  = {17, 18};
-    const uint8_t pcr_indcs_release[] = {17, 18};
-    const tpm_pcr_value_t *pcr_values_release[] = {&post_launch_pcr17,
-                                                   &post_launch_pcr18};
     sealed_secrets_t secrets;
 
     /* since tboot relies on the module it launches for resource protection,
@@ -512,7 +476,7 @@ bool seal_post_k_state(void)
     /* calculate the memory integrity hash */
     uint32_t key_size = sizeof(secrets.mac_key);
     /* key must be random and secret even though auth not necessary */
-    if ( tpm_get_random(2, secrets.mac_key, &key_size) != TPM_SUCCESS ||
+    if ( !g_tpm->get_random(g_tpm, 2, secrets.mac_key, &key_size) ||
          key_size != sizeof(secrets.mac_key) )
         return false;
     if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ,
@@ -527,10 +491,7 @@ bool seal_post_k_state(void)
     sealed_post_k_state_size = sizeof(sealed_post_k_state);
     if ( !seal_data(&g_post_k_s3_state, sizeof(g_post_k_s3_state),
                     &secrets, sizeof(secrets),
-                    sealed_post_k_state, &sealed_post_k_state_size,
-                    pcr_indcs_create, ARRAY_SIZE(pcr_indcs_create),
-                    pcr_indcs_release, ARRAY_SIZE(pcr_indcs_release),
-                    pcr_values_release) )
+                    sealed_post_k_state, &sealed_post_k_state_size) )
         return false;
 
     /* wipe secrets from memory */

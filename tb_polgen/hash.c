@@ -53,7 +53,7 @@
  *
  */
 bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
-		      uint8_t hash_alg)
+		      uint16_t hash_alg)
 {
     if ( ( hash1 == NULL ) || ( hash2 == NULL ) ) {
         error_msg("Error: hash pointer is zero.\n");
@@ -75,7 +75,7 @@ bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
  *
  */
 bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
-		 uint8_t hash_alg)
+		 uint16_t hash_alg)
 {
     if ( hash == NULL ) {
         error_msg("Error: There is no space for output hash.\n");
@@ -104,7 +104,7 @@ bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
  * perform "extend" of two hashes (i.e. hash1 = SHA(hash1 || hash2)
  *
  */
-bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint8_t hash_alg)
+bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint16_t hash_alg)
 {
     uint8_t buf[2*sizeof(tb_hash_t)];
 
@@ -131,7 +131,7 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint8_t hash_alg)
     }
 }
 
-void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
+void print_hash(const tb_hash_t *hash, uint16_t hash_alg)
 {
     if ( hash == NULL ) {
         error_msg("NULL");
@@ -150,7 +150,7 @@ void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
 }
 
 void copy_hash(tb_hash_t *dest_hash, const tb_hash_t *src_hash,
-               uint8_t hash_alg)
+               uint16_t hash_alg)
 {
     if ( dest_hash == NULL || dest_hash == NULL ) {
         error_msg("hashes are NULL\n");

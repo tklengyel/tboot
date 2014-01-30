@@ -91,7 +91,7 @@ void print_hex(const char* prefix, const void *start, size_t len)
     }
 }
 
-void print_hash(const tb_hash_t *hash, uint8_t hash_alg)
+void print_hash(const tb_hash_t *hash, uint16_t hash_alg)
 {
     if ( hash == NULL ) {
         printk("NULL");

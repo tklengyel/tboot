@@ -55,6 +55,7 @@
 #include <loader.h>
 #include <hash.h>
 #include <mle.h>
+#include <tpm.h>
 #include <tb_error.h>
 #include <txt/txt.h>
 #include <txt/vmcs.h>
@@ -67,7 +68,6 @@
 #include <tboot.h>
 #include <acpi.h>
 #include <integrity.h>
-#include <tpm.h>
 #include <cmdline.h>
 
 extern void _prot_to_real(uint32_t dist_addr);
@@ -226,7 +226,7 @@ static void post_launch(void)
     /*
      * verify nv indices against policy
      */
-    if ( get_tboot_measure_nv() )
+    if ( (g_tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() )
         verify_all_nvindices();
 
     /*
@@ -246,7 +246,7 @@ static void post_launch(void)
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
     uint32_t key_size = sizeof(_tboot_shared.s3_key);
-    if ( tpm_get_random(2, _tboot_shared.s3_key, &key_size) != TPM_SUCCESS ||
+    if ( !g_tpm->get_random(g_tpm, 2, _tboot_shared.s3_key, &key_size) ||
          key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
     _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
@@ -391,7 +391,7 @@ void begin_launch(void *addr, uint32_t magic)
     /* has already been launched */
 
     /* make TPM ready for measured launch */
-    if ( !is_tpm_ready(0) )
+    if ( !tpm_detect() )
         apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
@@ -524,30 +524,6 @@ static void shutdown_system(uint32_t shutdown_type)
     }
 }
 
-static void cap_pcrs(void)
-{
-    bool was_capped[TPM_NR_PCRS] = {false};
-    tpm_pcr_value_t cap_val;   /* use whatever val is on stack */
-
-    /* ensure PCRs 17 + 18 are always capped */
-    tpm_pcr_extend(2, 17, &cap_val, NULL);
-    tpm_pcr_extend(2, 18, &cap_val, NULL);
-    was_capped[17] = was_capped[18] = true;
-
-    /* also cap every dynamic PCR we extended (only once) */
-    /* don't cap static PCRs since then they would be wrong after S3 resume */
-    memset(&was_capped, true, TPM_PCR_RESETABLE_MIN*sizeof(bool));
-    for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
-        if ( !was_capped[g_pre_k_s3_state.vl_entries[i].pcr] ) {
-            tpm_pcr_extend(2, g_pre_k_s3_state.vl_entries[i].pcr, &cap_val,
-                           NULL);
-            was_capped[g_pre_k_s3_state.vl_entries[i].pcr] = true;
-        }
-    }
-
-    printk(TBOOT_INFO"cap'ed dynamic PCRs\n");
-}
-
 void shutdown(void)
 {
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
@@ -595,13 +571,13 @@ void shutdown(void)
     if ( is_launched() ) {
 
         /* cap PCRs to ensure no follow-on code can access sealed data */
-        cap_pcrs();
+        g_tpm->cap_pcrs(g_tpm, 2, -1);
 
         /* have TPM save static PCRs (in case VMM/kernel didn't) */
         /* per TCG spec, TPM can invalidate saved state if any other TPM
            operation is performed afterwards--so do this last */
         if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 )
-            tpm_save_state(2);
+            g_tpm->save_state(g_tpm, 2);
 
         /* scrub any secrets by clearing their memory, then flush cache */
         /* we don't have any secrets to scrub, however */

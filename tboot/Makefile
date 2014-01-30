@@ -23,6 +23,7 @@ obj-y += common/strtoul.o common/tb_error.o common/tboot.o common/tpm.o
 obj-y += common/vga.o common/vmac.o common/vsprintf.o
 obj-y += txt/acmod.o txt/errors.o txt/heap.o txt/mtrrs.o txt/txt.o
 obj-y += txt/verify.o txt/vmcs.o
+obj-y += common/tpm_12.o common/tpm_20.o 
 obj-y += common/sha256.o
 
 OBJS := $(obj-y)
