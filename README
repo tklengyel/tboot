@@ -268,6 +268,24 @@ o  Tboot support TPM NV measuring via extended Verified Launch Tboot Policy.
    The nv_index to be measured must be defined with OWNERWRITE permission,
    otherwise the verification will fail, and nothing will be extended into pcr.
 
+o  Tboot provides support to TPM2 module, and following command line option is
+   used to select TPM2 extend policy.
+       extpol=agile|embedded|sha1|sha256|sm3|...
+
+   When "agile" policy is selected, ACM will use specific TPM2 commands to compute
+   hashes and extend all existing PCR banks at the expense of possible
+   performance loss.
+
+   For "embedded" policy, ACM will use algorithms supported by tboot to compute
+   hashes and then will use TPM2_PCR_Extend commands to extend them into PCRs.
+   If PCRs utilizing hash algorithms not supported by SW are discovered, they
+   will be capped with "1" value. This policy when selected will ensure maximum
+   possible performance at the expense of possible capping of some of the PCRs.
+
+   Other policy, like "sha1", "sha256", etc., only represent one single algorithm.
+   It means tboot will use this algorithm to compute hash and use TPM2_PCR_Extend
+   to extend it into PCRs.
+
 
 PCR Usage:
 ---------
