@@ -1852,7 +1852,7 @@ static bool tpm20_nv_write(struct tpm_if *ti, uint32_t locality,
     u32 ret;
 
     if ( ti == NULL || data == NULL || data_size == 0 
-            || data_size == 0 || data_size > MAX_NV_INDEX_SIZE ) {
+            || data_size > MAX_NV_INDEX_SIZE ) {
         ti->error = TPM_RC_FAILURE;
         return false;
     }
