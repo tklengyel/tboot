@@ -243,6 +243,31 @@ o  Tboot support EFI boot via grub2 multiboot2 protocol.
    changes in it -- and then we'll need to make some trivial changes to the
    20_xen_tboot file. Grub2 is required for all of this.
 
+o  Tboot support TPM NV measuring via extended Verified Launch Tboot Policy.
+
+   This works only for TPM1.2 by far.
+
+   TPM NV measuring is defaultly disabled, need below cmdline option to enable:
+       measure_nv=true
+
+   When NV measuring is enabled, it will get all NV measuring policy entry from
+   the tboot policy structure. Every NV policy entry will specify:
+       nv_index: TPM NV index to measure and verify
+       pcr:      PCR to be extended with the NV measurement
+       mod_num:  Tell how to measure the nv
+         = TB_POL_MOD_NUM_NV: hash then extend, no size limitation on NV index
+         = TB_POL_MOD_NUM_NV_RAW: extend w/o hash, size should equal hash size
+       hash_type:
+         = any: no verification needed
+         = image: need verify per hashs list.
+       hashs:    hash list. optional.
+
+   There is one default NV policy entry, which will try to read NV 0x40000010
+   and extend it into pcr 22 without hashing.
+
+   The nv_index to be measured must be defined with OWNERWRITE permission,
+   otherwise the verification will fail, and nothing will be extended into pcr.
+
 
 PCR Usage:
 ---------
