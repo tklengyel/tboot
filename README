@@ -222,6 +222,27 @@ o  Tboot provides support to launch Revocation ACM (RACM) to revoke old buggy
    will end with halt right after the RACM launch result was output, and the
    system need manually reset.
 
+o  Tboot support EFI boot via grub2 multiboot2 protocol. 
+
+   In Fedora 18/19, the OS should be installed and booted in EFI mode first,
+   then:
+
+       Under tboot code root folder: make; make install
+
+       Copy appropriate SINIT for platform into /boot.
+
+       Run: grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg
+
+       Create directory /boot/efi/EFI/fedora/x86_64-efi, and copy
+       multiboot2.mod and relocator.mod from /usr/lib/grub/x86_64-efi into it.
+
+       Reboot to choose tboot grub option for TXT launch.
+
+   Linux launch works already. Xen for trad BIOS still work and Xen EFI is not
+   going to work until we can get a version with Daniel Kiper's multiboot2
+   changes in it -- and then we'll need to make some trivial changes to the
+   20_xen_tboot file. Grub2 is required for all of this.
+
 
 PCR Usage:
 ---------
