@@ -52,9 +52,9 @@ dist : install
 build : $(TARGET).gz
 
 
-install : $(DISTIR)/boot/$(TARGET).gz
+install : $(DISTDIR)/boot/$(TARGET).gz
 
-$(DISTIR)/boot/$(TARGET).gz : $(TARGET).gz
+$(DISTDIR)/boot/$(TARGET).gz : $(TARGET).gz
 	[ -d $(DISTDIR)/boot ] || $(INSTALL_DIR) $(DISTDIR)/boot
 	$(INSTALL_DATA) $(TARGET).gz $(DISTDIR)/boot/$(notdir $(TARGET)).gz
 	$(INSTALL_DATA) $(TARGET)-syms $(DISTDIR)/boot/$(notdir $(TARGET))-syms
