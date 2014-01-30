@@ -1,3 +1,16 @@
+20140130: v1.8.0
+	Update README for TPM2 support
+	tpm2 support
+	Adding sha256 algorithm implementation
+	Update README for TPM NV measuring
+	Update README for EFI support
+	Fix typo in tboot/Makefile
+	Increase the supported maximum number of cpus from 256 to 512
+	Extend tboot policy supporting measuring TPM NV
+	EFI support via multiboot2 changes
+	Fix typo in common/hash.c
+	Fix verification for extended data elements in txt heap
+
 20130705: v1.7.4
 	Fix possible empty submenu block in generated grub.cfg
 	Add a call_racm=check option for easy RACM launch result check
