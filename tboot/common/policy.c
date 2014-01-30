@@ -833,8 +833,8 @@ static tb_error_t verify_nvindex(tb_policy_entry_t *pol_entry,
         printk(TBOOT_WARN"\t too many hashes to save\n");
     else if ( pol_entry->pcr != TB_POL_PCR_NONE ) {
         VL_ENTRIES(NUM_VL_ENTRIES).pcr = pol_entry->pcr;
-        VL_ENTRIES(NUM_VL_ENTRIES++).hl.count = 1;
-        VL_ENTRIES(NUM_VL_ENTRIES++).hl.entries[0].alg = TB_HALG_SHA1;
+        VL_ENTRIES(NUM_VL_ENTRIES).hl.count = 1;
+        VL_ENTRIES(NUM_VL_ENTRIES).hl.entries[0].alg = TB_HALG_SHA1;
         memcpy(VL_ENTRIES(NUM_VL_ENTRIES++).hl.entries[0].hash.sha1,
                 digest.sha1, SHA1_LENGTH);
     }
