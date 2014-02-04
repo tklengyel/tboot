@@ -45,7 +45,7 @@
 #include <tpm.h>
 #include <sha1.h>
 
-struct tpm_if *g_tpm = NULL;
+__data struct tpm_if *g_tpm = NULL;
 u16 tboot_alg_list[] = {TB_HALG_SHA1,
                         TB_HALG_SHA256};
 
@@ -441,6 +441,9 @@ bool tpm_detect(void)
         printk(TBOOT_ERR"TPM: Locality 0 is not open\n");
         return false;
     }
+
+    if ( g_tpm )
+        return g_tpm->init(g_tpm);
 
     /* get TPM family from TPM status register */
     memset((void *)&reg_sts, 0, sizeof(reg_sts));
