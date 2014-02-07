@@ -789,8 +789,8 @@ static tb_error_t verify_nvindex(tb_policy_entry_t *pol_entry,
         printk(TBOOT_ERR"\t :reading nv index permission failed\n");
         return TB_ERR_NV_VERIFICATION_FAILED;
     }
-    if ( !(attribute & TPM_NV_PER_OWNERWRITE) ) {
-        printk(TBOOT_ERR"\t :nv index should be OWNERWRITE, bad permission\n");
+    if ( !(attribute & (TPM_NV_PER_OWNERWRITE | TPM_NV_PER_AUTHWRITE)) ) {
+        printk(TBOOT_ERR"\t :nv index should be OWNERWRITE or AUTHWRITE, bad permission!\n");
         return TB_ERR_NV_VERIFICATION_FAILED;
     }
 
