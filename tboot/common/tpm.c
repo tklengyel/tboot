@@ -439,6 +439,7 @@ bool tpm_detect(void)
 
     if ( !tpm_validate_locality(0) ) {
         printk(TBOOT_ERR"TPM: Locality 0 is not open\n");
+        g_tpm = &tpm_12_if; /* Don't leave g_tpm as NULL*/
         return false;
     }
 
