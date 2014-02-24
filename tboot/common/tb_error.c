@@ -157,7 +157,7 @@ bool read_tb_error_code(tb_error_t *error)
  */
 bool write_tb_error_code(tb_error_t error)
 {
-    if ( no_err_idx )
+    if ( !g_tpm || no_err_idx )
         return false;
 
     if ( !g_tpm->nv_write(g_tpm, 0, g_tpm->tb_err_index, 0,
