@@ -1164,14 +1164,14 @@ determine_multiboot_type(void *image)
      */
     int result = MB_NONE;
     void *walker;
-    for (walker = image; walker < walker + MULTIBOOT_HEADER_SEARCH_LIMIT;
+    for (walker = image; walker < image + MULTIBOOT_HEADER_SEARCH_LIMIT;
          walker += sizeof(uint32_t)){
         if (*((uint32_t *)walker) == MULTIBOOT_HEADER_MAGIC){
             result += MB1_ONLY;
             break;
         }
     }
-    for (walker = image; walker < walker + MB2_HEADER_SEARCH_LIMIT;
+    for (walker = image; walker < image + MB2_HEADER_SEARCH_LIMIT;
          walker += sizeof(uint64_t)){
         if (*((uint32_t *)walker) == MB2_HEADER_MAGIC){
             result += MB2_ONLY;
