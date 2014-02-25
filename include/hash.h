@@ -36,6 +36,7 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
+#define TB_HALG_SHA1_LG 0x0000  /* legacy define for SHA1 */
 #define TB_HALG_SHA1    0x0004 
 #define TB_HALG_SHA256  0x000B 
 #define TB_HALG_SM3     0x0012 
@@ -65,7 +66,7 @@ typedef union {
 
 static inline const char *hash_alg_to_string(uint16_t hash_alg)
 {
-    if ( hash_alg == TB_HALG_SHA1 )
+    if ( hash_alg == TB_HALG_SHA1 || hash_alg == TB_HALG_SHA1_LG )
         return "TB_HALG_SHA1";
     else if ( hash_alg == TB_HALG_SHA256 )
         return "TB_HALG_SHA256";
@@ -84,7 +85,7 @@ static inline const char *hash_alg_to_string(uint16_t hash_alg)
 
 static inline unsigned int get_hash_size(uint16_t hash_alg)
 {
-    if ( hash_alg == TB_HALG_SHA1 )
+    if ( hash_alg == TB_HALG_SHA1 || hash_alg == TB_HALG_SHA1_LG )
         return SHA1_LENGTH;
     else if ( hash_alg == TB_HALG_SHA256 )
         return SHA256_LENGTH;

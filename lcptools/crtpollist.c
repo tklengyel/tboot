@@ -213,14 +213,14 @@ static bool sign_list_data(lcp_policy_list_t *pollist, const char *privkey_file)
     tb_hash_t digest;
     if ( !hash_buffer((const unsigned char *)pollist,
                       get_policy_list_size(pollist) - sig->pubkey_size,
-                      &digest, TB_HALG_SHA1) ) {
+                      &digest, TB_HALG_SHA1_LG) ) {
         ERROR("Error: failed to hash list\n");
         RSA_free(privkey);
         return false;
     }
     if ( verbose ) {
         LOG("digest: ");
-        print_hex("", &digest, get_hash_size(TB_HALG_SHA1));
+        print_hex("", &digest, get_hash_size(TB_HALG_SHA1_LG));
     }
 
     /* sign digest */
@@ -228,7 +228,7 @@ static bool sign_list_data(lcp_policy_list_t *pollist, const char *privkey_file)
     uint8_t sigblock[sig->pubkey_size];
     unsigned int sig_len = sig->pubkey_size;
     if ( !RSA_sign(NID_sha1, (const unsigned char *)&digest,
-                   get_hash_size(TB_HALG_SHA1), sigblock,
+                   get_hash_size(TB_HALG_SHA1_LG), sigblock,
                    &sig_len, privkey) ) {
         ERR_load_crypto_strings();
         ERROR("Error: failed to sign list: %s\n", 

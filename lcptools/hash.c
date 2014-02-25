@@ -55,7 +55,7 @@ bool are_hashes_equal(const tb_hash_t *hash1, const tb_hash_t *hash2,
     if ( ( hash1 == NULL ) || ( hash2 == NULL ) )
         return false;
 
-    if ( hash_alg == TB_HALG_SHA1 )
+    if ( hash_alg == TB_HALG_SHA1_LG )
         return (memcmp(hash1, hash2, SHA1_LENGTH) == 0);
     else
         return false;
@@ -73,7 +73,7 @@ bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
     if ( hash == NULL )
         return false;
 
-    if ( hash_alg == TB_HALG_SHA1 ) {
+    if ( hash_alg == TB_HALG_SHA1_LG ) {
         EVP_MD_CTX ctx;
         const EVP_MD *md;
 
@@ -100,7 +100,7 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint16_t hash_alg)
     if ( hash1 == NULL || hash2 == NULL )
         return false;
 
-    if ( hash_alg == TB_HALG_SHA1 ) {
+    if ( hash_alg == TB_HALG_SHA1_LG ) {
         EVP_MD_CTX ctx;
         const EVP_MD *md;
 
@@ -121,7 +121,7 @@ void print_hash(const tb_hash_t *hash, uint16_t hash_alg)
     if ( hash == NULL )
         return;
 
-    if ( hash_alg == TB_HALG_SHA1 ) {
+    if ( hash_alg == TB_HALG_SHA1_LG ) {
         for ( unsigned int i = 0; i < sizeof(hash->sha1); i++ )
             fprintf(stderr, "%02x ", hash->sha1[i]);
         fprintf(stderr, "\n");
@@ -141,7 +141,7 @@ void copy_hash(tb_hash_t *dest_hash, const tb_hash_t *src_hash,
     if ( dest_hash == NULL || src_hash == NULL )
         return;
 
-    if ( hash_alg == TB_HALG_SHA1 )
+    if ( hash_alg == TB_HALG_SHA1_LG )
         memcpy(dest_hash, src_hash, SHA1_LENGTH);
 }
 

@@ -162,7 +162,7 @@ static bool make_pcr_info(unsigned int nr_pcrs, unsigned int pcrs[],
     /* then hash it */
     tb_hash_t hash;
     if ( !hash_buffer((uint8_t *)pcr_comp, pcr_comp_size, &hash,
-                      TB_HALG_SHA1) ) {
+                      TB_HALG_SHA1_LG) ) {
         free(pcr_comp);
         return false;
     }
@@ -233,7 +233,7 @@ static void display(const char *prefix, const lcp_policy_element_t *elt)
                 pcr_info->locality_at_release);
         DISPLAY("%s     digestAtRelease: ", prefix);
         print_hex("", &pcr_info->digest_at_release,
-                  get_hash_size(TB_HALG_SHA1));
+                  get_hash_size(TB_HALG_SHA1_LG));
     }
 }
 

@@ -195,7 +195,7 @@ bool parse_line_hashes(const char *line, tb_hash_t *hash)
         while ( *line != '\0' && !isxdigit(*line) )
             line++;
     }
-    if ( i != get_hash_size(TB_HALG_SHA1) ) {
+    if ( i != get_hash_size(TB_HALG_SHA1_LG) ) {
         ERROR("Error: incorrect number of chars for hash\n");
         return false;
     }
@@ -285,14 +285,14 @@ bool verify_signature(const uint8_t *data, size_t data_size,
 
     /* first create digest of data */
     tb_hash_t digest;
-    if ( !hash_buffer(data, data_size, &digest, TB_HALG_SHA1) ) {
+    if ( !hash_buffer(data, data_size, &digest, TB_HALG_SHA1_LG) ) {
         ERROR("Error: failed to hash list\n");
         RSA_free(rsa_pubkey);
         return false;
     }
     if ( verbose ) {
         LOG("digest: ");
-        print_hex("", &digest, get_hash_size(TB_HALG_SHA1));
+        print_hex("", &digest, get_hash_size(TB_HALG_SHA1_LG));
     }
 
     /* sigblock is little-endian and openssl wants big-endian, so reverse */
@@ -321,7 +321,7 @@ bool verify_signature(const uint8_t *data, size_t data_size,
 
     /* verify digest */
     if ( !RSA_verify(NID_sha1, (const unsigned char *)&digest,
-                     get_hash_size(TB_HALG_SHA1), (uint8_t *)sig, pubkey_size,
+                     get_hash_size(TB_HALG_SHA1_LG), (uint8_t *)sig, pubkey_size,
                      rsa_pubkey) ) {
         ERR_load_crypto_strings();
         ERROR("Error: failed to verify list: %s\n", 

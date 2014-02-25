@@ -54,7 +54,7 @@ static tb_hash_t hashes[MAX_HASHES];
 static uint16_t *get_num_hashes(lcp_sbios_element_t *sbios)
 {
     /* because fallback_hash is variable size, need to calculate this */
-    return (void *)&sbios->fallback_hash + get_hash_size(TB_HALG_SHA1) +
+    return (void *)&sbios->fallback_hash + get_hash_size(TB_HALG_SHA1_LG) +
            sizeof(sbios->reserved2);
 }
 
@@ -97,7 +97,7 @@ static lcp_policy_element_t *create(void)
        sizeof(lcp_hash_t) is not accurate (hence get_hash_size()), then
        add it back in w/ 'nr_hashes' */
     size_t data_size =  sizeof(lcp_sbios_element_t) - sizeof(lcp_hash_t) +
-                        nr_hashes * get_hash_size(TB_HALG_SHA1);
+                        nr_hashes * get_hash_size(TB_HALG_SHA1_LG);
 
     lcp_policy_element_t *elt = malloc(sizeof(*elt) + data_size);
     if ( elt == NULL ) {
@@ -109,13 +109,13 @@ static lcp_policy_element_t *create(void)
     elt->size = sizeof(*elt) + data_size;
 
     lcp_sbios_element_t *sbios = (lcp_sbios_element_t *)&elt->data;
-    sbios->hash_alg = TB_HALG_SHA1;
-    memcpy(&sbios->fallback_hash, &hashes[0], get_hash_size(TB_HALG_SHA1));
+    sbios->hash_alg = TB_HALG_SHA1_LG;
+    memcpy(&sbios->fallback_hash, &hashes[0], get_hash_size(TB_HALG_SHA1_LG));
     *get_num_hashes(sbios) = nr_hashes - 1;
     lcp_hash_t *hash = get_hashes(sbios);
     for ( unsigned int i = 1; i < nr_hashes; i++ ) {
-        memcpy(hash, &hashes[i], get_hash_size(TB_HALG_SHA1));
-        hash = (void *)hash + get_hash_size(TB_HALG_SHA1);
+        memcpy(hash, &hashes[i], get_hash_size(TB_HALG_SHA1_LG));
+        hash = (void *)hash + get_hash_size(TB_HALG_SHA1_LG);
     }
 
     return elt;

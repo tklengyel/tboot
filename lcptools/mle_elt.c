@@ -85,7 +85,7 @@ static bool cmdline_handler(int c, const char *opt)
 static lcp_policy_element_t *create(void)
 {
     size_t data_size =  sizeof(lcp_mle_element_t) +
-                        nr_hashes * get_hash_size(TB_HALG_SHA1);
+                        nr_hashes * get_hash_size(TB_HALG_SHA1_LG);
 
     lcp_policy_element_t *elt = malloc(sizeof(*elt) + data_size);
     if ( elt == NULL ) {
@@ -98,12 +98,12 @@ static lcp_policy_element_t *create(void)
 
     lcp_mle_element_t *mle = (lcp_mle_element_t *)&elt->data;
     mle->sinit_min_version = sinit_min_version;
-    mle->hash_alg = TB_HALG_SHA1;
+    mle->hash_alg = TB_HALG_SHA1_LG;
     mle->num_hashes = nr_hashes;
     lcp_hash_t *hash = mle->hashes;
     for ( unsigned int i = 0; i < nr_hashes; i++ ) {
-        memcpy(hash, &hashes[i], get_hash_size(TB_HALG_SHA1));
-        hash = (void *)hash + get_hash_size(TB_HALG_SHA1);
+        memcpy(hash, &hashes[i], get_hash_size(TB_HALG_SHA1_LG));
+        hash = (void *)hash + get_hash_size(TB_HALG_SHA1_LG);
     }
 
     return elt;
