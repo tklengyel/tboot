@@ -437,19 +437,20 @@ bool tpm_detect(void)
 {
     tpm_reg_sts_t reg_sts;
 
+    g_tpm = &tpm_12_if; /* Don't leave g_tpm as NULL*/
     if ( !tpm_validate_locality(0) ) {
         printk(TBOOT_ERR"TPM: Locality 0 is not open\n");
-        g_tpm = &tpm_12_if; /* Don't leave g_tpm as NULL*/
         return false;
     }
 
-    if ( g_tpm )
-        return g_tpm->init(g_tpm);
-
     /* get TPM family from TPM status register */
     memset((void *)&reg_sts, 0, sizeof(reg_sts));
-    write_tpm_reg(0, TPM_REG_STS, &reg_sts);
-    read_tpm_reg(0, TPM_REG_STS, &reg_sts);
+    /* write_tpm_reg(0, TPM_REG_STS, &reg_sts); */
+    /* read_tpm_reg(0, TPM_REG_STS, &reg_sts); */
+    if ( g_tpm->check() )
+        reg_sts.tpm_family = 0;
+    else
+        reg_sts.tpm_family = 1;
     printk(TBOOT_INFO"TPM: TPM Family 0x%d\n", reg_sts.tpm_family);
     if (reg_sts.tpm_family == 1)
         g_tpm = &tpm_20_if;

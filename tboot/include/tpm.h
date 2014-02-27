@@ -258,6 +258,7 @@ struct tpm_if {
     uint32_t (*save_state)(struct tpm_if *ti, u32 locality);
 
     bool (*cap_pcrs)(struct tpm_if *ti, u32 locality, int pcr);
+    bool (*check)(void);
 };
 
 extern struct tpm_if tpm_12_if;

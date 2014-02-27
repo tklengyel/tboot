@@ -1878,6 +1878,15 @@ static bool tpm12_cap_pcrs(struct tpm_if *ti, u32 locality, int pcr)
     return true;
 }
 
+static bool tpm12_check(void)
+{
+    uint32_t ret, out_size = 0;
+
+    ret = tpm12_submit_cmd(0, 0xFFFFFFFF, 0, &out_size);
+
+    return ( ret == TPM_BAD_ORDINAL );
+}
+
 struct tpm_if tpm_12_if = {
     .init = tpm12_init,
     .pcr_read = tpm12_pcr_read,
@@ -1893,6 +1902,12 @@ struct tpm_if tpm_12_if = {
     .get_random = tpm12_get_random,
     .save_state = tpm12_save_state,
     .cap_pcrs = tpm12_cap_pcrs,
+    .check = tpm12_check,
+    .cur_loc = 0,
+    .timeout.timeout_a = TIMEOUT_A,
+    .timeout.timeout_b = TIMEOUT_B,
+    .timeout.timeout_c = TIMEOUT_C,
+    .timeout.timeout_d = TIMEOUT_D,
 };
 
 /*
