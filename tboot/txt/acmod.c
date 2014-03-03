@@ -497,7 +497,7 @@ static bool is_acmod(const void *acmod_base, uint32_t acmod_size, uint8_t *type,
         return false;
     }
     /* there is forward compatibility, so this is just a warning */
-    else if ( info_table->version > 4 ) {
+    else if ( info_table->version > 5 ) {
         if ( !quiet )
             printk(TBOOT_WARN"\t ACM info_table version mismatch (%u)\n",
                    (uint32_t)info_table->version);
