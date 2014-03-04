@@ -440,14 +440,21 @@ static bool hash_module(hash_list_t *hl,
             return true;
         }
 
+        uint8_t buf[128];
+
         if ( !g_tpm->hash(g_tpm, 2, base, size, &img_hl) )
             return false;
         for (unsigned int i=0; i<hl->count; i++) {
             for (unsigned int j=0; j<img_hl.count; j++) {
                 if (hl->entries[i].alg == img_hl.entries[j].alg) {
-                    if ( !extend_hash(&hl->entries[i].hash,
-                            &img_hl.entries[j].hash, hl->entries[i].alg) )
+                    copy_hash((tb_hash_t *)buf, &hl->entries[i].hash,
+                            hl->entries[i].alg);
+                    copy_hash((tb_hash_t *)buf + get_hash_size(hl->entries[i].alg),
+                            &img_hl.entries[j].hash, hl->entries[i].alg);
+                    if ( !g_tpm->hash(g_tpm, 2, buf,
+                            2*get_hash_size(hl->entries[i].alg), hl) )
                         return false;
+                    
                     break;
                 }
             }
