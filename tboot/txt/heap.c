@@ -272,7 +272,7 @@ void print_event_2(void *evt, uint16_t alg)
     next += sizeof(uint32_t);
     printk(TBOOT_DETA"\t\t\t       Digest: ");
     print_hex(NULL, (uint8_t *)next, hash_size);
-    next += hash_size/sizeof(uint32_t);
+    next += hash_size;
     data_size = *(uint32_t *)next;
     printk(TBOOT_DETA"\t\t\t         Data: %u bytes", data_size);
     if ( data_size > 4096 ) {
@@ -317,9 +317,9 @@ static void print_evt_log_ptr_elt_2(const heap_ext_data_element_t *elt)
             return;
 
         void *curr, *next;
-        *((uint64_t *)(&curr)) = log_descr->phys_addr +
+        curr = (void *)(unsigned long)log_descr->phys_addr +
                 log_descr->pcr_events_offset;
-        *((uint64_t *)(&next)) = log_descr->phys_addr +
+        next = (void *)(unsigned long)log_descr->phys_addr +
                 log_descr->next_event_offset;
 
         while ( curr < next ) {

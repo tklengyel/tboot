@@ -288,12 +288,12 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
     heap_ext_data_element_t* elt = elts;
     heap_event_log_ptr_elt_t *evt_log;
 
-    evt_log = (heap_event_log_ptr_elt_t *)elt->data;
-    evt_log->event_log_phys_addr = (uint64_t)(unsigned long)init_event_log();
-    elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR;
-    elt->size = sizeof(*elt) + sizeof(*evt_log);
-
-    if ( g_tpm->major == TPM20_VER_MAJOR ) {
+    if ( g_tpm->major == TPM12_VER_MAJOR ) {
+        evt_log = (heap_event_log_ptr_elt_t *)elt->data;
+        evt_log->event_log_phys_addr = (uint64_t)(unsigned long)init_event_log();
+        elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR;
+        elt->size = sizeof(*elt) + sizeof(*evt_log);
+    } else if ( g_tpm->major == TPM20_VER_MAJOR ) {
         g_elog_2 = (heap_event_log_ptr_elt2_t *)elt->data;
 
         if ( g_tpm->extpol == TB_EXTPOL_AGILE )
@@ -383,14 +383,16 @@ bool evtlog_append_tpm20(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t ty
     }
     if ( !cur_desc )
         return false;
-   
+
     hash_size = get_hash_size(alg); 
     if ( hash_size == 0 )
         return false;
-    *((u64 *)(&cur)) = *((u64 *)(&next)) =
-          cur_desc->phys_addr + cur_desc->next_event_offset;
+
     if ( cur_desc->next_event_offset + 32 > cur_desc->size )
         return false;
+
+    cur = next = (void *)(unsigned long)cur_desc->phys_addr +
+                     cur_desc->next_event_offset;
     *((u32 *)next) = pcr;
     next += sizeof(u32);
     *((u32 *)next) = type;
