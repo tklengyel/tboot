@@ -328,7 +328,7 @@ bool evtlog_append_tpm12(uint8_t pcr, tb_hash_t *hash, uint32_t type)
 
     next->pcr_index = pcr;
     next->type = type;
-    memcpy(next->digest, hash, sizeof(*hash));
+    memcpy(next->digest, hash, sizeof(next->digest));
     next->data_size = 0;
 
     g_elog->next_event_offset += sizeof(*next) + next->data_size;
