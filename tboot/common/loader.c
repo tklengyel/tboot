@@ -334,6 +334,8 @@ grow_mb2_tag(loader_ctx *lctx, struct mb2_tag *which, uint32_t how_much)
     /* find the end--we will need it */
     end = (struct mb2_tag *)(lctx->addr + 8);
     end = find_mb2_tag_type(end, MB2_TAG_TYPE_END);
+    if ( end == NULL )
+        return false;
 
     /* How much bigger does it need to be? */
     /* NOTE: this breaks the MBI 2 structure for walking
@@ -727,6 +729,8 @@ unsigned long get_mbi_mem_end_mb1(const multiboot_info_t *mbi)
         unsigned int i;
         for ( i = 0; i < mbi->mods_count; i++ ) {
             module_t *p = get_module_mb1(mbi, i);
+            if ( p == NULL )
+                break;
             end = max(end, p->string + strlen((char *)p->string) + 1);
         }
     }
