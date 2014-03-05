@@ -268,6 +268,9 @@ static bool _tpm12_pcr_extend(struct tpm_if *ti, uint32_t locality,
     uint32_t ret, in_size = 0, out_size;
     tpm12_digest_t * out = NULL;
 
+    if ( ti == NULL )
+        return false;
+
     if ( in == NULL || pcr >= TPM_NR_PCRS){
         ti->error = TPM_BAD_PARAMETER;
         return false;
@@ -314,12 +317,11 @@ static bool tpm12_pcr_extend(struct tpm_if *ti, uint32_t locality,
 {
     tpm_digest_t digest;
 
-    if ( ti == NULL || in == NULL || in->count != 1) {
-        ti->error = TPM_BAD_PARAMETER;
+    if ( ti == NULL )
         return false;
-    }
 
-    if ( in->entries[0].alg != TB_HALG_SHA1 ) {
+    if ( in == NULL || in->count != 1 ||
+            in->entries[0].alg != TB_HALG_SHA1 ) {
         ti->error = TPM_BAD_PARAMETER;
         return false;
     }
@@ -341,6 +343,9 @@ static bool tpm12_pcr_reset(struct tpm_if *ti, uint32_t locality, uint32_t pcr)
     uint32_t ret, in_size, out_size = 0;
     uint16_t size_of_select;
     tpm_pcr_selection_t pcr_sel = {0,{0,}};
+
+    if ( ti == NULL )
+        return false;
 
     if ( pcr >= TPM_NR_PCRS || pcr < TPM_PCR_RESETABLE_MIN ) {
         ti->error = TPM_BAD_PARAMETER;
@@ -373,6 +378,9 @@ static bool tpm12_nv_read_value(struct tpm_if *ti, uint32_t locality,
                                 uint8_t *data, uint32_t *data_size)
 {
     uint32_t ret, in_size = 0, out_size;
+
+    if ( ti == NULL )
+        return false;
 
     if ( data == NULL || data_size == NULL || *data_size == 0 ) {
         ti->error = TPM_BAD_PARAMETER;
@@ -430,6 +438,9 @@ static bool tpm12_nv_write_value(struct tpm_if *ti, uint32_t locality,
                                  const uint8_t *data, uint32_t data_size)
 {
     uint32_t ret, in_size = 0, out_size = 0;
+
+    if ( ti == NULL )
+        return false;
 
     if ( data == NULL || data_size == 0
          || data_size > TPM_NV_WRITE_VALUE_DATA_SIZE_MAX ) {
@@ -1127,6 +1138,9 @@ static bool tpm12_seal(struct tpm_if *ti, uint32_t locality,
     tpm_pcr_info_long_t pcr_info;
     tpm_locality_selection_t release_locs = 1 << locality;
 
+    if ( ti == NULL )
+        return false;
+
     if ( locality >= TPM_NR_LOCALITIES ||
          in_data_size == 0 || in_data == NULL ||
          sealed_data_size == NULL || sealed_data == NULL ||
@@ -1188,6 +1202,9 @@ static bool tpm12_unseal(struct tpm_if *ti, uint32_t locality,
                          uint32_t *secret_size, uint8_t *secret)
 {
     uint32_t ret;
+
+    if ( ti == NULL )
+        return false;
 
     if ( sealed_data == NULL ||
          secret_size == NULL || secret == NULL ) {
@@ -1390,6 +1407,9 @@ static bool tpm12_get_nvindex_size(struct tpm_if *ti, uint32_t locality,
     uint8_t resp[sizeof(tpm_nv_data_public_t)];
     uint32_t idx;
 
+    if ( ti == NULL )
+        return false;
+
     if ( size == NULL ) {
         printk(TBOOT_WARN"TPM: tpm12_get_nvindex_size() bad parameter\n");
         ti->error = TPM_BAD_PARAMETER;
@@ -1460,6 +1480,9 @@ static bool tpm12_get_nvindex_permission(struct tpm_if *ti, uint32_t locality,
     uint8_t sub_cap[sizeof(index)];
     uint8_t resp[sizeof(tpm_nv_data_public_t)];
     uint32_t idx;
+
+    if ( ti == NULL )
+        return false;
 
     if ( attribute == NULL ) {
         printk(TBOOT_WARN"TPM: tpm12_get_nvindex_permission() bad parameter\n");
@@ -1648,9 +1671,13 @@ static bool tpm12_init(struct tpm_if *ti)
     tpm_permanent_flags_t pflags;
     tpm_stclear_flags_t vflags;
     uint32_t timeout[4];
-    uint32_t locality = ti->cur_loc;
+    uint32_t locality;
     uint32_t ret;
 
+    if ( ti == NULL )
+        return false;
+
+    locality = ti->cur_loc;
     if ( !tpm_validate_locality(locality) ) {
         printk(TBOOT_WARN"TPM is not available.\n");
         return false;
@@ -1750,7 +1777,7 @@ static uint32_t tpm12_save_state(struct tpm_if *ti, uint32_t locality)
     uint32_t ret, offset, out_size;
     uint32_t retries = 0;
 
-    if ( !ti )
+    if ( ti == NULL )
         return TPM_BAD_PARAMETER;
 
     do {
@@ -1784,6 +1811,9 @@ static bool tpm12_get_random(struct tpm_if *ti, uint32_t locality,
 {
     uint32_t ret, in_size = 0, out_size, requested_size;
     static bool first_attempt;
+
+    if ( ti == NULL )
+        return false;
 
     if ( random_data == NULL || data_size == NULL || *data_size == 0 ) {
         ti->error = TPM_BAD_PARAMETER;
@@ -1853,6 +1883,9 @@ static bool tpm12_cap_pcrs(struct tpm_if *ti, u32 locality, int pcr)
 {
     bool was_capped[TPM_NR_PCRS] = {false};
     tpm_pcr_value_t cap_val;   /* use whatever val is on stack */
+
+    if ( ti == NULL )
+        return false;
 
     if (pcr >= 0) {
         _tpm12_pcr_extend(ti, locality, pcr, &cap_val);

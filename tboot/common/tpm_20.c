@@ -1646,10 +1646,8 @@ static bool tpm20_pcr_read(struct tpm_if *ti, uint32_t locality,
     tpm_pcr_read_out read_out;
     u32 ret;
 
-    if ( ti == NULL || out == NULL ){
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || out == NULL )
         return false;
-    }
 
     read_in.pcr_selection.count = 1;
     read_in.pcr_selection.selections[0].hash = ti->cur_alg;
@@ -1680,10 +1678,8 @@ static bool tpm20_pcr_extend(struct tpm_if *ti, uint32_t locality,
     tpm_pcr_extend_out extend_out;
     u32 ret, i;
 
-    if ( ti == NULL || in == NULL ){
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || in == NULL )
         return false;
-    }
 
     extend_in.pcr_handle = pcr;
     extend_in.sessions.num_sessions = 1;
@@ -1738,10 +1734,8 @@ static bool tpm20_hash(struct tpm_if *ti, u32 locality, const u8 *data,
     TPM2B_MAX_BUFFER buffer;
     u32 ret, i, j, chunk_size;
 
-    if ( ti == NULL || data == NULL || data_size == 0 ) {
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || data == NULL || data_size == 0 )
         return false;
-    }
 
     start_in.auth.t.size = 2;
     start_in.auth.t.buffer[0] = 0;
@@ -1814,10 +1808,9 @@ static bool tpm20_nv_read(struct tpm_if *ti, uint32_t locality,
     tpm_nv_read_out read_out;
     u32 ret;
 
-    if ( ti == NULL || data_size == NULL || *data_size == 0 ) {
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || data_size == NULL || *data_size == 0 )
         return false;
-    }
+
     if ( *data_size > MAX_NV_INDEX_SIZE )
         *data_size = MAX_NV_INDEX_SIZE;
 
@@ -1852,10 +1845,8 @@ static bool tpm20_nv_write(struct tpm_if *ti, uint32_t locality,
     u32 ret;
 
     if ( ti == NULL || data == NULL || data_size == 0 
-            || data_size > MAX_NV_INDEX_SIZE ) {
-        ti->error = TPM_RC_FAILURE;
+            || data_size > MAX_NV_INDEX_SIZE )
         return false;
-    }
 
     write_in.handle = index;
     write_in.index = index;
@@ -1883,10 +1874,8 @@ static bool tpm20_get_nvindex_size(struct tpm_if *ti, uint32_t locality,
     tpm_nv_read_public_out public_out;
     u32 ret;
 
-    if ( ti == NULL || size == NULL ) {
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || size == NULL )
         return false;
-    }
 
     public_in.index = index;
 
@@ -1913,10 +1902,8 @@ static bool tpm20_get_nvindex_permission(struct tpm_if *ti, uint32_t locality,
                                     uint32_t index, uint32_t *attribute)
 {
     if ( ti == NULL || locality >= TPM_NR_LOCALITIES
-         || index == 0 || attribute == NULL ) {
-        ti->error = TPM_RC_FAILURE;
+         || index == 0 || attribute == NULL )
         return false;
-    }
 
     return true;
 }
@@ -1977,10 +1964,8 @@ static bool tpm20_unseal(struct tpm_if *ti, uint32_t locality,
     u32 ret;
 
     if ( ti == NULL || locality >= TPM_NR_LOCALITIES
-         || sealed_data_size == 0 || sealed_data == NULL ) {
-        ti->error = TPM_RC_FAILURE;
+         || sealed_data_size == 0 || sealed_data == NULL )
         return false;
-    }
 
     /* For TPM 2.0, the object will need to be loaded before it may be used.*/
     load_in.parent_handle = handle2048;
@@ -2022,10 +2007,8 @@ static bool tpm20_unseal(struct tpm_if *ti, uint32_t locality,
 static bool tpm20_verify_creation(struct tpm_if *ti, uint32_t sealed_data_size,
                                   uint8_t *sealed_data)
 {
-    if ( ti == NULL || sealed_data_size == 0 || sealed_data == NULL ) {
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || sealed_data_size == 0 || sealed_data == NULL )
         return false;
-    }
 
     return true;
 }
@@ -2038,10 +2021,8 @@ static bool tpm20_get_random(struct tpm_if *ti, uint32_t locality,
     u32 ret, out_size, requested_size;
     static bool first_attempt;
 
-    if ( random_data == NULL || data_size == NULL || *data_size == 0 ) {
-        ti->error = TPM_RC_FAILURE;
+    if ( random_data == NULL || data_size == NULL || *data_size == 0 )
         return false;
-    }
 
     first_attempt = true;
     requested_size = *data_size;
@@ -2095,6 +2076,9 @@ static uint32_t tpm20_save_state(struct tpm_if *ti, uint32_t locality)
 {
     u32 ret;
 
+    if ( ti == NULL )
+        return false;
+
     ret = _tpm20_shutdown(locality, TPM_SU_STATE);
     if ( ret != TPM_RC_SUCCESS ) {
         printk(TBOOT_WARN"TPM: Shutdown, return value = %08X\n", ret);
@@ -2106,10 +2090,8 @@ static uint32_t tpm20_save_state(struct tpm_if *ti, uint32_t locality)
 
 static bool tpm20_cap_pcrs(struct tpm_if *ti, u32 locality, int pcr)
 {
-    if ( ti == NULL || locality >= TPM_NR_LOCALITIES || pcr == 0 ) {
-        ti->error = TPM_RC_FAILURE;
+    if ( ti == NULL || locality >= TPM_NR_LOCALITIES || pcr == 0 )
         return false;
-    }
 
     return true;
 }
@@ -2128,6 +2110,9 @@ static bool tpm20_init(struct tpm_if *ti)
 {
     u32 ret;
     unsigned int i;
+
+    if ( ti == NULL )
+        return false;
 
     /* init version */
     ti->major = TPM20_VER_MAJOR;
