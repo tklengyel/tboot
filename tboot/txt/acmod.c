@@ -615,6 +615,9 @@ bool does_acmod_match_platform(const acm_hdr_t* hdr)
      * check if processor family/model/stepping and platform IDs match
      */
     acm_info_table_t *info_table = get_acmod_info_table(hdr);
+    if ( info_table == NULL )
+        return false;
+
     if ( info_table->version >= 4 ) {
         acm_processor_id_list_t *proc_id_list = get_acmod_processor_list(hdr);
         if ( proc_id_list == NULL )
