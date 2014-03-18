@@ -1385,7 +1385,7 @@ static uint32_t _tpm20_shutdown(uint32_t locality, u16 type)
     return ret;
 }
 
-static u32 handle2048;
+static __data u32 handle2048 = 0;
 static const char auth_str[] = "test";
 static uint32_t _tpm20_create_primary(uint32_t locality,
                                      tpm_create_primary_in *in,
@@ -2171,6 +2171,9 @@ static bool tpm20_init(struct tpm_if *ti)
     for (unsigned int i=0; i<ti->alg_count; i++)
         printk(TBOOT_INFO"\t\t %08X\n", ti->algs[i]);
 
+    if (handle2048 != 0)
+        goto out;
+
     /* create primary object as parent obj for seal */
     tpm_create_primary_in primary_in;
     tpm_create_primary_out primary_out;
@@ -2214,8 +2217,8 @@ static bool tpm20_init(struct tpm_if *ti)
     }
     handle2048 = primary_out.obj_handle;
  
+out:
     tpm_print(ti);
-
     return true;
 }
 
