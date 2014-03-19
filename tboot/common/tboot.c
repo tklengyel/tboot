@@ -428,6 +428,8 @@ void begin_launch(void *addr, uint32_t magic)
 
     /* do s3 launch directly, if is a s3 resume */
     if ( s3_flag ) {
+        if ( !prepare_tpm() )
+            apply_policy(TB_ERR_TPM_NOT_READY);
         txt_s3_launch_environment();
         printk(TBOOT_ERR"we should never get here\n");
         apply_policy(TB_ERR_FATAL);
