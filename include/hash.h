@@ -73,9 +73,9 @@ static inline const char *hash_alg_to_string(uint16_t hash_alg)
     else if ( hash_alg == TB_HALG_SM3 )
         return "TB_HALG_SM3";
     else if ( hash_alg == TB_HALG_SHA384 )
-        return "TB_HALG_SHA256";
+        return "TB_HALG_SHA384";
     else if ( hash_alg == TB_HALG_SHA512 )
-        return "TB_HALG_SHA256";
+        return "TB_HALG_SHA512";
     else {
         static char buf[32];
         snprintf(buf, sizeof(buf), "unsupported (%u)", hash_alg);
