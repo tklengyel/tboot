@@ -986,6 +986,7 @@ void txt_cpu_wakeup(void)
 {
     txt_heap_t *txt_heap;
     os_mle_data_t *os_mle_data;
+    uint64_t madt_apicbase, msr_apicbase;
     unsigned int cpuid = get_apicid();
 
     if ( cpuid >= NR_CPUS ) {
@@ -997,6 +998,20 @@ void txt_cpu_wakeup(void)
     mtx_enter(&ap_lock);
 
     printk(TBOOT_INFO"cpu %u waking up from TXT sleep\n", cpuid);
+
+    /* restore LAPIC base address for AP */
+    madt_apicbase = (uint64_t)get_madt_apic_base();
+    if ( madt_apicbase == 0 ) {
+        printk(TBOOT_ERR"not able to get apci base from MADT\n");
+        apply_policy(TB_ERR_FATAL);
+        return;
+    }
+    msr_apicbase = rdmsr(MSR_APICBASE);
+    if ( madt_apicbase != (msr_apicbase & ~0xFFFULL) ) {
+        printk(TBOOT_INFO"cpu %u restore apic base to %llx\n",
+               cpuid, madt_apicbase);
+        wrmsr(MSR_APICBASE, (msr_apicbase & 0xFFFULL) | madt_apicbase);
+    }
 
     txt_heap = get_txt_heap();
     os_mle_data = get_os_mle_data_start(txt_heap);

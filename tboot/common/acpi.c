@@ -286,6 +286,16 @@ static struct acpi_madt *get_apic_table(void)
     return (struct acpi_madt *)find_table(MADT_SIG);
 }
 
+uint32_t get_madt_apic_base(void)
+{
+    struct acpi_madt *madt = get_apic_table();
+    if ( madt == NULL ) {
+        printk(TBOOT_ERR"no MADT table found\n");
+        return 0;
+    }
+    return (uint32_t)madt->local_apic_address;
+}
+
 struct acpi_table_ioapic *get_acpi_ioapic_table(void)
 {
     struct acpi_madt *madt = get_apic_table();

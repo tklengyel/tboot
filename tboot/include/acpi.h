@@ -503,6 +503,7 @@ extern void disable_smis(void);
 extern bool machine_sleep(const tboot_acpi_sleep_info_t *);
 extern void set_s3_resume_vector(const tboot_acpi_sleep_info_t *, uint64_t);
 extern struct acpi_rsdp *get_rsdp(loader_ctx *lctx);
+extern uint32_t get_madt_apic_base(void);
 
 #endif	/* __ACPI_H__ */
 
