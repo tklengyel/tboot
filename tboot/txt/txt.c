@@ -54,7 +54,6 @@
 #include <tboot.h>
 #include <mle.h>
 #include <hash.h>
-#include <lcp2.h>
 #include <cmdline.h>
 #include <acpi.h>
 #include <txt/txt.h>

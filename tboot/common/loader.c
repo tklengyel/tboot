@@ -47,7 +47,7 @@
 #include <loader.h>
 #include <e820.h>
 #include <tboot.h>
-#include <lcp2.h>
+#include <lcp3.h>
 #include <elf_defns.h>
 #include <linux_defns.h>
 #include <tb_error.h>

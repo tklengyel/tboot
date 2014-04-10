@@ -1,7 +1,7 @@
 /*
  * policy.c: support functions for tboot verification launch
  *
- * Copyright (c) 2006-2010, Intel Corporation
+ * Copyright (c) 2006-2014, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,8 +54,8 @@
 #include <integrity.h>
 #include <tpm.h>
 #include <tb_policy.h>
-#include <lcp2.h>
-#include <lcp_hlp.h>
+#include <lcp3.h>
+#include <lcp3_hlp.h>
 #include <cmdline.h>
 #include <txt/config_regs.h>
 #include <txt/mtrrs.h>
@@ -291,7 +291,8 @@ static bool unwrap_lcp_policy(void)
 
             while ( elt ) {
                 /* check element type */
-                if ( elt->type == LCP_POLELT_TYPE_CUSTOM ) {
+                if ( elt->type == LCP_POLELT_TYPE_CUSTOM || 
+                     elt->type == LCP_POLELT_TYPE_CUSTOM2 ) {
                     lcp_custom_element_t *custom =
                         (lcp_custom_element_t *)&elt->data;
 
@@ -310,7 +311,11 @@ static bool unwrap_lcp_policy(void)
 
                 elt = (void *)elt + elt->size;
             }
-            pollist = (void *)pollist + get_policy_list_size(pollist);
+            if ( pollist->version == LCP_TPM12_POLICY_LIST_VERSION )
+                pollist = (void *)pollist + get_tpm12_policy_list_size(pollist);
+            else if ( pollist->version == LCP_TPM20_POLICY_LIST_VERSION )
+                pollist = (void *)pollist + get_tpm20_policy_list_size(
+                        (lcp_policy_list_t2 *)pollist);
         }
     }
 
@@ -349,7 +354,16 @@ tb_error_t set_policy(void)
         printk(TBOOT_DETA"\t:%lu bytes read\n", policy_index_size);
         /* assume lcp policy has been verified by sinit already */
         lcp_policy_t *pol = (lcp_policy_t *)_policy_index_buf;
-        if ( pol->policy_type == LCP_POLTYPE_LIST && unwrap_lcp_policy() ) {
+        if ( pol->version == LCP_DEFAULT_POLICY_VERSION_2 &&
+             pol->policy_type == LCP_POLTYPE_LIST && unwrap_lcp_policy() ) {
+            if ( verify_policy((tb_policy_t *)_policy_index_buf,
+                     calc_policy_size((tb_policy_t *)_policy_index_buf),
+                     true) )
+                goto policy_found;
+        }
+        lcp_policy_t2 *pol2 = (lcp_policy_t2 *)_policy_index_buf;
+        if ( pol2->version == LCP_DEFAULT_POLICY_VERSION &&
+             pol2->policy_type == LCP_POLTYPE_LIST && unwrap_lcp_policy() ) {
             if ( verify_policy((tb_policy_t *)_policy_index_buf,
                      calc_policy_size((tb_policy_t *)_policy_index_buf),
                      true) )
