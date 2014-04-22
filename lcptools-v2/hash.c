@@ -111,16 +111,6 @@ bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
         EVP_DigestFinal(&ctx, hash->sha384, NULL);
         return true;
     }
-    else if (hash_alg == TB_HALG_SHA512) {
-        EVP_MD_CTX ctx;
-        const EVP_MD *md;
-
-        md = EVP_sha512();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, size);
-        EVP_DigestFinal(&ctx, hash->sha512, NULL);
-        return true;
-    }
     else
         return false;
 }

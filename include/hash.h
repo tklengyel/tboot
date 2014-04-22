@@ -61,7 +61,6 @@ typedef union {
     uint8_t    sha256[SHA256_LENGTH];
     uint8_t    sm3[SM3_LENGTH];
     uint8_t    sha384[SHA384_LENGTH];
-    uint8_t    sha512[SHA512_LENGTH];
 } tb_hash_t;
 
 static inline const char *hash_alg_to_string(uint16_t hash_alg)

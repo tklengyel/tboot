@@ -153,8 +153,6 @@ void print_hash(const tb_hash_t *hash, uint16_t hash_alg)
         print_hex(NULL, (uint8_t *)hash->sm3, sizeof(hash->sm3));
     else if ( hash_alg == TB_HALG_SHA384 )
         print_hex(NULL, (uint8_t *)hash->sha384, sizeof(hash->sha384));
-    else if ( hash_alg == TB_HALG_SHA512 )
-        print_hex(NULL, (uint8_t *)hash->sha512, sizeof(hash->sha512));
     else {
         printk(TBOOT_WARN"unsupported hash alg (%u)\n", hash_alg);
         return;

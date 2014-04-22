@@ -202,9 +202,6 @@ bool parse_line_hashes(const char *line, tb_hash_t *hash, uint16_t alg)
         case TPM_ALG_SHA384:
             hash->sha384[i++] = (uint8_t)strtoul(line, &next, 16);
             break;
-        case TPM_ALG_SHA512:
-            hash->sha512[i++] = (uint8_t)strtoul(line, &next, 16);
-            break;
         default:
             ERROR("Error: unsupported alg: 0x%x\n",alg);
             return false;

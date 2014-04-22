@@ -1928,6 +1928,7 @@ static bool tpm20_seal(struct tpm_if *ti, uint32_t locality,
     create_in.public.t.public_area.auth_policy.t.size = 0;
     *(u32 *)&create_in.public.t.public_area.object_attr = 0;
     create_in.public.t.public_area.object_attr.userWithAuth = 1;
+    create_in.public.t.public_area.object_attr.noDA = 1;
     create_in.public.t.public_area.param.keyed_hash.scheme.scheme = TPM_ALG_NULL;
     create_in.public.t.public_area.unique.keyed_hash.t.size = 0;
 
@@ -2088,11 +2089,41 @@ static uint32_t tpm20_save_state(struct tpm_if *ti, uint32_t locality)
     return ret;
 }
 
+#define TPM_NR_PCRS             24
+#define TPM_PCR_RESETABLE_MIN   16
 static bool tpm20_cap_pcrs(struct tpm_if *ti, u32 locality, int pcr)
 {
+    bool was_capped[TPM_NR_PCRS] = {false};
+    hash_list_t cap_val;   /* use whatever val is on stack */
+
     if ( ti == NULL || locality >= TPM_NR_LOCALITIES || pcr == 0 )
         return false;
 
+    cap_val.count = ti->banks;
+    for (unsigned int i=0; i<ti->banks; i++)
+        cap_val.entries[i].alg = ti->algs_banks[i];
+
+    if (pcr >= 0) {
+        tpm20_pcr_extend(ti, locality, pcr, &cap_val);
+        return true;
+    }
+
+    /* ensure PCRs 17 + 18 are always capped */
+    tpm20_pcr_extend(ti, locality, 17, &cap_val);
+    tpm20_pcr_extend(ti, locality, 18, &cap_val);
+    was_capped[17] = was_capped[18] = true;
+
+    /* also cap every dynamic PCR we extended (only once) */
+    /* don't cap static PCRs since then they would be wrong after S3 resume */
+    memset(&was_capped, true, TPM_PCR_RESETABLE_MIN*sizeof(bool));
+    for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
+        if ( !was_capped[g_pre_k_s3_state.vl_entries[i].pcr] ) {
+            tpm20_pcr_extend(ti, locality, g_pre_k_s3_state.vl_entries[i].pcr, &cap_val);
+            was_capped[g_pre_k_s3_state.vl_entries[i].pcr] = true;
+        }
+    }
+
+    printk(TBOOT_INFO"cap'ed dynamic PCRs\n");
     return true;
 }
 
@@ -2197,6 +2228,7 @@ static bool tpm20_init(struct tpm_if *ti)
     primary_in.public.t.public_area.object_attr.decrypt = 1;
     primary_in.public.t.public_area.object_attr.fixedTPM = 1;
     primary_in.public.t.public_area.object_attr.fixedParent = 1;
+    primary_in.public.t.public_area.object_attr.noDA = 1;
     primary_in.public.t.public_area.object_attr.sensitiveDataOrigin = 1;
     primary_in.public.t.public_area.auth_policy.t.size = 0;
     primary_in.public.t.public_area.param.rsa.symmetric.alg = TPM_ALG_AES;
