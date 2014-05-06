@@ -2233,7 +2233,7 @@ static bool tpm20_init(struct tpm_if *ti)
     primary_in.public.t.public_area.auth_policy.t.size = 0;
     primary_in.public.t.public_area.param.rsa.symmetric.alg = TPM_ALG_AES;
     primary_in.public.t.public_area.param.rsa.symmetric.key_bits.aes= 128;
-    primary_in.public.t.public_area.param.rsa.symmetric.mode.aes = TPM_ALG_ECB;
+    primary_in.public.t.public_area.param.rsa.symmetric.mode.aes = TPM_ALG_CFB;
     primary_in.public.t.public_area.param.rsa.scheme.scheme = TPM_ALG_NULL;
     primary_in.public.t.public_area.param.rsa.key_bits = 2048;
     primary_in.public.t.public_area.param.rsa.exponent = 0;
