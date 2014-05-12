@@ -734,8 +734,10 @@ bool txt_s3_launch_environment(void)
 
     /* initialize event log in os_sinit_data, so that events will not */
     /* repeat when s3 */
-    if ( g_elog )
+    if ( g_tpm->major == TPM12_VER_MAJOR && g_elog )
         g_elog = (event_log_container_t *)init_event_log();
+    else if ( g_tpm->major == TPM20_VER_MAJOR && g_elog_2 )
+        init_evtlog_desc(g_elog_2);
 
     /* get sinit binary loaded */
     g_sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
