@@ -118,7 +118,7 @@ lcp_list_t *read_policy_list_file(const char *file, bool fail_ok,
         lcp_signature_t2 *sig = get_tpm20_signature(&(pollist->tpm20_policy_list));
         if ( sig != NULL && no_sigblock ) {
             LOG("input file has no sig_block\n");
-            size_t keysize;
+            size_t keysize = 0;
             if ( pollist->tpm20_policy_list.sig_alg == TPM_ALG_RSASSA ) {
                 LOG("read_policy_list_file: sig_alg == TPM_ALG_RSASSA\n");
                 keysize = sig->rsa_signature.pubkey_size;
