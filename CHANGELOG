@@ -1,3 +1,33 @@
+20140516: v1.8.1
+	Fix build error "may be used uninitialized"
+	Reset eventlog when S3
+	Make new Infenion TPM 2.0 module work
+	Update tboot version to 1.8.1 in grub title
+	Fix grub cfg file generation scripts for SLES12
+	Fix seal failure issue
+	tpm2 lcptools
+	Restore local apic base for AP
+	Fix typo in hash_alg_to_string()
+	Change to create primary object only once
+	Add prepare_tpm call in S3 path to ensure locality 0 was released before senter
+	Fix possible dead loop in print_bios_data when bios_data version==4
+	Fix possible null pointer dereference in loader.c
+	Fix possible null pointer dereference in tpm_12.c and tpm_20.c
+	Avoid buffer overrun when append tpm12 eventlog
+	Fix possible NULL pointer dereference
+	Fix one event log issue caused by wrong append and print operation
+	Fix error "unsupported hash alg" for agile extend policy
+	Fix warning "ACM info_table version mismatch"
+	Update the tpm family detection with a general way
+	Fix a lcp tools issue caused by redefining TB_HALG_SHA1 from 0 to 4
+	Assign g_tpm a value for no tpm case to avoid NULL checks
+	Fix crash when TPM is missing
+	Fix infinite loop in determine_multiboot_type()
+	Fix typo in tpm20_init() and remove unused variable
+	Allow the to-be-measured nv to be protected by AUTHWRITE
+	Check cpu vendor id to avoid unexpected behavior in non-intel cpu
+	Change to detect TPM family only once
+	Fix some typos caused by copy-paste
 20140130: v1.8.0
 	Update README for TPM2 support
 	tpm2 support
