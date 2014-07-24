@@ -54,6 +54,7 @@
 #include <txt/txt.h>
 #include <mle.h>
 #include <txt/acmod.h>
+#include <cmdline.h>
 
 /* copy of kernel/VMM command line so that can append 'tboot=0x1234' */
 static char *new_cmdline = (char *)TBOOT_KERNEL_CMDLINE_ADDR;
@@ -952,6 +953,39 @@ module_t *get_module(loader_ctx *lctx, unsigned int i)
     }
 }
 
+static const char *get_boot_loader_name(loader_ctx *lctx)
+{
+    if (LOADER_CTX_BAD(lctx))
+        return NULL;
+    if (lctx->type == MB1_ONLY ){
+        if (((multiboot_info_t *)lctx->addr)->flags & MBI_BTLDNAME)
+            return (char *)((multiboot_info_t *)lctx->addr)->boot_loader_name;
+        return NULL;
+    }
+
+    /* currently must be type 2 */
+    struct mb2_tag *start = (struct mb2_tag *)(lctx->addr + 8);
+    start = find_mb2_tag_type(start, MB2_TAG_TYPE_LOADER_NAME);
+    if (start)
+        return &((struct mb2_tag_string *)start)->string[0];
+
+    return NULL;
+}
+
+static void remove_filename_from_modules_cmdline(loader_ctx *lctx)
+{
+    if (LOADER_CTX_BAD(lctx))
+        return;
+
+    for ( unsigned int i = 0; i < get_module_count(lctx); i++ ) {
+        module_t *m = get_module(lctx, i);
+        char *cmdline = get_module_cmd(lctx, m);
+        const char *adjusted_cmdline = skip_filename(cmdline);
+        if ( adjusted_cmdline != NULL && cmdline != adjusted_cmdline )
+            strncpy(cmdline, adjusted_cmdline, strlen(cmdline));
+    }
+}
+
 static 
 void *remove_first_module(loader_ctx *lctx)
 {
@@ -1242,6 +1276,12 @@ bool launch_kernel(bool is_measured_launch)
         
         /* fix for GRUB2, which may load modules into memory before tboot */
         move_modules(g_ldr_ctx);
+
+        /* for GRUB 2, remove the filename in mods' cmdline */
+        const char *loader_name = get_boot_loader_name(g_ldr_ctx);
+        if ( loader_name != NULL && strncmp(loader_name, "GNU GRUB 0", 10) )
+            remove_filename_from_modules_cmdline(g_ldr_ctx);
+
     }
     else {
         printk(TBOOT_INFO"assuming kernel is Linux format\n");
