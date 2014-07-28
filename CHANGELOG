@@ -1,3 +1,6 @@
+20140728: v1.8.2
+        Security Fix: TBOOT Argument Measurement Vulnerability for GRUB2 + ELF Kernels
+        fix werror in 32 bit build environment
 20140516: v1.8.1
 	Fix build error "may be used uninitialized"
 	Reset eventlog when S3
