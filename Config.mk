@@ -43,8 +43,7 @@ CFLAGS_WARN       = -Wall -Wformat-security -Werror -Wstrict-prototypes \
 	            -Wextra -Winit-self -Wswitch-default -Wunused-parameter \
 	            -Wwrite-strings \
 	            $(call cc-option,$(CC),-Wlogical-op,) \
-	            -Wno-missing-field-initializers \
-	            -D_FORTIFY_SOURCE=2
+	            -Wno-missing-field-initializers
 
 AS         = as
 LD         = ld
@@ -80,7 +79,7 @@ CFLAGS += $(call cc-option,$(CC),-Wno-array-bounds,)
 ifeq ($(debug),y)
 CFLAGS += -g -DDEBUG
 else
-CFLAGS += -O2
+CFLAGS += -O2 -D_FORTIFY_SOURCE=2
 endif
 
 ifeq ($(TARGET_ARCH),x86_64)
