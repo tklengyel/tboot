@@ -722,7 +722,6 @@ static bool verify_sinit_mle_data(const txt_heap_t *txt_heap)
     sinit_mle_data = get_sinit_mle_data_start(txt_heap);
 
     /* check version */
-    sinit_mle_data = get_sinit_mle_data_start(txt_heap);
     if ( sinit_mle_data->version < 6 ) {
         printk(TBOOT_ERR"unsupported SINIT to MLE data version (%u)\n",
                sinit_mle_data->version);
