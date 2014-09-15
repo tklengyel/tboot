@@ -553,10 +553,13 @@ static bool adjust_kernel_cmdline(loader_ctx *lctx,
                 printk(TBOOT_ERR"adjust_kernel_cmdline() NULL MB2 cmd\n");
                 return NULL;
             }
-            if (false == 
-                grow_mb2_tag(lctx, cur, 
-                             strlen(new_cmdline) - strlen(cmd->string)))
-                return false;
+            uint32_t new_cmdline_tag_size = 2 * sizeof(uint32_t) + strlen(new_cmdline) + 1;
+            if ( new_cmdline_tag_size > cmd->size ){
+                if (false ==
+                    grow_mb2_tag(lctx, cur,
+                                 (new_cmdline_tag_size - cmd->size)))
+                    return false;
+            }
 
             /* now we're all good, except for fixing up cmd */
             {
@@ -569,7 +572,6 @@ static bool adjust_kernel_cmdline(loader_ctx *lctx,
                 *d = *s;
             }
             // strcpy(cmd->string, cmdbuf);
-            cmd->size = 2 * sizeof(uint32_t) + strlen(cmd->string) + 1;
         }
         return true;
     }
