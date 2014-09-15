@@ -79,7 +79,7 @@ CFLAGS += $(call cc-option,$(CC),-Wno-array-bounds,)
 ifeq ($(debug),y)
 CFLAGS += -g -DDEBUG
 else
-CFLAGS += -O2 -D_FORTIFY_SOURCE=2
+CFLAGS += -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 endif
 
 ifeq ($(TARGET_ARCH),x86_64)
