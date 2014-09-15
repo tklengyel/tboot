@@ -876,13 +876,14 @@ void fixup_loader_ctx(loader_ctx *lctx, size_t offset)
     return;
 }
 
-static uint32_t get_lowest_mod_start(loader_ctx *lctx)
+static uint32_t get_lowest_mod_start_below_tboot(loader_ctx *lctx)
 {
     uint32_t lowest = 0xffffffff;
     unsigned int mod_count = get_module_count(lctx);
     for ( unsigned int i = 0; i < mod_count; i++ ) {
         module_t *m = get_module(lctx, i);
-        if ( m->mod_start < lowest )
+        if ( m->mod_start < lowest &&
+                below_tboot(m->mod_start))
             lowest = m->mod_start;
     }
 
@@ -911,12 +912,12 @@ move_modules(loader_ctx *lctx)
     if (LOADER_CTX_BAD(lctx))
         return;
 
-    unsigned long lowest = get_lowest_mod_start(lctx);
+    unsigned long lowest = get_lowest_mod_start_below_tboot(lctx);
     unsigned long from = 0;
 
     if ( below_tboot(lowest) )
         from = lowest;
-    else 
+    else
         if ( below_tboot((unsigned long)lctx->addr) )
             from = (unsigned long)lctx->addr;
         else
