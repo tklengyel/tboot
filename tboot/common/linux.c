@@ -378,7 +378,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
             boot_params->e820_map[i].size = ((uint64_t)p->length_high << 32)
                                             | (uint64_t)p->length_low;
             boot_params->e820_map[i].type = p->type;
-            p = (void *)p + p->size + sizeof(p->size);
+            p = (void *)p + sizeof(memory_map_t);
         }
         boot_params->e820_entries = i;
     }
