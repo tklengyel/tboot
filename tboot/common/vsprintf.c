@@ -127,7 +127,8 @@ static unsigned long write_string_to_buffer(char *buf, size_t buf_len,
                                             modifiers_t *mods)
 {
     unsigned int i;
-
+    if (mods->precision > 0) 
+        strlen = (strlen > mods->precision) ? mods->precision : strlen;
     mods->width = ( mods->width > strlen ) ? mods->width - strlen : 0;
     if ( mods->flag & LEFT_ALIGNED ) { /* left align */
         for ( i = 0; i < strlen; i++ )
