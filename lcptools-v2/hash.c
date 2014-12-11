@@ -150,14 +150,20 @@ void print_hash(const tb_hash_t *hash, uint16_t hash_alg)
         return;
 
     if ( hash_alg == TB_HALG_SHA1 ) {
-        for ( unsigned int i = 0; i < sizeof(hash->sha1); i++ )
-            fprintf(stderr, "%02x ", hash->sha1[i]);
-        fprintf(stderr, "\n");
+        for ( unsigned int i = 0; i < SHA1_LENGTH; i++ ) {
+            printf("%02x", hash->sha1[i]);
+            if ( i < SHA1_LENGTH-1 )
+                printf(" ");
+        }
+        printf("\n");
     }
     else if ( hash_alg == TB_HALG_SHA256 ) {
-        for ( unsigned int i = 0; i < sizeof(hash->sha256); i++ )
-            fprintf(stderr, "%02x ", hash->sha256[i]);
-        fprintf(stderr, "\n");
+        for ( unsigned int i = 0; i < SHA256_LENGTH; i++ ) {
+            printf("%02x", hash->sha256[i]);
+            if ( i < SHA256_LENGTH-1 )
+                printf(" ");
+        }
+        printf("\n");
     }
     else
         return;

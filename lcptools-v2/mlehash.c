@@ -368,7 +368,6 @@ int main(int argc, char* argv[])
     size_t size, exp_size;
     elf_header_t *base_as_elf;
     mle_hdr_t *mle_hdr;
-    unsigned int i = 0;
     int c, ret = 1;
     char mle_file[MAX_PATH] = "";
     extern int optind;    /* current index of get_opt() */
@@ -481,12 +480,7 @@ int main(int argc, char* argv[])
         void *hash_buf = exp_start + mle_hdr->mle_start_off;
         lcp_hash_t2 *hash = malloc(sizeof(lcp_hash_t2));
         hash_buffer(hash_buf, hash_size, (tb_hash_t *)hash, alg_type);
-
-        while( i<get_hash_size(alg_type) ){
-            printf("%02x ", *(uint8_t *)hash++);
-            i++;
-        }
-        printf("\n");
+        print_hash((tb_hash_t *)hash, alg_type);
     }
 
     ret = 0;
