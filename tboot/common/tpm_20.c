@@ -2208,7 +2208,7 @@ static bool tpm20_init(struct tpm_if *ti)
     /* create primary object as parent obj for seal */
     tpm_create_primary_in primary_in;
     tpm_create_primary_out primary_out;
-    primary_in.primary_handle = TPM_RH_PLATFORM;
+    primary_in.primary_handle = TPM_RH_NULL;
     primary_in.sessions.num_sessions = 1;
     primary_in.sessions.sessions[0].session_handle = TPM_RS_PW;
     primary_in.sessions.sessions[0].nonce.t.size = 0;
@@ -2241,6 +2241,8 @@ static bool tpm20_init(struct tpm_if *ti)
     primary_in.outside_info.t.size = 0;
     primary_in.creation_pcr.count = 0;
 
+    printk(TBOOT_DETA"TPM: CreatePrimary creating hierarchy handle = %08X\n", primary_in.primary_handle);
+
     ret = _tpm20_create_primary(0, &primary_in, &primary_out);
     if (ret != TPM_RC_SUCCESS) {
         printk(TBOOT_WARN"TPM: CreatePrimary return value = %08X\n", ret);
@@ -2249,6 +2251,7 @@ static bool tpm20_init(struct tpm_if *ti)
     }
     handle2048 = primary_out.obj_handle;
  
+    printk(TBOOT_DETA"TPM: CreatePrimary created object handle = %08X\n", handle2048);
 out:
     tpm_print(ti);
     return true;
