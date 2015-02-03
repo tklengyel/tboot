@@ -106,6 +106,13 @@ static inline void do_cpuid(unsigned int ax, uint32_t *p)
                           :  "0" (ax));
 }
 
+static inline void do_cpuid1(unsigned int ax, unsigned int cx, uint32_t *p)
+{
+    __asm__ __volatile__ ("cpuid"
+                          : "=a" (p[0]), "=b" (p[1]), "=c" (p[2]), "=d" (p[3])
+                          :  "0" (ax), "c" (cx));
+}
+
 static always_inline uint32_t cpuid_eax(unsigned int op)
 {
      /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
@@ -126,6 +133,15 @@ static always_inline uint32_t cpuid_ebx(unsigned int op)
     return regs[1];
 }
 
+static always_inline uint32_t cpuid_ebx1(unsigned int op1, unsigned int op2)
+{
+     /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
+    uint32_t regs[4];
+
+    do_cpuid1(op1, op2, regs);
+
+    return regs[1];
+}
 static always_inline uint32_t cpuid_ecx(unsigned int op)
 {
      /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
@@ -144,6 +160,16 @@ static inline unsigned long read_cr0(void)
 {
     unsigned long data;
     __asm__ __volatile__ ("movl %%cr0,%0" : "=r" (data));
+    return (data);
+}
+static inline void write_ecx(unsigned long data)
+{
+    __asm__ __volatile__("movl %0,%%ecx" : : "r" (data));
+}
+static inline unsigned long read_ecx(void)
+{
+    unsigned long data;
+    __asm__ __volatile__ ("movl %%ecx,%0" : "=r" (data));
     return (data);
 }
 static inline void write_cr0(unsigned long data)

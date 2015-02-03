@@ -1768,7 +1768,8 @@ static bool tpm12_init(struct tpm_if *ti)
     ti->tb_policy_index = 0x20000001;
     ti->lcp_own_index = 0x40000001;
     ti->tb_err_index = 0x20000002;
-
+    ti->sgx_svn_index = 0x50000004;
+    
     return true;
 }
 

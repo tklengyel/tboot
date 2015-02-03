@@ -53,6 +53,7 @@
 #include "../tboot/include/compiler.h"
 #include "../tboot/include/processor.h"
 #include "../tboot/include/misc.h"
+#include "../tboot/include/io.h"
 #include "../tboot/include/txt/acmod.h"
 #include "../tboot/include/txt/config_regs.h"
 
@@ -89,6 +90,7 @@ static unsigned long long rdmsr(unsigned int msr)
     return val;
 }
 #define MSR_IA32_PLATFORM_ID       0x17
+#define MSR_IA32_SE_SVN_STATUS     0x500
 
 static void *pub_config_base;
 #define read_pub_config_reg(reg)   *(volatile uint64_t *)(pub_config_base + \

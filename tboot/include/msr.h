@@ -77,7 +77,7 @@ static inline void wrmsr(uint32_t msr, uint64_t newval)
 #define MSR_IA32_VMX_PROCBASED_CTLS_MSR        0x482
 #define MSR_IA32_VMX_EXIT_CTLS_MSR             0x483
 #define MSR_IA32_VMX_ENTRY_CTLS_MSR            0x484
-
+#define MSR_IA32_SE_SVN_STATUS                 0x500
 /*
  * Constants related to MSR's.
  */

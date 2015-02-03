@@ -60,7 +60,8 @@ typedef struct {
     uint32_t     module_vendor;
     uint32_t     date;
     uint32_t     size;
-    uint32_t     reserved1;
+    uint16_t     txt_svn;
+    uint16_t     se_svn;
     uint32_t     code_control;
     uint32_t     error_entry_point;
     uint32_t     gdt_limit;
@@ -179,7 +180,7 @@ extern bool verify_acmod(const acm_hdr_t *acm_hdr);
 extern uint32_t get_supported_os_sinit_data_ver(const acm_hdr_t* hdr);
 extern txt_caps_t get_sinit_capabilities(const acm_hdr_t* hdr);
 extern tpm_info_list_t *get_tpm_info_list(const acm_hdr_t* hdr);
-
+extern void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr);
 #endif /* __TXT_ACMOD_H__ */
 
 /*

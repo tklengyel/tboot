@@ -138,6 +138,7 @@ typedef struct __packed {
 #define TPM_ALG_LAST              0x0044
 #define TPM_ALG_MAX_NUM           (TPM_ALG_LAST - TPM_ALG_ERROR)
 
+
 /*
  * assumes that all reg types follow above format:
  *   - packed
@@ -218,6 +219,7 @@ struct tpm_if {
     u32 lcp_own_index;
     u32 tb_policy_index;
     u32 tb_err_index;
+    u32 sgx_svn_index;
 
     bool (*init)(struct tpm_if *ti);
 

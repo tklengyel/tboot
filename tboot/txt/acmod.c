@@ -52,8 +52,8 @@
 #include <txt/mtrrs.h>
 #include <txt/heap.h>
 #include <txt/smx.h>
+#include <tpm.h>
 #endif    /* IS_INCLUDED */
-
 
 static acm_info_table_t *get_acmod_info_table(const acm_hdr_t* hdr)
 {
@@ -69,6 +69,7 @@ static acm_info_table_t *get_acmod_info_table(const acm_hdr_t* hdr)
         printk(TBOOT_ERR"ACM header length and scratch size in bytes overflows\n");
         return NULL;
     }
+
 
     /* this fn assumes that the ACM has already passed at least the initial */
     /* is_acmod() checks */
@@ -319,6 +320,8 @@ static void print_acm_hdr(const acm_hdr_t *hdr, const char *mod_name)
     printk(TBOOT_DETA"\t vendor: 0x%x\n", hdr->module_vendor);
     printk(TBOOT_DETA"\t date: 0x%08x\n", hdr->date);
     printk(TBOOT_DETA"\t size*4: 0x%x (%u)\n", hdr->size*4, hdr->size*4);
+    printk(TBOOT_DETA"\t txt_svn: 0x%08x\n", hdr->txt_svn);
+    printk(TBOOT_DETA"\t se_svn: 0x%08x\n", hdr->se_svn);
     printk(TBOOT_DETA"\t code_control: 0x%x\n", hdr->code_control);
     printk(TBOOT_DETA"\t entry point: 0x%08x:%08x\n", hdr->seg_sel,
            hdr->entry_point);
@@ -824,6 +827,37 @@ bool verify_racm(const acm_hdr_t *acm_hdr)
  * an TXT.RESET.  Instead detect these, print a desriptive message,
  * and skip SENTER/ENTERACCS
  */
+
+void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr)
+{
+  
+    printk(TBOOT_INFO"SGX:verify_IA32_se_svn_status is called\n");
+        
+    //check if SGX is enabled by cpuid with ax=7, cx=0 
+    if ((cpuid_ebx1(7,0) & 0x00000004) == 0){
+        printk(TBOOT_ERR"SGX is not enabled, cpuid.ebx: 0x%x\n", cpuid_ebx1(7,0));
+        return;
+    }
+    printk(TBOOT_INFO"SGX is enabled, cpuid.ebx:0x%x\n", cpuid_ebx1(7,0));
+    printk(TBOOT_INFO"Comparing se_svn with ACM Header se_svn\n");
+    
+    if (((rdmsr(MSR_IA32_SE_SVN_STATUS)>>16) & 0xff) != acm_hdr->se_svn) {
+        printk(TBOOT_INFO"se_svn is not equal to ACM se_svn\n");
+        if (!g_tpm->nv_write(g_tpm, 0, g_tpm->sgx_svn_index, 0, (uint8_t *)&(acm_hdr->se_svn), 1)) 
+            printk(TBOOT_ERR"Write sgx_svn_index 0x%x failed. \n", g_tpm->sgx_svn_index);
+        else
+            printk(TBOOT_INFO"Write sgx_svn_index with 0x%x successful.\n", acm_hdr->se_svn);
+
+        if ((rdmsr(MSR_IA32_SE_SVN_STATUS) & 0X00000001) !=0)  /* reset platform */
+        // printk(TBOOT_INFO"SGX:A reset is required in this boot\n");
+           outb(0xcf9, 0x06);
+    }
+    else 
+        printk(TBOOT_INFO"se_svn is equal to ACM se_svn\n");
+
+}
+
+
 bool verify_acmod(const acm_hdr_t *acm_hdr)
 {
     getsec_parameters_t params;
@@ -873,6 +907,9 @@ bool verify_acmod(const acm_hdr_t *acm_hdr)
 
     /* print it for debugging */
     print_acm_hdr(acm_hdr, "SINIT");
+
+    /* verify SE enablement status */
+    verify_IA32_se_svn_status(acm_hdr);
 
     /* entry point is offset from base addr so make sure it is within module */
     if ( acm_hdr->entry_point >= size ) {
@@ -942,7 +979,6 @@ bool verify_acmod(const acm_hdr_t *acm_hdr)
 
 	return true;
 }
-
 
 /*
  * Local variables:
