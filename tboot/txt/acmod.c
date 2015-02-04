@@ -34,7 +34,7 @@
  *
  */
 
-#ifndef IS_INCLUDED     /* defined in txt-test/dump-acm.c */
+#ifndef IS_INCLUDED     /*  defined in utils/acminfo.c  */
 #include <config.h>
 #include <types.h>
 #include <stdbool.h>
@@ -827,7 +827,7 @@ bool verify_racm(const acm_hdr_t *acm_hdr)
  * an TXT.RESET.  Instead detect these, print a desriptive message,
  * and skip SENTER/ENTERACCS
  */
-
+#ifndef IS_INCLUDED     /*  defined in utils/acminfo.c  */
 void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr)
 {
   
@@ -979,7 +979,7 @@ bool verify_acmod(const acm_hdr_t *acm_hdr)
 
 	return true;
 }
-
+#endif          /*  IS_INCLUDED  */
 /*
  * Local variables:
  * mode: C
