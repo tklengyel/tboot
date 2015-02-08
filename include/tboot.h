@@ -134,6 +134,8 @@ typedef struct {
     uuid_t     uuid;
     uint32_t   max_size;
     uint32_t   curr_pos;
+    uint32_t   zip_pos;
+    uint32_t   zip_size;
     char       buf[];
 } tboot_log_t;
 

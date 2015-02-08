@@ -43,12 +43,12 @@
 #include <printk.h>
 #include <cmdline.h>
 #include <tboot.h>
+#include <lz.h>
 
 uint8_t g_log_level = TBOOT_LOG_LEVEL_ALL;
 uint8_t g_log_targets = TBOOT_LOG_TARGET_SERIAL | TBOOT_LOG_TARGET_VGA;
 
 static struct mutex print_lock;
-
 
 /*
  * memory logging
@@ -59,11 +59,13 @@ __data tboot_log_t *g_log = NULL;
 
 static void memlog_init(void)
 {
-    if ( g_log == NULL ) {
+        if ( g_log == NULL ) {
         g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
         g_log->uuid = (uuid_t)TBOOT_LOG_UUID;
         g_log->curr_pos = 0;
-    }
+        g_log->zip_pos = 0;
+        g_log->zip_size = 0;
+        }
 
     /* initialize these post-launch as well, since bad/malicious values */
     /* could compromise environment */
@@ -71,21 +73,39 @@ static void memlog_init(void)
     g_log->max_size = TBOOT_SERIAL_LOG_SIZE - sizeof(*g_log);
 
     /* if we're calling this post-launch, verify that curr_pos is valid */
-    if ( g_log->curr_pos > g_log->max_size )
+    if ( g_log->zip_pos > g_log->max_size ){
+        g_log->zip_pos = 0;
         g_log->curr_pos = 0;
+    }
+    if ( g_log->curr_pos > g_log->max_size )
+        g_log->curr_pos = g_log->zip_pos;
 }
 
-static void memlog_write(const char *str, unsigned int count)
+static void memlog_write( const char *str, unsigned int count)
 {
+    /* allocate a 32K temp buffer for compressed log  */
+    char buf[32*1024];
+    char *out=buf;
+
     if ( g_log == NULL || count > g_log->max_size )
         return;
 
-    /* wrap to beginning if too big to fit */
-    if ( g_log->curr_pos + count > g_log->max_size )
-        g_log->curr_pos = 0;
-
+    /* do a compression of the log if curr_pos + count > max_size  */
+    if (g_log->curr_pos + count > g_log->max_size) {
+       g_log->zip_size = LZ_Compress(&g_log->buf[g_log->zip_pos], out, g_log->curr_pos - g_log->zip_pos);
+       memcpy(&g_log->buf[g_log->zip_pos], out, g_log->zip_size); 
+       g_log->zip_pos += g_log->zip_size;
+       g_log->curr_pos = g_log->zip_pos;
+       if ( g_log->buf[g_log->zip_pos - 1] !='0')
+          g_log->buf[g_log->zip_pos] = '0';
+       else {
+          g_log->zip_pos--;
+          g_log->curr_pos--;
+       } 
+           
+    }
     memcpy(&g_log->buf[g_log->curr_pos], str, count);
-    g_log->curr_pos += count;
+    g_log->curr_pos += count; 
 
     /* if the string wasn't NULL-terminated, then NULL-terminate the log */
     if ( str[count-1] != '\0' )

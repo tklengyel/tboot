@@ -64,6 +64,8 @@ void print_hex(const char* prefix, const void *start, size_t len);
 #include "../tboot/include/txt/heap.h"
 
 #include "../tboot/txt/heap.c"
+#include "../tboot/include/lz.h"
+#include "../tboot/common/lz.c"
 
 static inline uint64_t read_txt_config_reg(void *config_regs_base,
                                            uint32_t reg)
@@ -215,8 +217,10 @@ static void display_heap(txt_heap_t *heap)
 static void display_tboot_log(void *log_base)
 {
     static char buf[512];
-
+    char pbuf[32*1024];
+    char *out = pbuf;
     tboot_log_t *log = (tboot_log_t *)log_base;
+    char *log_buf = log->buf;
 
     if ( !are_uuids_equal(&(log->uuid), &((uuid_t)TBOOT_LOG_UUID)) ) {
         printf("unable to find TBOOT log\n");
@@ -224,14 +228,25 @@ static void display_tboot_log(void *log_base)
     }
 
     printf("TBOOT log:\n");
-    printf("\t max_size=%x\n", log->max_size);
-    printf("\t curr_pos=%x\n", log->curr_pos);
+    printf("\t max_size=%d\n", log->max_size);
+    printf("\t zip_pos=%d\n", log->zip_pos);
+    printf("\t zip_size=%d\n", log->zip_size);
+    printf("\t curr_pos=%d\n", log->curr_pos);
     printf("\t buf:\n");
     /* log->buf is phys addr of buf, which will not match where mmap has */
     /* map'ed us, but since it is always just past end of struct, use that */
-    char *log_buf = log->buf;
+    /* Uncompress tboot log */ 
+    LZ_Uncompress(log_buf, out, log->zip_size);
     /* log is too big for single printk(), so break it up */
-    for ( unsigned int curr_pos = 0; curr_pos < log->curr_pos;
+    /* print out the uncompressed log */
+    for ( unsigned int curr_pos = 0; curr_pos < 32*1024; 
+          curr_pos += sizeof(buf)-1 ) {
+        strncpy(buf, out + curr_pos, sizeof(buf)-1);
+        buf[sizeof(buf)-1] = '\0';
+        printf("%s", buf);
+    }
+
+    for ( unsigned int curr_pos = log->zip_pos; curr_pos < log->curr_pos;
           curr_pos += sizeof(buf)-1 ) {
         strncpy(buf, log_buf + curr_pos, sizeof(buf)-1);
         buf[sizeof(buf)-1] = '\0';
