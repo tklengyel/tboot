@@ -395,7 +395,7 @@ int main(int argc, char* argv[])
                 printf("Out of memory\n");
                 return 1;
             }
-            strlcpy(cmdline, optarg, sizeof(cmdline));
+            strcpy(cmdline, optarg);
             break;
 
         case 'a':
