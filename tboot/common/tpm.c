@@ -145,6 +145,9 @@ static bool tpm_wait_cmd_ready(uint32_t locality)
     tpm_reg_access_t    reg_acc;
     tpm_reg_sts_t       reg_sts;
 
+#if 0 /* some tpms doesn't always return 1 for reg_acc.tpm_reg_valid_sts */
+      /* and this bit was checked in tpm_validate_locality() already, */
+      /* so safe to skip the check here */
     /* ensure the contents of the ACCESS register are valid */
     read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
 #ifdef TPM_TRACE
@@ -154,7 +157,7 @@ static bool tpm_wait_cmd_ready(uint32_t locality)
         printk(TBOOT_ERR"TPM: Access reg not valid\n");
         return false;
     }
-
+#endif
     /* request access to the TPM from locality N */
     reg_acc._raw[0] = 0;
     reg_acc.request_use = 1;
