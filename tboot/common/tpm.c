@@ -77,7 +77,23 @@ typedef union {
 /* TPM_STS_x */
 #define TPM_REG_STS              0x18
 typedef union {
-    u8 _raw[4];                  /* 3-byte reg */
+    u8 _raw[3];                  /* 3-byte reg */
+    struct __packed {
+        u8 reserved1       : 1;
+        u8 response_retry  : 1;  /* WO, 1=re-send response */
+        u8 self_test_done  : 1;  /* RO, only for version 2 */
+        u8 expect          : 1;  /* RO, 1=more data for command expected */
+        u8 data_avail      : 1;  /* RO, 0=no more data for response */
+        u8 tpm_go          : 1;  /* WO, 1=execute sent command */
+        u8 command_ready   : 1;  /* RW, 1=TPM ready to receive new cmd */
+        u8 sts_valid       : 1;  /* RO, 1=data_avail and expect bits are
+                                    valid */
+        u16 burst_count    : 16; /* RO, # read/writes bytes before wait */
+    };
+} tpm12_reg_sts_t;
+
+typedef union {
+    u8 _raw[4];                  /* 4-byte reg */
     struct __packed {
         u8 reserved1       : 1;
         u8 response_retry  : 1;  /* WO, 1=re-send response */
@@ -95,7 +111,13 @@ typedef union {
         u8 tpm_family           : 2;
         u8 reserved2            : 4;
     };
-} tpm_reg_sts_t;
+} tpm20_reg_sts_t;
+
+/* Global variables for TPM status register */
+static tpm20_reg_sts_t       g_reg_sts, *g_reg_sts_20 = &g_reg_sts;
+static tpm12_reg_sts_t       *g_reg_sts_12 = (tpm12_reg_sts_t *)&g_reg_sts;
+
+static u8 g_tpm_family = 0;
 
 /* TPM_DATA_FIFO_x */
 #define TPM_REG_DATA_FIFO        0x24
@@ -114,6 +136,87 @@ typedef union {
 #define TPM_RSP_READ_TIME_OUT           \
           (TIMEOUT_UNIT * g_tpm->timeout.timeout_d)  /* let it long enough */
 #define TPM_VALIDATE_LOCALITY_TIME_OUT  0x100
+
+#define read_tpm_sts_reg(locality) { \
+if ( g_tpm_family == 0 ) \
+    read_tpm_reg(locality, TPM_REG_STS, g_reg_sts_12); \
+else \
+    read_tpm_reg(locality, TPM_REG_STS, g_reg_sts_20); \
+}
+
+#define write_tpm_sts_reg(locality) { \
+if ( g_tpm_family == 0 ) \
+    write_tpm_reg(locality, TPM_REG_STS, g_reg_sts_12); \
+else \
+    write_tpm_reg(locality, TPM_REG_STS, g_reg_sts_20); \
+}
+
+static void tpm_send_cmd_ready_status(uint32_t locality)
+{
+    /* write 1 to TPM_STS_x.commandReady to let TPM enter ready state */
+    memset((void *)&g_reg_sts, 0, sizeof(g_reg_sts));
+    g_reg_sts.command_ready = 1;
+    write_tpm_sts_reg(locality);
+}
+
+static bool tpm_check_cmd_ready_status(uint32_t locality)
+{
+    read_tpm_sts_reg(locality);
+#ifdef TPM_TRACE
+    printk(TBOOT_INFO".");
+#endif
+    return g_reg_sts.command_ready;
+}
+
+static void tpm_print_status_register(void)
+{
+    if ( g_tpm_family == 0 )
+    {
+        printk(TBOOT_DETA"TPM: status reg content: %02x %02x %02x\n",
+            (uint32_t)g_reg_sts_12->_raw[0],
+            (uint32_t)g_reg_sts_12->_raw[1],
+            (uint32_t)g_reg_sts_12->_raw[2]);
+    }
+    else
+    {
+        printk(TBOOT_DETA"TPM: status reg content: %02x %02x %02x %02x\n",
+            (uint32_t)g_reg_sts_20->_raw[0],
+            (uint32_t)g_reg_sts_20->_raw[1],
+            (uint32_t)g_reg_sts_20->_raw[2],
+            (uint32_t)g_reg_sts_20->_raw[3]);
+    }
+}
+
+static u16 tpm_get_burst_count(uint32_t locality)
+{
+    read_tpm_sts_reg(locality);
+    return g_reg_sts.burst_count;
+}
+
+static bool tpm_check_expect_status(uint32_t locality)
+{
+    read_tpm_sts_reg(locality);
+#ifdef TPM_TRACE
+    printk(TBOOT_INFO"Wait on Expect = 0, Status register %02x\n", g_reg_sts._raw[0]);
+#endif
+    return g_reg_sts.sts_valid == 1 && g_reg_sts.expect == 0;
+}
+
+static bool tpm_check_da_status(uint32_t locality)
+{
+    read_tpm_sts_reg(locality);
+#ifdef TPM_TRACE
+    printk(TBOOT_INFO"Waiting for DA Flag, Status register %02x\n", g_reg_sts._raw[0]);
+#endif
+    return g_reg_sts.sts_valid == 1 && g_reg_sts.data_avail == 1;
+}
+
+static void tpm_execute_cmd(uint32_t locality)
+{
+    memset((void *)&g_reg_sts, 0, sizeof(g_reg_sts));
+    g_reg_sts.tpm_go = 1;
+    write_tpm_sts_reg(locality);
+}
 
 bool tpm_validate_locality(uint32_t locality)
 {
@@ -143,7 +246,6 @@ static bool tpm_wait_cmd_ready(uint32_t locality)
 {
     uint32_t            i;
     tpm_reg_access_t    reg_acc;
-    tpm_reg_sts_t       reg_sts;
 
 #if 0 /* some tpms doesn't always return 1 for reg_acc.tpm_reg_valid_sts */
       /* and this bit was checked in tpm_validate_locality() already, */
@@ -184,18 +286,11 @@ static bool tpm_wait_cmd_ready(uint32_t locality)
 #endif
     i = 0;
     do {
-        /* write 1 to TPM_STS_x.commandReady to let TPM enter ready state */
-        memset((void *)&reg_sts, 0, sizeof(reg_sts));
-        reg_sts.command_ready = 1;
-        write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
+        tpm_send_cmd_ready_status(locality);
         cpu_relax();
-
         /* then see if it has */
-        read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
-#ifdef TPM_TRACE
-        printk(TBOOT_INFO".");
-#endif
-        if ( reg_sts.command_ready == 1 )
+
+        if ( tpm_check_cmd_ready_status(locality) )
             break;
         else
             cpu_relax();
@@ -206,10 +301,7 @@ static bool tpm_wait_cmd_ready(uint32_t locality)
 #endif
 
     if ( i > TPM_CMD_READY_TIME_OUT ) {
-        printk(TBOOT_DETA"TPM: status reg content: %02x %02x %02x\n",
-               (uint32_t)reg_sts._raw[0],
-               (uint32_t)reg_sts._raw[1],
-               (uint32_t)reg_sts._raw[2]);
+        tpm_print_status_register();
         printk(TBOOT_INFO"TPM: tpm timeout for command_ready\n");
         goto RelinquishControl;
     }
@@ -231,7 +323,6 @@ bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size,
     u32 i, rsp_size, offset;
     u16 row_size;
     tpm_reg_access_t    reg_acc;
-    tpm_reg_sts_t       reg_sts;
     bool ret = true;
 
     if ( locality >= TPM_NR_LOCALITIES ) {
@@ -267,9 +358,8 @@ bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size,
     do {
         i = 0;
         do {
-            read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
             /* find out how many bytes the TPM can accept in a row */
-            row_size = reg_sts.burst_count;
+            row_size = tpm_get_burst_count(locality);
             if ( row_size > 0 )
                 break;
             else
@@ -289,11 +379,7 @@ bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size,
 
     i = 0;
     do {
-        read_tpm_reg(locality,TPM_REG_STS, &reg_sts);
-#ifdef TPM_TRACE
-        printk(TBOOT_INFO"Wait on Expect = 0, Status register %02x\n", reg_sts._raw[0]);
-#endif
-        if ( reg_sts.sts_valid == 1 && reg_sts.expect == 0 )
+        if ( tpm_check_expect_status(locality) )
             break;
         else
             cpu_relax();
@@ -306,18 +392,12 @@ bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size,
     }
 
     /* command has been written to the TPM, it is time to execute it. */
-    memset(&reg_sts, 0,  sizeof(reg_sts));
-    reg_sts.tpm_go = 1;
-    write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
+    tpm_execute_cmd(locality);
 
     /* check for data available */
     i = 0;
     do {
-        read_tpm_reg(locality,TPM_REG_STS, &reg_sts);
-#ifdef TPM_TRACE
-        printk(TBOOT_INFO"Waiting for DA Flag, Status register %02x\n", reg_sts._raw[0]);
-#endif
-        if ( reg_sts.sts_valid == 1 && reg_sts.data_avail == 1 )
+        if ( tpm_check_da_status(locality) )
             break;
         else
             cpu_relax();
@@ -335,8 +415,7 @@ bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size,
         /* find out how many bytes the TPM returned in a row */
         i = 0;
         do {
-            read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
-            row_size = reg_sts.burst_count;
+            row_size = tpm_get_burst_count(locality);
             if ( row_size > 0 )
                 break;
             else
@@ -379,9 +458,7 @@ bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size,
     }
 #endif
 
-    memset(&reg_sts, 0, sizeof(reg_sts));
-    reg_sts.command_ready = 1;
-    write_tpm_reg(locality, TPM_REG_STS, &reg_sts);
+    tpm_send_cmd_ready_status(locality);
 
 RelinquishControl:
     /* deactivate current locality */
@@ -438,24 +515,19 @@ bool prepare_tpm(void)
 
 bool tpm_detect(void)
 {
-    tpm_reg_sts_t reg_sts;
-
     g_tpm = &tpm_12_if; /* Don't leave g_tpm as NULL*/
     if ( !tpm_validate_locality(0) ) {
         printk(TBOOT_ERR"TPM: Locality 0 is not open\n");
         return false;
     }
 
-    /* get TPM family from TPM status register */
-    memset((void *)&reg_sts, 0, sizeof(reg_sts));
-    /* write_tpm_reg(0, TPM_REG_STS, &reg_sts); */
-    /* read_tpm_reg(0, TPM_REG_STS, &reg_sts); */
+    /* determine TPM family from command check */
     if ( g_tpm->check() )
-        reg_sts.tpm_family = 0;
+        g_tpm_family = 0;
     else
-        reg_sts.tpm_family = 1;
-    printk(TBOOT_INFO"TPM: TPM Family 0x%d\n", reg_sts.tpm_family);
-    if (reg_sts.tpm_family == 1)
+        g_tpm_family = 1;
+    printk(TBOOT_INFO"TPM: TPM Family 0x%d\n", g_tpm_family);
+    if (g_tpm_family == 1)
         g_tpm = &tpm_20_if;
     else
         g_tpm = &tpm_12_if;
