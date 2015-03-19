@@ -1282,7 +1282,9 @@ bool launch_kernel(bool is_measured_launch)
 
         /* for GRUB 2, remove the filename in mods' cmdline */
         const char *loader_name = get_boot_loader_name(g_ldr_ctx);
-        if ( loader_name != NULL && strncmp(loader_name, "GNU GRUB 0", 10) )
+        if ( loader_name != NULL &&
+             !strncmp(loader_name, "GNU GRUB", 8) &&
+             strncmp(loader_name, "GNU GRUB 0", 10) )
             remove_filename_from_modules_cmdline(g_ldr_ctx);
 
     }
