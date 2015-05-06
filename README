@@ -50,10 +50,12 @@ o  Intel TXT Launch Control Policy (LCP) tools.  The lcptools project
    tools require a TPM Software Stack (TSS) that supports the Tspi_NV_* API.
    Versions of the TrouSerS project >0.3.0 support them.
 
-o  Verified Launch.  Tboot will extend verifcation from the MLE to the VMM
-   and dom0, using policies similar to the LCP and also stored in TPM NV.
+o  Verified Launch.  Tboot will extend verification from the MLE to the kernel/VMM
+   and dom0, using policies similar to the LCP called as Verified Launch Policy 
+   and also store the policies in TPM NV.
    These policies can be created and managed by the tb_polgen tool and
-   provisioned into TPM NV using the lcptools.
+   provisioned into TPM NV using the lcptools. For more details, see Verified 
+   Launched Policy guide in docs/ directory.
 
 
 Instructions for Building:
@@ -344,7 +346,7 @@ o  Tboot will copy and alter the e820 table provided by GRUB to "reserve"
    measured launch fails for any reason.
 
 o  Tboot is always built 32bit and runs in protected mode without PAE or
-   paging enabled.  Tboot loads and executes at 0x800000 (8MB).
+   paging enabled.  Tboot loads and executes at 0x1000000 (16MB).
 
 o  The code requires that VT be enabled as well as TXT.  This is because
    the mechanism for bringing up the APs uses VMX to create a mini-VM in
