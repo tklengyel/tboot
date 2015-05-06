@@ -1,3 +1,16 @@
+20150506: v1.8.3
+        Added verified lanuch control policy user guide
+        Fixed a bug about var MTRR settings to follow the rule that each VAR MTRR base must be a multiple of that MTRR's size. 
+        Access tpm sts reg with 3-byte width in v1.2 case and 4-byte width in v2.0 case 
+        Bugfix: lcp2_mlehash get wrong hash if the cmdline string length > 7 
+        Optimized tboot log processing flow to avoid log buffer overflow by adopting lz Compress/Uncompress algorithms 
+        Added SGX support for Skylake platform 
+        tpm2: use the primary object in NULL Hierarchy instead of Platform Hierachy for seal/unseal usage 
+        Fixed a bug for lcp2_mlehash tool 
+        Fixed system hang issue casued by TXT disable, TPM disable or SINIT ACM not correctly provided in EFI booting mode 
+        Fixed bug for wrong assumption on the way how GRUB2 load modules 
+        Fixed MB2 tags mess issue caused by moving shorter module cmdline to head 
+        Fixed compile issue when debug=y 
 20140728: v1.8.2
         Security Fix: TBOOT Argument Measurement Vulnerability for GRUB2 + ELF Kernels
         fix werror in 32 bit build environment
