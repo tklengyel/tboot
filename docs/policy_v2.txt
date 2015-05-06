@@ -11,11 +11,11 @@ These are some example instructions for creating and provisioning both an
 Intel(R) TXT Launch Control Policy (LCP) and a Verified Launch policy.
 
 These steps assume that all referenced binaries have already been built and
-paths are relative to the tboot/ directory:
+paths are relative to the lcptools-v2/ directory:
 
 Create LCP policy:
 -----------------
-o   See the file lcptools/lcptools2.txt for instructions on creating
+o   See the file lcptools-v2/lcptools-v2.txt for instructions on creating
     policies and policy data files using the new tools.
 
 
