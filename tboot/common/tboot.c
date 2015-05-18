@@ -115,7 +115,9 @@ static tb_error_t verify_platform(void)
 
 static bool is_launched(void)
 {
-    return txt_is_launched();
+    if ( supports_txt() == TB_ERR_NONE )
+        return txt_is_launched();
+    else return false;
 }
 
 static bool prepare_cpu(void)
