@@ -92,6 +92,7 @@
 #define CR4_XMM 0x00000400 /* enable SIMD/MMX2 to use except 16 */
 #define CR4_VMXE 0x00002000/* enable VMX */
 #define CR4_SMXE 0x00004000/* enable SMX */
+#define CR4_PCIDE 0x00020000/* enable PCID */
 
 #ifndef __ASSEMBLY__
 

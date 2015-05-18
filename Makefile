@@ -122,7 +122,7 @@ help :
 	@echo '  world            - clean everything'
 	@echo ''
 	@echo 'Cleaning targets:'
-	@echo '  clean            - clean sboot and tools'
+	@echo '  clean            - clean tboot and tools'
 	@echo '  distclean        - clean and local downloaded files'
 	@echo ''
 	@echo '  uninstall        - attempt to remove installed tools'

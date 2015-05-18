@@ -34,6 +34,12 @@
  */
 
 compat_mode_entry:
+        /* Disable PCID */
+        movl %cr4, %eax
+        andl $~CR4_PCIDE, %eax
+        movl %eax, %cr4
+
+
 	/* Disable paging and therefore leave 64 bit mode. */
         movl %cr0, %eax
         andl $~CR0_PG, %eax
