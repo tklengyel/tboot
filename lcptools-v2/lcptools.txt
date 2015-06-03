@@ -10,7 +10,7 @@ Create policy element(s):
 
 Create an MLE element:
 ---------------------
-1.  lcp2_mlehash -c --cmdline "the command line for tboot from grub.conf"
+1.  lcp2_mlehash --create --cmdline "the command line for tboot from grub.conf"
     --alg sha1 /boot/tboot.gz > mle_hash
 2.  lcp2_crtpolelt --create --type mle --ctrl 0x00 --minver 17 --alg sha1
     --out mle.elt mle_hash
