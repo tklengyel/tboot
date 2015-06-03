@@ -54,6 +54,29 @@ typedef struct {
     uint16_t e_shstrndx;
 } elf_header_t;
 
+/* elf64_header_t */
+typedef struct {
+unsigned char e_ident[16]; /* ELF identification */
+uint16_t e_type; /* Object file type */
+uint16_t e_machine; /* Machine type */
+uint32_t e_version; /* Object file version */
+uint64_t e_entry; /* Entry point address */
+uint64_t e_phoff; /* Program header offset */
+uint64_t e_shoff; /* Section header offset */
+uint32_t e_flags; /* Processor-specific flags */
+uint16_t e_ehsize; /* ELF header size */
+uint16_t e_phentsize; /* Size of program header entry */
+uint16_t e_phnum; /* Number of program header entries */
+uint16_t e_shentsize; /* Size of section header entry */
+uint16_t e_shnum; /* Number of section header entries */
+uint16_t e_shstrndx; /* Section name string table index */
+} elf64_header_t;
+
+
+
+
+
+
 /* e_ident[] Identification Indexes */
 #define EI_MAG0        0         /* File identification */
 #define EI_MAG1        1         /* File identification */
@@ -100,6 +123,7 @@ typedef struct {
 #define EM_860         7         /* Intel 80860 */
 #define EM_MIPS        8         /* MIPS RS3000 Big-Endian */
 #define EM_MIPS_RS4_BE 10        /* MIPS RS4000 Big-Endian */
+#define EM_AMD64	62		/* AMDs x86-64 architecture */
 
 /* e_version */
 #define EV_NONE        0         /* Invalid version */
@@ -116,6 +140,17 @@ typedef struct {
     uint32_t p_flags;
     uint32_t p_align;
 } elf_program_header_t;
+
+typedef struct{
+uint32_t p_type; /* Type of segment */
+uint32_t p_flags; /* Segment attributes */
+uint64_t p_offset; /* Offset in file */
+uint64_t p_vaddr; /* Virtual address in memory */
+uint64_t p_paddr; /* Reserved */
+uint64_t p_filesz; /* Size of segment in file */
+uint64_t p_memsz; /* Size of segment in memory */
+uint64_t p_align; /* Alignment of segment */
+} elf64_program_header_t;
 
 /* p_type */
 #define PT_NULL        0

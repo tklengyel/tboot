@@ -2199,7 +2199,7 @@ static bool tpm20_init(struct tpm_if *ti)
             ti->alg_count++;
         }
     }
-    printk(TBOOT_INFO"TPM: supported alg cout = %08X\n", ti->alg_count);
+    printk(TBOOT_INFO"TPM: supported alg count = %08X\n", ti->alg_count);
     for (unsigned int i=0; i<ti->alg_count; i++)
         printk(TBOOT_INFO"\t\t %08X\n", ti->algs[i]);
 

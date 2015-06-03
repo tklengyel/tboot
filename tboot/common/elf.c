@@ -44,11 +44,12 @@
 #include <elf_defns.h>
 
 extern loader_ctx *g_ldr_ctx;
+bool elf64 = false;
 
 bool is_elf_image(const void *image, size_t size)
 {
     elf_header_t *elf;
-
+   
     if ( image == NULL ) {
         printk(TBOOT_ERR"Error: Pointer is zero.\n");
         return false;
@@ -70,39 +71,78 @@ bool is_elf_image(const void *image, size_t size)
         printk(TBOOT_WARN"Error: ELF magic number is not matched.\n");
         return false;
     }
-
     /* check data encoding in ELF */
     if ( elf->e_ident[EI_DATA] != ELFDATA2LSB ) {
         printk(TBOOT_ERR"Error: ELF data encoding is not the least significant "
                "byte occupying the lowest address.\n");
         return false;
     }
+ 
+    /* check obj class in ELF */
+    if ( elf->e_ident[EI_CLASS] == ELFCLASS32 ) {
+        printk(TBOOT_INFO"This is an ELF32 file.\n");
+	elf64 = false;
+        elf_header_t *elf;
+        elf = (elf_header_t *)image;
+        /* check ELF image is executable? */
+        if ( elf->e_type != ET_EXEC ) {
+           printk(TBOOT_ERR"Error: ELF image is not executable.\n");
+           return false;
+        }
 
-    /* check ELF image is executable? */
-    if ( elf->e_type != ET_EXEC ) {
-        printk(TBOOT_ERR"Error: ELF image is not executable.\n");
-        return false;
-    }
+        /* check ELF image is for IA? */
+        if ( elf->e_machine != EM_386 && elf->e_machine != EM_AMD64 ) {
+            printk(TBOOT_ERR"Error: ELF image is not for IA.\n");
+            return false;
+        }
 
-    /* check ELF image is for IA? */
-    if ( elf->e_machine != EM_386 ) {
-        printk(TBOOT_ERR"Error: ELF image is not for IA.\n");
-        return false;
-    }
+        /* check ELF version is valid? */
+         if ( elf->e_version != EV_CURRENT ) {
+            printk(TBOOT_ERR"Error: ELF version is invalid.\n");
+            return false;
+         }
 
-    /* check ELF version is valid? */
-    if ( elf->e_version != EV_CURRENT ) {
-        printk(TBOOT_ERR"Error: ELF version is invalid.\n");
-        return false;
-    }
-
-    if ( sizeof(elf_program_header_t) > elf->e_phentsize ) {
-        printk(TBOOT_ERR"Error: Program size is smaller than program "
+         if ( sizeof(elf_program_header_t) > elf->e_phentsize ) {
+            printk(TBOOT_ERR"Error: Program size is smaller than program "
                "header size.\n");
-        return false;
-    }
+            return false;
+         }
 
-    return true;
+      return true;
+      }
+      if ( elf->e_ident[EI_CLASS] == ELFCLASS64 ) {
+         printk(TBOOT_INFO"This is an ELF64 file.\n");
+	 elf64 = true;
+         elf64_header_t *elf;
+         elf = (elf64_header_t *)image;
+   
+         /* check ELF image is executable? */
+         if ( elf->e_type != ET_EXEC ) {
+            printk(TBOOT_ERR"Error: ELF image is not executable.\n");
+            return false;
+         }
+
+         /* check ELF image is for IA? */
+         if ( elf->e_machine != EM_386 && elf->e_machine != EM_AMD64) {
+            printk(TBOOT_ERR"Error: ELF image is not for IA.\n");
+            return false;
+         }
+
+         /* check ELF version is valid? */
+         if ( elf->e_version != EV_CURRENT ) {
+            printk(TBOOT_ERR"Error: ELF version is invalid.\n");
+            return false;
+         }
+
+         if ( sizeof(elf64_program_header_t) > elf->e_phentsize ) {
+            printk(TBOOT_ERR"Error: Program size is smaller than program "
+               "header size.\n");
+            return false;
+         }
+
+       return true;
+       }
+    return false;
 }
 
 #if 0
@@ -150,9 +190,9 @@ static bool get_elf_image_range(const elf_header_t *elf, void **start,
 }
 #endif
 
-bool expand_elf_image(const elf_header_t *elf, void **entry_point)
+bool expand_elf_image(const void *image, void **entry_point)
 {
-    if ( elf == NULL ) {
+    if ( image == NULL ) {
         printk(TBOOT_ERR"Error: ELF header pointer is zero.\n");
         return false;
     }
@@ -163,22 +203,38 @@ bool expand_elf_image(const elf_header_t *elf, void **entry_point)
     }
 
     /* assumed that already passed is_elf_image() check */
-
-    /* load elf image into memory */
-    for ( int i = 0; i < elf->e_phnum; i++ ) {
-        elf_program_header_t *ph = (elf_program_header_t *)
-                         ((void *)elf + elf->e_phoff + i*elf->e_phentsize);
-
-        if ( ph->p_type == PT_LOAD ) {
-            memcpy((void *)ph->p_paddr, (void *)elf + ph->p_offset,
-                   ph->p_filesz);
-            memset((void *)(ph->p_paddr + ph->p_filesz), 0,
-                   ph->p_memsz - ph->p_filesz);
-        }
+    if (elf64) {
+       elf64_header_t *elf;
+       elf = (elf64_header_t *)image;
+       
+       /* load elf image into memory */
+       for ( int i = 0; i < elf->e_phnum; i++ ) {
+           elf64_program_header_t *ph = (elf64_program_header_t *)((void *)elf + elf->e_phoff + i*elf->e_phentsize);
+           if ( ph->p_type == PT_LOAD ) {
+              memcpy((void *)(unsigned long)ph->p_paddr, (void *)elf +(unsigned long) ph->p_offset,(unsigned long) ph->p_filesz);
+              //memcpy((void *)ph->p_paddr, (void *)elf + ph->p_offset, ph->p_filesz);
+              memset((void *)(unsigned long)(ph->p_paddr + ph->p_filesz), 0, (unsigned long)ph->p_memsz -(unsigned long) ph->p_filesz);
+              //memset((void *)(ph->p_paddr + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
+           }
+       }
+       *entry_point = (void *)(unsigned long)(elf->e_entry);
+       //*entry_point = (void *)(elf->e_entry);
+       return true;
     }
-
-    *entry_point = (void *)elf->e_entry;
-    return true;
+    else {
+       elf_header_t *elf;
+       elf  = (elf_header_t *)image;
+       /* load elf image into memory */
+       for ( int i = 0; i < elf->e_phnum; i++ ) {
+           elf_program_header_t *ph = (elf_program_header_t *)((void *)elf + elf->e_phoff + i*elf->e_phentsize);
+           if ( ph->p_type == PT_LOAD ) {
+              memcpy((void *)ph->p_paddr, (void *)elf + ph->p_offset, ph->p_filesz);
+              memset((void *)(ph->p_paddr + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
+           }
+       }
+      *entry_point = (void *)elf->e_entry;
+      return true;
+    }
 }
 
 bool jump_elf_image(void *entry_point, uint32_t magic)
