@@ -160,7 +160,7 @@ static void *build_mle_pagetable(uint32_t mle_start, uint32_t mle_size)
     void *pg_dir_ptr_tab, *pg_dir, *pg_tab;
     uint64_t *pte;
 
-    printk(TBOOT_DETA"MLE start=%x, end=%x, size=%x\n", 
+    printk(TBOOT_DETA"MLE start=0x%x, end=0x%x, size=0x%x\n", 
            mle_start, mle_start+mle_size, mle_size);
     if ( mle_size > 512*PAGE_SIZE ) {
         printk(TBOOT_ERR"MLE size too big for single page table\n");

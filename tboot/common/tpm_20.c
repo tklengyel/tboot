@@ -2162,7 +2162,7 @@ static bool tpm20_init(struct tpm_if *ti)
     ti->tb_policy_index = 0x1200001;
     ti->lcp_own_index = 0x1400001;
     ti->tb_err_index = 0x1200002;
-    ti->sgx_svn_index = 0x18000004;
+    ti->sgx_svn_index = 0x01800004;
 
     /* create one common password sesson*/
     create_pw_session(&pw_session);
