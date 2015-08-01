@@ -84,7 +84,7 @@ static void memlog_init(void)
 static void memlog_write( const char *str, unsigned int count)
 {
     /* allocate a 32K temp buffer for compressed log  */
-    char buf[32*1024];
+    static char buf[32*1024];
     char *out=buf;
 
     if ( g_log == NULL || count > g_log->max_size )
