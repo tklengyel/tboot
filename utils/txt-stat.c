@@ -236,7 +236,7 @@ static void display_tboot_log(void *log_base)
     /* log->buf is phys addr of buf, which will not match where mmap has */
     /* map'ed us, but since it is always just past end of struct, use that */
     /* to uncompress tboot log */ 
-    LZ_Uncompress(log_buf, out, log->zip_size);
+    if (log->zip_size > 0) LZ_Uncompress(log_buf, out, log->zip_size);
     /* log is too big for single printk(), so break it up */
     /* print out the uncompressed log */
     for ( unsigned int curr_pos = 0; curr_pos < 32*1024; 
