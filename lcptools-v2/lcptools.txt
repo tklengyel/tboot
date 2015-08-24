@@ -15,6 +15,10 @@ Create an MLE element:
 2.  lcp2_crtpolelt --create --type mle --ctrl 0x00 --minver 17 --alg sha1
     --out mle.elt mle_hash
 
+Note: Since GRUB2 does not pass the file name in the command line field of the
+multiboot entry, the command line to be included in creation of MLE element
+should exclude the first file name in the command line field of multiboot entry.
+
 Create an SBIOS element:
 -----------------------
 1.  Create hash file containing BIOS hash(es), e.g. named sbios_hash

@@ -424,8 +424,8 @@ static bool hash_module(hash_list_t *hl,
     /* hash command line */
     if ( cmdline == NULL )
         cmdline = "";
-    else
-        cmdline = skip_filename(cmdline);
+    // else
+    //    cmdline = skip_filename(cmdline);
 
     switch (g_tpm->extpol) {
     case TB_EXTPOL_FIXED: 

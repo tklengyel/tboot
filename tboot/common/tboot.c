@@ -341,7 +341,8 @@ void begin_launch(void *addr, uint32_t magic)
         const char *cmdline_orig = get_cmdline(g_ldr_ctx);
         const char *cmdline = NULL;
         if (cmdline_orig){
-            cmdline = skip_filename(cmdline_orig);
+           // cmdline = skip_filename(cmdline_orig);
+            cmdline = cmdline_orig;
         }
         memset(g_cmdline, '\0', sizeof(g_cmdline));
         if (cmdline)

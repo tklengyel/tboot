@@ -15,6 +15,10 @@ Create an MLE element:
 2.  lcp_crtpolelt --create --type mle --ctrl 0x00 --minver 17 --out mle.elt
     mle_hash
 
+Note: Since GRUB2 does not pass the file name in the command line field of the 
+multiboot entry, the command line to be included in creation of MLE element 
+should exclude the first file name in the command line field of multiboot entry.
+
 Create a PCONF element:
 ----------------------
 1.  cat /sys/devices/platform/tpm_tis/pcrs |grep -e PCR-00 -e PCR-01 > pcrs
