@@ -33,7 +33,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
 #ifndef __TBOOT_H__
 #define __TBOOT_H__
 
@@ -129,13 +128,14 @@ typedef struct __packed {
 /*
  * used to log tboot printk output
  */
-
+#define ZIP_COUNT_MAX 10
 typedef struct {
     uuid_t     uuid;
-    uint32_t   max_size;
-    uint32_t   curr_pos;
-    uint32_t   zip_pos;
-    uint32_t   zip_size;
+    uint16_t   max_size;
+    uint16_t   curr_pos;
+    uint16_t   zip_pos[ZIP_COUNT_MAX];
+    uint16_t   zip_size[ZIP_COUNT_MAX];
+    uint8_t    zip_count;
     char       buf[];
 } tboot_log_t;
 

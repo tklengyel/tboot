@@ -221,7 +221,7 @@ static void display_tboot_log(void *log_base)
     char *out = pbuf;
     tboot_log_t *log = (tboot_log_t *)log_base;
     char *log_buf = log->buf;
-
+    uint8_t i = 0;
     if ( !are_uuids_equal(&(log->uuid), &((uuid_t)TBOOT_LOG_UUID)) ) {
         printf("unable to find TBOOT log\n");
         return;
@@ -229,27 +229,32 @@ static void display_tboot_log(void *log_base)
 
     printf("TBOOT log:\n");
     printf("\t max_size=%d\n", log->max_size);
-    printf("\t zip_pos=%d\n", log->zip_pos);
-    printf("\t zip_size=%d\n", log->zip_size);
+    printf("\t zip_count=%d\n", log->zip_count);
+    while ( i < log->zip_count) {
+        printf("\t zip_pos[%d] = %d\n", i, log->zip_pos[i]);
+        printf("\t zip_size[%d] = %d\n", i, log->zip_size[i]);
+          i++;
+    }
+    
     printf("\t curr_pos=%d\n", log->curr_pos);
     printf("\t buf:\n");
     /* log->buf is phys addr of buf, which will not match where mmap has */
     /* map'ed us, but since it is always just past end of struct, use that */
     /* to uncompress tboot log */ 
-    if (log->zip_size > 0) {
-        LZ_Uncompress(log_buf, out, log->zip_size);
-        /* log is too big for single printk(), so break it up */
-        /* print out the uncompressed log */
-        for ( unsigned int curr_pos = 0; curr_pos < 32*1024; 
-            curr_pos += sizeof(buf)-1 ) {
-            strncpy(buf, out + curr_pos, sizeof(buf)-1);
-            buf[sizeof(buf)-1] = '\0';
-            printf("%s", buf);
+    if (log->zip_count > 0) {
+        for ( i = 0; i< log->zip_count; i++) {
+            LZ_Uncompress(&log_buf[log->zip_pos[i]], out, log->zip_size[i]);
+            /* log is too big for single printk(), so break it up */
+            /* print out the uncompressed log */
+            for ( unsigned int curr_pos = 0; curr_pos < 32*1024; curr_pos += sizeof(buf)-1 ) {
+                strncpy(buf, out + curr_pos, sizeof(buf)-1);
+                buf[sizeof(buf)-1] = '\0';
+                printf("%s", buf);
+            }
         }
     } 
 
-    for ( unsigned int curr_pos = log->zip_pos; curr_pos < log->curr_pos;
-          curr_pos += sizeof(buf)-1 ) {
+    for ( unsigned int curr_pos = log->zip_pos[log->zip_count]; curr_pos < log->curr_pos; curr_pos += sizeof(buf)-1 ) {
         strncpy(buf, log_buf + curr_pos, sizeof(buf)-1);
         buf[sizeof(buf)-1] = '\0';
         printf("%s", buf);

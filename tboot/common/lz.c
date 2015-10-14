@@ -86,7 +86,7 @@
    compression, while higher values gives better compression. The default
    value of 100000 is quite high. Experiment to see what works best for
    you. */
-#define LZ_MAX_OFFSET 100000
+#define LZ_MAX_OFFSET 5000
 
 
 

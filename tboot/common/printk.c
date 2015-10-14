@@ -59,13 +59,16 @@ __data tboot_log_t *g_log = NULL;
 
 static void memlog_init(void)
 {
-        if ( g_log == NULL ) {
-        g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
-        g_log->uuid = (uuid_t)TBOOT_LOG_UUID;
-        g_log->curr_pos = 0;
-        g_log->zip_pos = 0;
-        g_log->zip_size = 0;
-        }
+
+
+   if ( g_log == NULL ) {
+       g_log = (tboot_log_t *)TBOOT_SERIAL_LOG_ADDR;
+       g_log->uuid = (uuid_t)TBOOT_LOG_UUID;
+       g_log->curr_pos = 0;
+       g_log->zip_count = 0;
+       for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_pos[i] = 0;
+       for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_size[i] = 0;
+       }
 
     /* initialize these post-launch as well, since bad/malicious values */
     /* could compromise environment */
@@ -73,12 +76,14 @@ static void memlog_init(void)
     g_log->max_size = TBOOT_SERIAL_LOG_SIZE - sizeof(*g_log);
 
     /* if we're calling this post-launch, verify that curr_pos is valid */
-    if ( g_log->zip_pos > g_log->max_size ){
-        g_log->zip_pos = 0;
+    if ( g_log->zip_pos[g_log->zip_count] > g_log->max_size ){
         g_log->curr_pos = 0;
+        g_log->zip_count = 0;
+        for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_pos[i] = 0;
+        for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_size[i] = 0;
     }
     if ( g_log->curr_pos > g_log->max_size )
-        g_log->curr_pos = g_log->zip_pos;
+        g_log->curr_pos = g_log->zip_pos[g_log->zip_count];
 }
 
 static void memlog_write( const char *str, unsigned int count)
@@ -86,24 +91,35 @@ static void memlog_write( const char *str, unsigned int count)
     /* allocate a 32K temp buffer for compressed log  */
     static char buf[32*1024];
     char *out=buf;
+    uint32_t zip_size;
 
     if ( g_log == NULL || count > g_log->max_size )
         return;
 
-    /* do a compression of the log if curr_pos + count > max_size  */
+  /* do a compression of the log if curr_pos + count > max_size  */
     if (g_log->curr_pos + count > g_log->max_size) {
-       g_log->zip_size = LZ_Compress(&g_log->buf[g_log->zip_pos], out, g_log->curr_pos - g_log->zip_pos);
-       memcpy(&g_log->buf[g_log->zip_pos], out, g_log->zip_size); 
-       g_log->zip_pos += g_log->zip_size;
-       g_log->curr_pos = g_log->zip_pos;
-       if ( g_log->buf[g_log->zip_pos - 1] !='0')
-          g_log->buf[g_log->zip_pos] = '0';
-       else {
-          g_log->zip_pos--;
-          g_log->curr_pos--;
-       } 
-           
+        zip_size = LZ_Compress(&g_log->buf[g_log->zip_pos[g_log->zip_count]], out, g_log->curr_pos - g_log->zip_pos[g_log->zip_count]);
+        if ((g_log->zip_pos[g_log->zip_count] + zip_size + count < g_log->max_size) && (g_log->zip_count < ZIP_COUNT_MAX)) {
+            memcpy(&g_log->buf[g_log->zip_pos[g_log->zip_count]], out, zip_size);
+            g_log->zip_size[g_log->zip_count] = zip_size;
+            g_log->zip_count++;
+            g_log->zip_pos[g_log->zip_count] = g_log->zip_pos[g_log->zip_count - 1] + zip_size;
+            g_log->curr_pos = g_log->zip_pos[g_log->zip_count];
+            if (g_log->buf[g_log->zip_pos[g_log->zip_count] - 1] !='\0')
+                g_log->buf[g_log->zip_pos[g_log->zip_count]] = '\0';
+            else {
+                  g_log->zip_pos[g_log->zip_count]--;
+                  g_log->curr_pos--;
+            }
+        }
+        else {
+              g_log->curr_pos = 0;
+              for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_pos[i] = 0;
+              for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_size[i] = 0;
+              g_log->zip_count = 0;
+        }
     }
+
     memcpy(&g_log->buf[g_log->curr_pos], str, count);
     g_log->curr_pos += count; 
 
