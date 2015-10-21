@@ -69,6 +69,7 @@
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
 #define AP_WFS_TIMEOUT     0x01000000
 
+__data struct acpi_rsdp g_rsdp;
 extern char _start[];             /* start of module */
 extern char _end[];               /* end of module */
 extern char _mle_start[];         /* start of text section */
@@ -82,7 +83,6 @@ extern struct mutex ap_lock;
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
-
 extern void apply_policy(tb_error_t error);
 extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 extern void print_event(const tpm12_pcr_event_t *evt);
@@ -533,7 +533,8 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
                 os_sinit_data->efi_rsdt_ptr = (uint64_t) rsdp->rsdp1.rsdt;
             } else {
                 /* rsdp */
-                os_sinit_data->efi_rsdt_ptr = (uint64_t)((uint32_t) rsdp);
+                memcpy((void *)&g_rsdp, rsdp, sizeof(struct acpi_rsdp));
+                os_sinit_data->efi_rsdt_ptr = (uint64_t)((uint32_t)&g_rsdp);
             }
         } else {
             /* per discussions--if we don't have an ACPI pointer, die */
