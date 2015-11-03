@@ -175,13 +175,13 @@ static void post_launch(void)
      * verify e820 table and adjust it to protect our memory regions
      */
 
-    /* ensure all modules are in RAM */
-    if ( !verify_modules(g_ldr_ctx) )
-        apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
-
     /* marked mem regions used by TXT (heap, SINIT, etc.) as E820_RESERVED */
     err = txt_protect_mem_regions();
     apply_policy(err);
+
+    /* ensure all modules are in RAM */
+    if ( !verify_modules(g_ldr_ctx) )
+        apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* verify that tboot is in valid RAM (i.e. E820_RAM) */
     base = (uint64_t)TBOOT_BASE_ADDR;
