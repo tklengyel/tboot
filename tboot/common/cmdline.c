@@ -110,9 +110,7 @@ static const tb_loglvl_map_t g_loglvl_map[] = {
     { "all",   TBOOT_LOG_LEVEL_ALL   },
 };
 
-static const char* get_option_val(const cmdline_option_t *options,
-                                  char vals[][MAX_VALUE_LEN],
-                                  const char *opt_name)
+static const char* get_option_val(const cmdline_option_t *options,  char vals[][MAX_VALUE_LEN],    const char *opt_name)
 {
     for ( int i = 0; options[i].name != NULL; i++ ) {
         if ( strcmp(options[i].name, opt_name) == 0 )
@@ -504,8 +502,7 @@ bool get_tboot_measure_nv(void)
 
 void get_tboot_extpol(void)
 {
-    const char *extpol = get_option_val(g_tboot_cmdline_options,
-                                       g_tboot_param_values, "extpol");
+    const char *extpol = get_option_val(g_tboot_cmdline_options,  g_tboot_param_values, "extpol");
 
     if ( extpol == NULL ) {
         g_tpm->extpol = TB_EXTPOL_FIXED;

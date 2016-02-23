@@ -144,8 +144,7 @@ static uint8_t     rsp_buf[TPM_RSP_SIZE_MAX];
 #define WRAPPER_IN_MAX_SIZE     (TPM_CMD_SIZE_MAX - CMD_HEAD_SIZE)
 #define WRAPPER_OUT_MAX_SIZE    (TPM_RSP_SIZE_MAX - RSP_HEAD_SIZE)
 
-static uint32_t _tpm12_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
-                                  uint32_t arg_size, uint32_t *out_size)
+static uint32_t _tpm12_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,  uint32_t arg_size, uint32_t *out_size)
 {
     uint32_t    ret;
     uint32_t    cmd_size, rsp_size = 0;
@@ -175,8 +174,7 @@ static uint32_t _tpm12_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
 
     rsp_size = RSP_HEAD_SIZE + *out_size;
     rsp_size = (rsp_size > TPM_RSP_SIZE_MAX) ? TPM_RSP_SIZE_MAX: rsp_size;
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_FAIL;
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) ) return TPM_FAIL;
 
     /*
      * should subtract 10 bytes from real response size:
@@ -187,22 +185,18 @@ static uint32_t _tpm12_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
     rsp_size -= (rsp_size > RSP_HEAD_SIZE) ? RSP_HEAD_SIZE : rsp_size;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(uint32_t));
-    if ( ret != TPM_SUCCESS )
-        return ret;
+    if ( ret != TPM_SUCCESS )     return ret;
 
-    if ( *out_size == 0 || rsp_size == 0 )
-        *out_size = 0;
+    if ( *out_size == 0 || rsp_size == 0 )        *out_size = 0;
     else
         *out_size = (rsp_size < *out_size) ? rsp_size : *out_size;
 
     return ret;
 }
 
-static inline uint32_t tpm12_submit_cmd(uint32_t locality, uint32_t cmd,
-                                        uint32_t arg_size, uint32_t *out_size)
+static inline uint32_t tpm12_submit_cmd(uint32_t locality, uint32_t cmd, uint32_t arg_size, uint32_t *out_size)
 {
-   return  _tpm12_submit_cmd(locality, TPM_TAG_RQU_COMMAND, cmd,
-                             arg_size, out_size);
+   return  _tpm12_submit_cmd(locality, TPM_TAG_RQU_COMMAND, cmd, arg_size, out_size);
 }
 
 static inline uint32_t tpm12_submit_cmd_auth1(uint32_t locality, uint32_t cmd,

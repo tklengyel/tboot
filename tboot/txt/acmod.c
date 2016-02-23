@@ -438,8 +438,7 @@ txt_caps_t get_sinit_capabilities(const acm_hdr_t* hdr)
     return info_table->capabilities;
 }
 
-static bool is_acmod(const void *acmod_base, uint32_t acmod_size, uint8_t *type,
-                     bool quiet)
+static bool is_acmod(const void *acmod_base, uint32_t acmod_size, uint8_t *type,                      bool quiet)
 {
     acm_hdr_t *acm_hdr = (acm_hdr_t *)acmod_base;
 

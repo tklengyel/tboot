@@ -165,8 +165,7 @@ static void post_launch(void)
     /* backup DMAR table */
     save_vtd_dmar_table();
 
-    if ( s3_flag  )
-        s3_launch();
+    if ( s3_flag  )    s3_launch();
 
     /* remove all TXT modules before verifying modules */
     remove_txt_modules(g_ldr_ctx);
@@ -180,14 +179,12 @@ static void post_launch(void)
     apply_policy(err);
 
     /* ensure all modules are in RAM */
-    if ( !verify_modules(g_ldr_ctx) )
-        apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
+    if ( !verify_modules(g_ldr_ctx) )     apply_policy(TB_ERR_POST_LAUNCH_VERIFICATION);
 
     /* verify that tboot is in valid RAM (i.e. E820_RAM) */
     base = (uint64_t)TBOOT_BASE_ADDR;
     size = (uint64_t)((unsigned long)&_end - base);
-    printk(TBOOT_INFO"verifying tboot and its page table (%Lx - %Lx) in e820 table\n\t",
-           base, (base + size - 1));
+    printk(TBOOT_INFO"verifying tboot and its page table (%Lx - %Lx) in e820 table\n\t",  base, (base + size - 1));
     if ( e820_check_region(base, size) != E820_RAM ) {
         printk(TBOOT_ERR": failed.\n");
         apply_policy(TB_ERR_FATAL);
@@ -199,19 +196,15 @@ static void post_launch(void)
     base = (uint64_t)TBOOT_BASE_ADDR;
     size = (uint64_t)get_tboot_mem_end() - base;
     uint32_t mem_type = is_kernel_linux() ? E820_RESERVED : E820_UNUSABLE;
-    printk(TBOOT_INFO"protecting tboot (%Lx - %Lx) in e820 table\n", base,
-           (base + size - 1));
-    if ( !e820_protect_region(base, size, mem_type) )
-        apply_policy(TB_ERR_FATAL);
+    printk(TBOOT_INFO"protecting tboot (%Lx - %Lx) in e820 table\n", base,      (base + size - 1));
+    if ( !e820_protect_region(base, size, mem_type) )        apply_policy(TB_ERR_FATAL);
 
     /* if using memory logging, reserve log area */
     if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY ) {
         base = TBOOT_SERIAL_LOG_ADDR;
         size = TBOOT_SERIAL_LOG_SIZE;
-        printk(TBOOT_INFO"reserving tboot memory log (%Lx - %Lx) in e820 table\n", base,
-               (base + size - 1));
-        if ( !e820_protect_region(base, size, E820_RESERVED) )
-            apply_policy(TB_ERR_FATAL);
+        printk(TBOOT_INFO"reserving tboot memory log (%Lx - %Lx) in e820 table\n", base,        (base + size - 1));
+        if ( !e820_protect_region(base, size, E820_RESERVED) )         apply_policy(TB_ERR_FATAL);
     }
 
     /* replace map in loader context with copy */
@@ -228,14 +221,12 @@ static void post_launch(void)
     /*
      * verify nv indices against policy
      */
-    if ( (g_tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() )
-        verify_all_nvindices();
+    if ( (g_tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() )        verify_all_nvindices();
 
     /*
      * seal hashes of modules and VL policy to current value of PCR17 & 18
      */
-    if ( !seal_pre_k_state() )
-        apply_policy(TB_ERR_S3_INTEGRITY);
+    if ( !seal_pre_k_state() )        apply_policy(TB_ERR_S3_INTEGRITY);
 
     /*
      * init MLE/kernel shared data page
@@ -248,8 +239,7 @@ static void post_launch(void)
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
     uint32_t key_size = sizeof(_tboot_shared.s3_key);
-    if ( !g_tpm->get_random(g_tpm, 2, _tboot_shared.s3_key, &key_size) ||
-         key_size != sizeof(_tboot_shared.s3_key) )
+    if ( !g_tpm->get_random(g_tpm, 2, _tboot_shared.s3_key, &key_size) || key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
     _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
     if ( use_mwait() ) {
@@ -331,7 +321,7 @@ void begin_launch(void *addr, uint32_t magic)
 {
     tb_error_t err;
 
-    if (g_ldr_ctx->type == 0)
+    if (g_ldr_ctx->type == 0)        
         determine_loader_type(addr, magic);
 
     /* on pre-SENTER boot, copy command line to buffer in tboot image
@@ -364,17 +354,16 @@ void begin_launch(void *addr, uint32_t magic)
     if ( get_tboot_call_racm_check() )
         check_racm_result(); /* never return */
 
-    if ( s3_flag )
-        printk(TBOOT_INFO"resume from S3\n");
-
+    if (is_launched()) printk(TBOOT_INFO"SINIT ACM successfully returned...\n");
+    if ( s3_flag ) printk(TBOOT_INFO"Resume from S3...\n");
+    
     /* RLM scaffolding
        if (g_ldr_ctx->type == 2)
        print_loader_ctx(g_ldr_ctx);
     */
 
     /* clear resume vector on S3 resume so any resets will not use it */
-    if ( !is_launched() && s3_flag )
-        set_s3_resume_vector(&_tboot_shared.acpi_sinfo, 0);
+    if ( !is_launched() && s3_flag )        set_s3_resume_vector(&_tboot_shared.acpi_sinfo, 0);
 
     /* we should only be executing on the BSP */
     if ( !(rdmsr(MSR_APICBASE) & APICBASE_BSP) ) {
@@ -385,8 +374,7 @@ void begin_launch(void *addr, uint32_t magic)
 
     /* make copy of e820 map that we will use and adjust */
     if ( !s3_flag ) {
-        if ( !copy_e820_map(g_ldr_ctx) )
-            apply_policy(TB_ERR_FATAL);
+        if ( !copy_e820_map(g_ldr_ctx) )  apply_policy(TB_ERR_FATAL);
     }
 
     /* we need to make sure this is a (TXT-) capable platform before using */
@@ -394,10 +382,17 @@ void begin_launch(void *addr, uint32_t magic)
     /* has already been launched */
 
     /* make TPM ready for measured launch */
-    if ( !tpm_detect() )
-        apply_policy(TB_ERR_TPM_NOT_READY);
 
-    /* read tboot policy from TPM-NV (will use default if none in TPM-NV) */
+    /*
+    if (!is_launched()) {
+		if ( !tpm_detect() )        
+			apply_policy(TB_ERR_TPM_NOT_READY);
+    }
+    */
+
+   if ( !tpm_detect() ) 	apply_policy(TB_ERR_TPM_NOT_READY);
+
+    /* read tboot verified launch control policy from TPM-NV (will use default if none in TPM-NV) */
     err = set_policy();
     apply_policy(err);
 
@@ -422,8 +417,10 @@ void begin_launch(void *addr, uint32_t magic)
         apply_policy(TB_ERR_FATAL);
 
     /* this is being called post-measured launch */
-    if ( is_launched() )
-        post_launch();
+    if ( is_launched() ){
+        printk(TBOOT_INFO"Post_launch started ...\n");
+	 post_launch();
+    }
 
     /* make the CPU ready for measured launch */
     if ( !prepare_cpu() )
@@ -496,8 +493,7 @@ static void shutdown_system(uint32_t shutdown_type)
         case TB_SHUTDOWN_S3:
             copy_s3_wakeup_entry();
             /* write our S3 resume vector to ACPI resume addr */
-            set_s3_resume_vector(&_tboot_shared.acpi_sinfo,
-                                 TBOOT_S3_WAKEUP_ADDR);
+            set_s3_resume_vector(&_tboot_shared.acpi_sinfo,  TBOOT_S3_WAKEUP_ADDR);
             /* fall through for rest of Sx handling */
         case TB_SHUTDOWN_S4:
         case TB_SHUTDOWN_S5:
@@ -558,12 +554,10 @@ void shutdown(void)
         restore_vtd_dmar_table();
 
         /* save kernel/VMM resume vector for sealing */
-        g_post_k_s3_state.kernel_s3_resume_vector =
-            _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
+        g_post_k_s3_state.kernel_s3_resume_vector =  _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
 
         /* create and seal memory integrity measurement */
-        if ( !seal_post_k_state() )
-            apply_policy(TB_ERR_S3_INTEGRITY);
+        if ( !seal_post_k_state() )   apply_policy(TB_ERR_S3_INTEGRITY);
             /* OK to leave key in memory on failure since if user cared they
                would have policy that doesn't continue for TB_ERR_S3_INTEGRITY
                error */
@@ -592,8 +586,7 @@ void shutdown(void)
         if ( !use_mwait() ) {
             /* force APs to exit mini-guests if any are in and wait until */
             /* all are out before shutting down TXT */
-            printk(TBOOT_INFO"waiting for APs (%u) to exit guests...\n",
-                   atomic_read(&ap_wfs_count));
+            printk(TBOOT_INFO"waiting for APs (%u) to exit guests...\n", atomic_read(&ap_wfs_count));
             force_aps_exit();
             uint32_t timeout = AP_GUEST_EXIT_TIMEOUT;
             do {

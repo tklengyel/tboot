@@ -74,7 +74,7 @@ typedef struct {
     uint8_t      rsa2048_pubkey[256];
     uint32_t     pub_exp;
     uint8_t      rsa2048_sig[256];
-    uint32_t     scratch[143];
+    uint32_t     scratch[143];//
     uint8_t      user_area[];
 } acm_hdr_t;
 extern acm_hdr_t *g_sinit;

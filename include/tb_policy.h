@@ -257,8 +257,7 @@ static inline tb_policy_entry_t* find_policy_entry(const tb_policy_t *policy,
 /*
  * verify and display policy
  */
-static inline bool verify_policy(const tb_policy_t *policy, size_t size,
-                                 bool print)
+static inline bool verify_policy(const tb_policy_t *policy, size_t size, bool print)
 {
     if ( print ) PRINT(TBOOT_DETA"policy:\n");
 

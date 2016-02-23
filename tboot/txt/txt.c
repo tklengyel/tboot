@@ -88,6 +88,7 @@ extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 extern void print_event(const tpm12_pcr_event_t *evt);
 extern void print_event_2(void *evt, uint16_t alg);
 
+
 /*
  * this is the structure whose addr we'll put in TXT heap
  * it needs to be within the MLE pages, so force it to the .text section
@@ -429,8 +430,7 @@ __data acm_hdr_t *g_sinit = 0;
 /*
  * sets up TXT heap
  */
-static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit,
-                                 loader_ctx *lctx)
+static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit, loader_ctx *lctx)
 {
     txt_heap_t *txt_heap;
     uint64_t *size;
@@ -718,7 +718,29 @@ tb_error_t txt_launch_environment(loader_ctx *lctx)
     if ( !set_mtrrs_for_acmod(g_sinit) )
         return TB_ERR_FATAL;
 
-    printk(TBOOT_INFO"executing GETSEC[SENTER]...\n");
+   /* deactivate current locality */
+   if (g_tpm_family == TPM_IF_20_CRB ) {
+       printk(TBOOT_INFO"Relinquish CRB localility 0 before executing GETSEC[SENTER]...\n");
+	if (!tpm_relinquish_locality_crb(0)){
+		printk(TBOOT_INFO"Relinquish CRB locality 0 failed...\n");
+		apply_policy(TB_ERR_TPM_NOT_READY) ;
+	}
+   }
+
+   /*{
+   tpm_reg_loc_ctrl_t    reg_loc_ctrl;
+   tpm_reg_loc_state_t  reg_loc_state;
+   
+   reg_loc_ctrl._raw[0] = 0;
+   reg_loc_ctrl.relinquish = 1;
+   write_tpm_reg(0, TPM_REG_LOC_CTRL, &reg_loc_ctrl);
+   printk(TBOOT_INFO"Relinquish CRB localility 0 before executing GETSEC[SENTER]...\n");
+   read_tpm_reg(0, TPM_REG_LOC_STATE, &reg_loc_state);
+   printk(TBOOT_INFO"CRB reg_loc_state.active_locality is 0x%x \n", reg_loc_state.active_locality);
+   printk(TBOOT_INFO"CRB reg_loc_state.loc_assigned is 0x%x \n", reg_loc_state.loc_assigned);
+   }*/
+   
+   printk(TBOOT_INFO"executing GETSEC[SENTER]...\n");
     /* (optionally) pause before executing GETSEC[SENTER] */
     if ( g_vga_delay > 0 )
         delay(g_vga_delay * 1000);
@@ -922,8 +944,7 @@ void txt_post_launch(void)
     /* restore pre-SENTER IA32_MISC_ENABLE_MSR (no verification needed)
        (do after AP wakeup so that if restored MSR has MWAIT clear it won't
        prevent wakeup) */
-    printk(TBOOT_DETA"saved IA32_MISC_ENABLE = 0x%08x\n",
-           os_mle_data->saved_misc_enable_msr);
+    printk(TBOOT_DETA"saved IA32_MISC_ENABLE = 0x%08x\n", os_mle_data->saved_misc_enable_msr);
     wrmsr(MSR_IA32_MISC_ENABLE, os_mle_data->saved_misc_enable_msr);
     if ( use_mwait() ) {
         /* set MONITOR/MWAIT support */

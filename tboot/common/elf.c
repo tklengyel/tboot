@@ -68,7 +68,7 @@ bool is_elf_image(const void *image, size_t size)
          (elf->e_ident[EI_MAG1] != ELFMAG1) ||
          (elf->e_ident[EI_MAG2] != ELFMAG2) ||
          (elf->e_ident[EI_MAG3] != ELFMAG3) ) {
-        printk(TBOOT_WARN"Error: ELF magic number is not matched.\n");
+        printk(TBOOT_WARN"ELF magic number is not matched, image is not ELF format.\n");
         return false;
     }
     /* check data encoding in ELF */

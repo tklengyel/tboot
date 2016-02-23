@@ -133,9 +133,7 @@ static void print_post_k_s3_state(void)
               sizeof(g_post_k_s3_state.kernel_integ));
 }
 
-static bool seal_data(const void *data, size_t data_size,
-                   const void *secrets, size_t secrets_size,
-                   uint8_t *sealed_data, uint32_t *sealed_data_size)
+static bool seal_data(const void *data, size_t data_size, const void *secrets, size_t secrets_size, uint8_t *sealed_data, uint32_t *sealed_data_size)
 {
     /* TPM_Seal can only seal small data (like key or hash), so hash data */
     struct __packed {
@@ -150,14 +148,10 @@ static bool seal_data(const void *data, size_t data_size,
         return false;
     }
 
-    if ( secrets != NULL && secrets_size > 0 )
-        memcpy(blob.secrets, secrets, secrets_size);
+    if ( secrets != NULL && secrets_size > 0 )  memcpy(blob.secrets, secrets, secrets_size);
 
-    err = g_tpm->seal(g_tpm, 2,
-                   sizeof(blob), (const uint8_t *)&blob,
-                   sealed_data_size, sealed_data);
-    if ( !err )
-        printk(TBOOT_WARN"failed to seal data\n");
+    err = g_tpm->seal(g_tpm, 2, sizeof(blob), (const uint8_t *)&blob, sealed_data_size, sealed_data);
+    if ( !err )  printk(TBOOT_WARN"failed to seal data\n");
 
     /* since blob might contain secret, clear it */
     memset(&blob, 0, sizeof(blob));
@@ -165,10 +159,7 @@ static bool seal_data(const void *data, size_t data_size,
     return err;
 }
 
-static bool verify_sealed_data(const uint8_t *sealed_data,
-                               uint32_t sealed_data_size,
-                               const void *curr_data, size_t curr_data_size,
-                               void *secrets, size_t secrets_size)
+static bool verify_sealed_data(const uint8_t *sealed_data,  uint32_t sealed_data_size, const void *curr_data, size_t curr_data_size, void *secrets, size_t secrets_size)
 {
     /* sealed data is hash of state data and optional secret */
     struct __packed {
@@ -476,12 +467,8 @@ bool seal_post_k_state(void)
     /* calculate the memory integrity hash */
     uint32_t key_size = sizeof(secrets.mac_key);
     /* key must be random and secret even though auth not necessary */
-    if ( !g_tpm->get_random(g_tpm, 2, secrets.mac_key, &key_size) ||
-         key_size != sizeof(secrets.mac_key) )
-        return false;
-    if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ,
-                                   secrets.mac_key) )
-        return false;
+    if ( !g_tpm->get_random(g_tpm, 2, secrets.mac_key, &key_size) ||         key_size != sizeof(secrets.mac_key) )        return false;
+    if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ,                                   secrets.mac_key) )        return false;
 
     /* copy s3_key into secrets to be sealed */
     memcpy(secrets.shared_key, _tboot_shared.s3_key, sizeof(secrets.shared_key));
@@ -489,10 +476,7 @@ bool seal_post_k_state(void)
     print_post_k_s3_state();
 
     sealed_post_k_state_size = sizeof(sealed_post_k_state);
-    if ( !seal_data(&g_post_k_s3_state, sizeof(g_post_k_s3_state),
-                    &secrets, sizeof(secrets),
-                    sealed_post_k_state, &sealed_post_k_state_size) )
-        return false;
+    if ( !seal_data(&g_post_k_s3_state, sizeof(g_post_k_s3_state), &secrets, sizeof(secrets), sealed_post_k_state, &sealed_post_k_state_size) ) return false;
 
     /* wipe secrets from memory */
     memset(&secrets, 0, sizeof(secrets));
