@@ -92,6 +92,12 @@ if [ "x`${grub_probe} --device ${GRUB_DEVICE} --target=fs 2>/dev/null || true`" 
   fi
 fi
 
+# Merge all sequences of spaces into a single space, like GRUB2 does during boot.
+# Simplistic, doesn't check for quoting, but should be good enough for the kernel command line.
+merge_spaces() {
+  echo "$*" | sed -e 's/ \{1,\}/ /g' -e 's/^ //' -e 's/ $//'
+}
+
 linux_entry ()
 {
   os="$1"
@@ -120,13 +126,16 @@ linux_entry ()
   xmessage="$(gettext_printf "Loading Xen %s ..." ${xen_version})"
   tmessage="$(gettext_printf "Loading Tboot %s ..." ${tboot_version})"
   lmessage="$(gettext_printf "Loading Linux %s ..." ${version})"
+  tbargs=`merge_spaces ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}`
+  xnargs=`merge_spaces placeholder ${xen_args} ${iommu_args}`
+  lxargs=`merge_spaces placeholder root=${linux_root_device_thisversion} ro ${args}`
   cat << EOF
 	echo	'$tmessage'
-	multiboot	${rel_tboot_dirname}/${tboot_basename} ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}
+	multiboot	${rel_tboot_dirname}/${tboot_basename} ${tbargs}
 	echo	'$xmessage'
-	module	${rel_xen_dirname}/${xen_basename} placeholder ${xen_args} ${iommu_args}
+	module	${rel_xen_dirname}/${xen_basename} ${xnargs}
 	echo	'$lmessage'
-	module	${rel_dirname}/${basename} placeholder root=${linux_root_device_thisversion} ro ${args}
+	module	${rel_dirname}/${basename} ${lxargs}
 EOF
   if test -n "${initrd}" ; then
     message="$(gettext_printf "Loading initial ramdisk ...")"

@@ -90,6 +90,12 @@ else
   LINUX_ROOT_DEVICE=UUID=${GRUB_DEVICE_UUID}
 fi
 
+# Merge all sequences of spaces into a single space, like GRUB2 does during boot.
+# Simplistic, doesn't check for quoting, but should be good enough for the kernel command line.
+merge_spaces() {
+  echo "$*" | sed -e 's/ \{1,\}/ /g' -e 's/^ //' -e 's/ $//'
+}
+
 linux_entry ()
 {
   os="$1"
@@ -129,11 +135,13 @@ linux_entry ()
   printf '%s\n' "${prepare_boot_cache}"
   xmessage="$(gettext_printf "Loading tboot %s ..." ${tboot_version})"
   lmessage="$(gettext_printf "Loading Linux %s ..." ${version})"
+  tbargs=`merge_spaces ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}`
+  lxargs=`merge_spaces ${rel_dirname}/${basename} root=${linux_root_device_thisversion} ro ${args} ${iommu_args} ${mb_extra_kernel}`
   cat << EOF
 	echo	'$xmessage'
-	${mb_directive}	${rel_tboot_dirname}/${tboot_basename} ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}
+	${mb_directive}	${rel_tboot_dirname}/${tboot_basename} ${tbargs}
 	echo	'$lmessage'
-	${mb_mod_directive} ${rel_dirname}/${basename} ${rel_dirname}/${basename} root=${linux_root_device_thisversion} ro ${args} ${iommu_args} ${mb_extra_kernel}
+	${mb_mod_directive} ${rel_dirname}/${basename} ${lxargs}
 EOF
   if test -n "${initrd}" ; then
     message="$(gettext_printf "Loading initial ramdisk ...")"
