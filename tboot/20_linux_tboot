@@ -36,10 +36,13 @@ fi
 # (empty values are treated as if the variables were unset).
 [ -z "${GRUB_CMDLINE_TBOOT}" ] && unset GRUB_CMDLINE_TBOOT
 [ -z "${GRUB_CMDLINE_LINUX_TBOOT}" ] && unset GRUB_CMDLINE_LINUX_TBOOT
+[ -z "${GRUB_TBOOT_POLICY_DATA}" ] && unset GRUB_TBOOT_POLICY_DATA
 # Command line for tboot itself
 : ${GRUB_CMDLINE_TBOOT='logging=serial,memory,vga'}
 # Linux kernel parameters to append for tboot
 : ${GRUB_CMDLINE_LINUX_TBOOT='intel_iommu=on'}
+# Base name of LCP policy data file for list policy
+: ${GRUB_TBOOT_POLICY_DATA=''}
 
 # VGA logging is not supported in UEFI environment
 if [ -d /sys/firmware/efi ]; then
@@ -148,6 +151,13 @@ EOF
 EOF
     done
   fi
+  if test -n "${poldata_file}" ; then
+    message="$(gettext_printf "Loading tboot policy data file ${poldata_file} ...")"
+    cat << EOF
+	echo	'$message'
+	${mb_mod_directive} ${rel_dirname}/${poldata_file}
+EOF
+  fi
   cat << EOF
 }
 EOF
@@ -165,6 +175,13 @@ sinit_list=`for i in /boot/*sinit* /boot/*SINIT*; do
         basename=$(basename $i)
         if grub_file_is_not_garbage "$i" ; then echo -n "$basename " ; fi
       done`
+if [ -n "${GRUB_TBOOT_POLICY_DATA}" ]; then
+  if grub_file_is_not_garbage "/boot/${GRUB_TBOOT_POLICY_DATA}"; then
+    poldata_file=${GRUB_TBOOT_POLICY_DATA}
+  else
+    echo "ERROR in $0: GRUB_TBOOT_POLICY_DATA=${GRUB_TBOOT_POLICY_DATA} not found in /boot, check ${sysconfdir}/default/grub-tboot" >&2
+  fi
+fi
 prepare_boot_cache=
 
 while [ "x${tboot_list}" != "x" ] && [ "x$linux_list" != "x" ] ; do

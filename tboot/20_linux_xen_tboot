@@ -37,12 +37,15 @@ fi
 [ -z "${GRUB_CMDLINE_TBOOT}" ] && unset GRUB_CMDLINE_TBOOT
 [ -z "${GRUB_CMDLINE_XEN_TBOOT}" ] && unset GRUB_CMDLINE_XEN_TBOOT
 [ -z "${GRUB_CMDLINE_LINUX_XEN_TBOOT}" ] && unset GRUB_CMDLINE_LINUX_XEN_TBOOT
+[ -z "${GRUB_TBOOT_POLICY_DATA}" ] && unset GRUB_TBOOT_POLICY_DATA
 # Command line for tboot itself
 : ${GRUB_CMDLINE_TBOOT='logging=serial,memory,vga'}
 # Xen parameters to append for tboot
 : ${GRUB_CMDLINE_XEN_TBOOT=''}
 # Linux kernel parameters to append for tboot + Xen
 : ${GRUB_CMDLINE_LINUX_XEN_TBOOT=''}
+# Base name of LCP policy data file for list policy
+: ${GRUB_TBOOT_POLICY_DATA=''}
 
 export TEXTDOMAIN=grub
 export TEXTDOMAINDIR=${prefix}/share/locale
@@ -141,6 +144,13 @@ EOF
 EOF
     done
   fi
+  if test -n "${poldata_file}" ; then
+    message="$(gettext_printf "Loading tboot policy data file ${poldata_file} ...")"
+    cat << EOF
+	echo	'$message'
+	module  ${rel_dirname}/${poldata_file}
+EOF
+  fi
   cat << EOF
 }
 EOF
@@ -174,6 +184,13 @@ sinit_list=`for i in /boot/*sinit* /boot/*SINIT*; do
         basename=$(basename $i)
         if grub_file_is_not_garbage "$i" ; then echo -n "$basename " ; fi
       done`
+if [ -n "${GRUB_TBOOT_POLICY_DATA}" ]; then
+  if grub_file_is_not_garbage "/boot/${GRUB_TBOOT_POLICY_DATA}"; then
+    poldata_file=${GRUB_TBOOT_POLICY_DATA}
+  else
+    echo "ERROR in $0: GRUB_TBOOT_POLICY_DATA=${GRUB_TBOOT_POLICY_DATA} not found in /boot, check ${sysconfdir}/default/grub-tboot" >&2
+  fi
+fi
 prepare_boot_cache=
 
 while [ "x${xen_list}" != "x" ] ; do
