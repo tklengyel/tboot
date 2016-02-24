@@ -302,7 +302,7 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
            (unsigned long)(real_mode_base + real_mode_size));
 
     /* copy cmdline */
-    const char *kernel_cmdline = skip_filename(get_cmdline(g_ldr_ctx));
+    const char *kernel_cmdline = get_cmdline(g_ldr_ctx);
 
     printk(TBOOT_INFO"Linux cmdline placed in header: ");
     printk_long(kernel_cmdline);
