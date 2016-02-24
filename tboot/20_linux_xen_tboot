@@ -126,9 +126,9 @@ linux_entry ()
   xmessage="$(gettext_printf "Loading Xen %s ..." ${xen_version})"
   tmessage="$(gettext_printf "Loading Tboot %s ..." ${tboot_version})"
   lmessage="$(gettext_printf "Loading Linux %s ..." ${version})"
-  tbargs=`merge_spaces ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}`
-  xnargs=`merge_spaces placeholder ${xen_args} ${iommu_args}`
-  lxargs=`merge_spaces placeholder root=${linux_root_device_thisversion} ro ${args}`
+  tbargs=`merge_spaces ${tboot_args}`
+  xnargs=`merge_spaces ${xen_args} ${iommu_args}`
+  lxargs=`merge_spaces root=${linux_root_device_thisversion} ro ${args}`
   cat << EOF
 	echo	'$tmessage'
 	multiboot	${rel_tboot_dirname}/${tboot_basename} ${tbargs}
@@ -141,7 +141,7 @@ EOF
     message="$(gettext_printf "Loading initial ramdisk ...")"
     cat << EOF
 	echo	'$message'
-	module	${rel_dirname}/${initrd} ${rel_dirname}/${initrd}
+	module	${rel_dirname}/${initrd}
 EOF
   fi
   if test -n "${sinit_list}" ; then
@@ -149,7 +149,7 @@ EOF
       message="$(gettext_printf "Loading sinit $i ...")"
       cat << EOF
         echo    '$message'
-        module  ${rel_dirname}/${i} ${rel_dirname}/${i}
+        module  ${rel_dirname}/${i}
 EOF
     done
   fi
