@@ -21,11 +21,28 @@ prefix=/usr
 exec_prefix=${prefix}
 bindir=${exec_prefix}/bin
 libdir=${exec_prefix}/lib
+sysconfdir=/etc
 if test -e /usr/share/grub/grub-mkconfig_lib; then
   . /usr/share/grub/grub-mkconfig_lib
 elif test -e ${libdir}/grub/grub-mkconfig_lib; then
   . ${libdir}/grub/grub-mkconfig_lib
 fi
+
+if test -e ${sysconfdir}/default/grub-tboot; then
+  .  ${sysconfdir}/default/grub-tboot
+fi
+
+# Set the following variables in /etc/default/grub-tboot to customize command lines
+# (empty values are treated as if the variables were unset).
+[ -z "${GRUB_CMDLINE_TBOOT}" ] && unset GRUB_CMDLINE_TBOOT
+[ -z "${GRUB_CMDLINE_XEN_TBOOT}" ] && unset GRUB_CMDLINE_XEN_TBOOT
+[ -z "${GRUB_CMDLINE_LINUX_XEN_TBOOT}" ] && unset GRUB_CMDLINE_LINUX_XEN_TBOOT
+# Command line for tboot itself
+: ${GRUB_CMDLINE_TBOOT='logging=serial,memory,vga'}
+# Xen parameters to append for tboot
+: ${GRUB_CMDLINE_XEN_TBOOT=''}
+# Linux kernel parameters to append for tboot + Xen
+: ${GRUB_CMDLINE_LINUX_XEN_TBOOT=''}
 
 export TEXTDOMAIN=grub
 export TEXTDOMAINDIR=${prefix}/share/locale
@@ -203,10 +220,14 @@ while [ "x${xen_list}" != "x" ] ; do
             fi
 
             linux_entry "${OS}" "${version}" "${xen_version}" false \
-	        "${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT}" "${GRUB_CMDLINE_XEN} ${GRUB_CMDLINE_XEN_DEFAULT}" "${tboot_version}" "logging=serial,vga,memory" "iommu=force"
+			"${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT} ${GRUB_CMDLINE_LINUX_XEN_TBOOT}" \
+			"${GRUB_CMDLINE_XEN} ${GRUB_CMDLINE_XEN_DEFAULT} ${GRUB_CMDLINE_XEN_TBOOT}" \
+			"${tboot_version}" "${GRUB_CMDLINE_TBOOT}" "iommu=force"
             if [ "x${GRUB_DISABLE_RECOVERY}" != "xtrue" ]; then
                 linux_entry "${OS}" "${version}" "${xen_version}" true \
-		    "single ${GRUB_CMDLINE_LINUX}" "${GRUB_CMDLINE_XEN}" "${tboot_version}" "logging=serial,vga,memory" "iommu=force"
+			    "single ${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_XEN_TBOOT}" \
+			    "${GRUB_CMDLINE_XEN} ${GRUB_CMDLINE_XEN_TBOOT}" \
+			    "${tboot_version}" "${GRUB_CMDLINE_TBOOT}" "iommu=force"
             fi
 
             list=`echo $list | tr ' ' '\n' | grep -vx $linux | tr '\n' ' '`

@@ -21,10 +21,42 @@ prefix=/usr
 exec_prefix=${prefix}
 bindir=${exec_prefix}/bin
 libdir=${exec_prefix}/lib
+sysconfdir=/etc
 if test -e /usr/share/grub/grub-mkconfig_lib; then
   . /usr/share/grub/grub-mkconfig_lib
 elif test -e ${libdir}/grub/grub-mkconfig_lib; then
   . ${libdir}/grub/grub-mkconfig_lib
+fi
+
+if test -e ${sysconfdir}/default/grub-tboot; then
+  .  ${sysconfdir}/default/grub-tboot
+fi
+
+# Set the following variables in /etc/default/grub-tboot to customize command lines
+# (empty values are treated as if the variables were unset).
+[ -z "${GRUB_CMDLINE_TBOOT}" ] && unset GRUB_CMDLINE_TBOOT
+[ -z "${GRUB_CMDLINE_LINUX_TBOOT}" ] && unset GRUB_CMDLINE_LINUX_TBOOT
+# Command line for tboot itself
+: ${GRUB_CMDLINE_TBOOT='logging=serial,memory,vga'}
+# Linux kernel parameters to append for tboot
+: ${GRUB_CMDLINE_LINUX_TBOOT='intel_iommu=on'}
+
+# VGA logging is not supported in UEFI environment
+if [ -d /sys/firmware/efi ]; then
+  _cmdline=
+  for _arg in ${GRUB_CMDLINE_TBOOT}; do
+    case ${_arg} in
+      logging=*vga*)
+	echo "UEFI environment: deactivating VGA logging for tboot" >&2
+	_arg=`echo "${_arg}" | sed -e 's/=vga,/=/' -e s'/,\{0,1\}vga//' -e s'/=$/=none/'`;;
+    esac
+    if [ -z "${_cmdline}" ]; then
+      _cmdline=${_arg}
+    else
+      _cmdline="${_cmdline} ${_arg}"
+    fi
+  done
+  GRUB_CMDLINE_TBOOT=${_cmdline}
 fi
 
 export TEXTDOMAIN=grub
@@ -173,18 +205,13 @@ while [ "x${tboot_list}" != "x" ] && [ "x$linux_list" != "x" ] ; do
 	    linux_root_device_thisversion=${GRUB_DEVICE}
 	fi
 	
-	if [ -d /sys/firmware/efi ] ; then
-	    # there's no vga console available under EFI
-	    tboot_log="logging=serial,memory"
-	else
-	    tboot_log="logging=serial,vga,memory"
-	fi
-
 	linux_entry "${OS}" "${version}" "${tboot_version}" false \
-	    "${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT}" ${tboot_log} "intel_iommu=on"
+		    "${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT}" "${GRUB_CMDLINE_TBOOT}" \
+		    "${GRUB_CMDLINE_LINUX_TBOOT}"
 	if [ "x${GRUB_DISABLE_RECOVERY}" != "xtrue" ]; then
 	    linux_entry "${OS}" "${version}" "${tboot_version}" true \
-		"single ${GRUB_CMDLINE_LINUX}" ${tboot_log} "intel_iommu=on"
+			"single ${GRUB_CMDLINE_LINUX}" "${GRUB_CMDLINE_TBOOT}" \
+			"${GRUB_CMDLINE_LINUX_TBOOT}"
 	fi
 
 	list=`echo $list | tr ' ' '\n' | grep -vx $linux | tr '\n' ' '`
