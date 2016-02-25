@@ -104,9 +104,9 @@ linux_entry ()
 	echo	'$tmessage'
 	multiboot	${rel_tboot_dirname}/${tboot_basename} ${rel_tboot_dirname}/${tboot_basename} ${tboot_args}
 	echo	'$xmessage'
-	module	${rel_xen_dirname}/${xen_basename} ${rel_xen_dirname}/${xen_basename} placeholder ${xen_args} ${iommu_args}
+	module	${rel_xen_dirname}/${xen_basename} placeholder ${xen_args} ${iommu_args}
 	echo	'$lmessage'
-	module	${rel_dirname}/${basename} ${rel_dirname}/${basename} placeholder root=${linux_root_device_thisversion} ro ${args}
+	module	${rel_dirname}/${basename} placeholder root=${linux_root_device_thisversion} ro ${args}
 EOF
   if test -n "${initrd}" ; then
     message="$(gettext_printf "Loading initial ramdisk ...")"
