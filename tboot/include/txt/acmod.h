@@ -93,7 +93,8 @@ typedef union {
     struct {
         uint32_t  ext_policy        : 2;
         uint32_t  tpm_family        : 4;
-        uint32_t  reserved          : 26;
+        uint32_t  tpm_nv_index_set  : 1;
+        uint32_t  reserved          : 25;
     };
 } tpm_cap_t;
 

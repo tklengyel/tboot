@@ -407,8 +407,10 @@ static void print_acm_hdr(const acm_hdr_t *hdr, const char *mod_name)
         printk(TBOOT_DETA"\t\t TPM capability:\n");
         printk(TBOOT_DETA"\t\t      ext_policy: 0x%x\n",
                 info_list->capabilities.ext_policy);
-        printk(TBOOT_DETA"\t\t      tpm_family : 0x%x\n",
+        printk(TBOOT_DETA"\t\t      tpm_family : 0x%x\n",                
                 info_list->capabilities.tpm_family);
+        printk(TBOOT_DETA"\t\t      tpm_nv_index_set : 0x%x\n",                
+                info_list->capabilities.tpm_nv_index_set);
         printk(TBOOT_DETA"\t\t alg count: %u\n", info_list->count);
         for ( unsigned int i = 0; i < info_list->count; i++ ) {
             printk(TBOOT_DETA"\t\t     alg_id: 0x%x\n", info_list->alg_id[i]);

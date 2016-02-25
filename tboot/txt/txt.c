@@ -684,15 +684,15 @@ tb_error_t txt_launch_environment(loader_ctx *lctx)
     /*
      * find correct SINIT AC module in modules list
      */
-    find_platform_sinit_module(lctx, (void **)&g_sinit, NULL);
+    // find_platform_sinit_module(lctx, (void **)&g_sinit, NULL);
     /* if it is newer than BIOS-provided version, then copy it to */
     /* BIOS reserved region */
-    g_sinit = copy_sinit(g_sinit);
-    if ( g_sinit == NULL )
-        return TB_ERR_SINIT_NOT_PRESENT;
+    // g_sinit = copy_sinit(g_sinit);
+    // if ( g_sinit == NULL )
+    //    return TB_ERR_SINIT_NOT_PRESENT;
     /* do some checks on it */
-    if ( !verify_acmod(g_sinit) )
-        return TB_ERR_ACMOD_VERIFY_FAILED;
+    // if ( !verify_acmod(g_sinit) )
+     //   return TB_ERR_ACMOD_VERIFY_FAILED;
 
     /* print some debug info */
     print_file_info();

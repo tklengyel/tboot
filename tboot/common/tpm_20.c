@@ -49,11 +49,13 @@
 #include <cmdline.h>
 #include <uuid.h>
 #include <mle.h>
+#include <loader.h>
 #include <txt/acmod.h>
 
-extern uint8_t g_tpm_family;
 static u8 cmd_buf[MAX_COMMAND_SIZE];
 static u8 rsp_buf[MAX_RESPONSE_SIZE];
+
+extern loader_ctx *g_ldr_ctx;
 
 #define reverse_copy_in(out, var) {\
     _reverse_copy((uint8_t *)(out), (uint8_t *)&(var), sizeof(var));\
@@ -69,14 +71,17 @@ static void reverse_copy_header(u32 cmd_code, TPM_CMD_SESSIONS_IN *sessions_in)
 {
     u16 tag;
 
-    if (sessions_in == NULL || sessions_in->num_sessions == 0)  tag = TPM_ST_NO_SESSIONS;
-    else tag = TPM_ST_SESSIONS;
+    if (sessions_in == NULL || sessions_in->num_sessions == 0)
+        tag = TPM_ST_NO_SESSIONS;
+    else
+        tag = TPM_ST_SESSIONS;
 
     reverse_copy(cmd_buf, &tag, sizeof(tag));
     reverse_copy(cmd_buf + CMD_CC_OFFSET, &cmd_code, sizeof(cmd_code));
 }
 
-static void reverse_copy_pcr_selection_in(void **other, TPML_PCR_SELECTION *pcr_selection)
+static void reverse_copy_pcr_selection_in(void **other,
+                                          TPML_PCR_SELECTION *pcr_selection)
 {
     u32 i, k;
 
@@ -91,15 +96,18 @@ static void reverse_copy_pcr_selection_in(void **other, TPML_PCR_SELECTION *pcr_
         reverse_copy_in(*other, pcr_selection->selections[i].size_of_select);
 
         /* Copy bit field of the PCRs selected. */
-        for (k=0; k<pcr_selection->selections[i].size_of_select; k++) reverse_copy_in(*other, pcr_selection->selections[i].pcr_select[k]);
+        for (k=0; k<pcr_selection->selections[i].size_of_select; k++)
+            reverse_copy_in(*other, pcr_selection->selections[i].pcr_select[k]);
     }
 }
 
-static void reverse_copy_pcr_selection_out(TPML_PCR_SELECTION *pcr_selection, void **other)
+static void reverse_copy_pcr_selection_out(TPML_PCR_SELECTION *pcr_selection,
+                                           void **other)
 {
     u32 i, k;
 
-    if (pcr_selection == NULL)  return;
+    if (pcr_selection == NULL)
+        return;
 
     /* Copy count of pcrs to be read. */
     reverse_copy_out(pcr_selection->count, *other);
@@ -144,10 +152,12 @@ static u16 reverse_copy_sized_buf_in(TPM2B *dest, TPM2B *src)
 {
     int i;
 
-    if (dest == NULL || src == NULL)        return 0;
+    if (dest == NULL || src == NULL)
+        return 0;
 
     reverse_copy(&dest->size, &src->size, sizeof(u16));
-    for (i=0; i<src->size; i++) dest->buffer[i] = src->buffer[i];
+    for (i=0; i<src->size; i++)
+        dest->buffer[i] = src->buffer[i];
 
     return sizeof(u16) + src->size;
 }
@@ -156,10 +166,12 @@ static u16 reverse_copy_sized_buf_out(TPM2B *dest, TPM2B *src)
 {
     int i;
 
-    if (dest == NULL || src == NULL)   return 0;
+    if (dest == NULL || src == NULL)
+        return 0;
 
     reverse_copy(&dest->size, &src->size, sizeof(u16));
-    for (i=0; i<dest->size; i++)        dest->buffer[i] = src->buffer[i];
+    for (i=0; i<dest->size; i++)
+        dest->buffer[i] = src->buffer[i];
 
     return sizeof(u16) + dest->size;
 }
@@ -168,16 +180,23 @@ static void reverse_copy_digest_out(TPML_DIGEST *tpml_digest, void **other)
 {
     u32 i;
 
-    if (tpml_digest == NULL)        return;
+    if (tpml_digest == NULL)
+        return;
 
     reverse_copy_out(tpml_digest->count, *other);
 
-    for (i=0; i<tpml_digest->count; i++)        *other += reverse_copy_sized_buf_out((TPM2B *)&(tpml_digest->digests[i]),  (TPM2B *)*other);
+    for (i=0; i<tpml_digest->count; i++)
+        *other += reverse_copy_sized_buf_out((TPM2B *)&(tpml_digest->digests[i]),
+                (TPM2B *)*other);
 }
 
-static void reverse_copy_session_data_in(void **other, TPM_CMD_SESSION_DATA_IN *session_data, u32 *session_size)
+static void reverse_copy_session_data_in(void **other,
+                                         TPM_CMD_SESSION_DATA_IN *session_data,
+                                         u32 *session_size)
 {
-    *session_size += sizeof(u32) + sizeof( u16 ) + session_data->nonce.t.size + sizeof( u8 ) + sizeof( u16 ) + session_data->hmac.t.size;
+    *session_size += sizeof(u32) + sizeof( u16 ) +
+        session_data->nonce.t.size + sizeof( u8 ) +
+        sizeof( u16 ) + session_data->hmac.t.size;
 
     /* copy session handle */
     reverse_copy_in(*other, session_data->session_handle);
@@ -199,12 +218,16 @@ static void reverse_copy_sessions_in(void **other, TPM_CMD_SESSIONS_IN *sessions
     u32 session_size = 0;
     void *session_size_ptr = *other;
 
-    if (sessions_in == NULL)  return;
+    if (sessions_in == NULL)
+        return;
 
     if (sessions_in->num_sessions != 0) {
-        *other += sizeof(u32);//handle size
-        for (i=0; i<sessions_in->num_sessions; i++)  reverse_copy_session_data_in(other, &sessions_in->sessions[i], &session_size);
+        *other += sizeof(u32);
+        for (i=0; i<sessions_in->num_sessions; i++)
+            reverse_copy_session_data_in(other,
+                    &sessions_in->sessions[i], &session_size);
     }
+
     reverse_copy(session_size_ptr, &session_size, sizeof(u32));
 }
 
@@ -285,11 +308,13 @@ static void reverse_copy_digest_value_in(void **other, TPML_DIGEST_VALUES *tpml_
     }
 }
 
-static void reverse_copy_digest_values_out(TPML_DIGEST_VALUES *tpml_digest, void **other)
+static void reverse_copy_digest_values_out(TPML_DIGEST_VALUES *tpml_digest,
+                                           void **other)
 {
     unsigned int i, k, num_bytes;
 
-    if (tpml_digest == NULL)  return;
+    if (tpml_digest == NULL)
+        return;
 
     reverse_copy_out(tpml_digest->count, *other);
 
@@ -886,7 +911,9 @@ static void reverse_copy_ticket_out(TPMT_TK_CREATION *ticket, void **other)
     *other += reverse_copy_sized_buf_out((TPM2B *)&(ticket->digest), (TPM2B *)*other);
 }
 
-static uint32_t _tpm20_pcr_read(u32 locality, tpm_pcr_read_in *in, tpm_pcr_read_out *out)
+static uint32_t _tpm20_pcr_read(u32 locality,
+                                tpm_pcr_read_in *in,
+                                tpm_pcr_read_out *out)
 {
     u32 ret;
     u32 cmd_size, rsp_size;
@@ -903,13 +930,9 @@ static uint32_t _tpm20_pcr_read(u32 locality, tpm_pcr_read_in *in, tpm_pcr_read_
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
-
-//	if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )         return TPM_RC_FAILURE;
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) ) {
+        return TPM_RC_FAILURE;
+    }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -953,11 +976,8 @@ static uint32_t _tpm20_pcr_extend(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-	    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
- //   if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -973,15 +993,15 @@ static uint32_t _tpm20_pcr_extend(uint32_t locality,
     return ret;
 }
 
-static uint32_t _tpm20_pcr_event(uint32_t locality, tpm_pcr_event_in *in, tpm_pcr_event_out *out)
+static uint32_t _tpm20_pcr_event(uint32_t locality,
+                                 tpm_pcr_event_in *in,
+                                 tpm_pcr_event_out *out)
 {
     u32 ret;
     u32 cmd_size, rsp_size;
     u16 rsp_tag;
     void *other;
-	
     
-    printk(TBOOT_INFO"_tpm20_pcr_event is entered. \n");
     reverse_copy_header(TPM_CC_PCR_Event, &in->sessions);
 
     other = (void *)cmd_buf + CMD_HEAD_SIZE;
@@ -996,39 +1016,28 @@ static uint32_t _tpm20_pcr_event(uint32_t locality, tpm_pcr_event_in *in, tpm_pc
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    printk(TBOOT_INFO"command size is 0x%x\n", cmd_size);
-    printk(TBOOT_INFO"response size is 0x%x\n", rsp_size);
-    
-    if (g_tpm_family == TPM_IF_20_FIFO) {
-	if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  
-	    return TPM_RC_FAILURE;
-    }
-
-    if (g_tpm_family == TPM_IF_20_CRB) {
-	if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  {
-    	printk(TBOOT_INFO"tpm_submit_cmd_crb failed\n");
-	return TPM_RC_FAILURE;
-	}
-    }
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
-    if ( ret != TPM_RC_SUCCESS )  {
-		printk(TBOOT_INFO"reverse copy failed, 0x%08X \n", ret); 
-		return ret;
-    }
+    if ( ret != TPM_RC_SUCCESS )
+        return ret;
 
     other = (void *)rsp_buf + RSP_HEAD_SIZE;
     reverse_copy(&rsp_tag, rsp_buf, sizeof(rsp_tag));
-    if (rsp_tag == TPM_ST_SESSIONS)  other += sizeof(u32);
+    if (rsp_tag == TPM_ST_SESSIONS)
+        other += sizeof(u32);
 
     reverse_copy_digest_values_out(&out->digests, &other);
 
     reverse_copy_sessions_out(&out->sessions, other, rsp_tag, &in->sessions);
-    printk(TBOOT_INFO"_tpm20_pcr_event is exited. \n");
+
     return ret;
 }
 
-static uint32_t _tpm20_pcr_reset(uint32_t locality,  tpm_pcr_reset_in *in, tpm_pcr_reset_out *out)
+static uint32_t _tpm20_pcr_reset(uint32_t locality,
+                                 tpm_pcr_reset_in *in,
+                                 tpm_pcr_reset_out *out)
 {
     u32 ret;
     u32 cmd_size, rsp_size;
@@ -1048,18 +1057,17 @@ static uint32_t _tpm20_pcr_reset(uint32_t locality,  tpm_pcr_reset_in *in, tpm_p
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
- //   if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;
-     if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
-    if ( ret != TPM_RC_SUCCESS )        return ret;
+    if ( ret != TPM_RC_SUCCESS )
+        return ret;
 
     other = (void *)rsp_buf + RSP_HEAD_SIZE;
     reverse_copy(&rsp_tag, rsp_buf, sizeof(rsp_tag));
-    if (rsp_tag == TPM_ST_SESSIONS)        other += sizeof(u32);
+    if (rsp_tag == TPM_ST_SESSIONS)
+        other += sizeof(u32);
 
     reverse_copy_sessions_out(&out->sessions, other, rsp_tag, &in->sessions);
 
@@ -1087,12 +1095,8 @@ static uint32_t _tpm20_sequence_start(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = RSP_HEAD_SIZE + sizeof(*out);
-
-   // if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1132,11 +1136,8 @@ static uint32_t _tpm20_sequence_update(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-  //  if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1177,11 +1178,8 @@ static uint32_t _tpm20_sequence_complete(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-   // if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-       if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1224,11 +1222,8 @@ static uint32_t _tpm20_nv_read(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-//    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1272,11 +1267,8 @@ static uint32_t _tpm20_nv_write(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-	
-  //  if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1311,10 +1303,8 @@ static uint32_t _tpm20_nv_read_public(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-   // if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1358,14 +1348,8 @@ static uint32_t _tpm20_get_random(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-   // if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {
-        printk(TBOOT_INFO"_tpm20_get_random call CRB_INF tpm_submit_cmd_crb() with locality = 0x%x\n", locality);
-		if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	
-    }
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1397,12 +1381,8 @@ static uint32_t _tpm20_shutdown(uint32_t locality, u16 type)
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = RSP_HEAD_SIZE; 
-	
-  //  if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     return ret;
@@ -1410,7 +1390,9 @@ static uint32_t _tpm20_shutdown(uint32_t locality, u16 type)
 
 static __data u32 handle2048 = 0;
 static const char auth_str[] = "test";
-static uint32_t _tpm20_create_primary(uint32_t locality, tpm_create_primary_in *in, tpm_create_primary_out *out)
+static uint32_t _tpm20_create_primary(uint32_t locality,
+                                     tpm_create_primary_in *in,
+                                     tpm_create_primary_out *out)
 {
     u32 ret;
     u32 cmd_size, rsp_size;
@@ -1429,8 +1411,10 @@ static uint32_t _tpm20_create_primary(uint32_t locality, tpm_create_primary_in *
     /* Copy inSensitive */
     sensitive_size_ptr = other;
     other += sizeof(u16);
-    other += reverse_copy_sized_buf_in((TPM2B *)other, (TPM2B *)&(in->sensitive.t.sensitive.user_auth));
-    other += reverse_copy_sized_buf_in((TPM2B *)other, (TPM2B *)&(in->sensitive.t.sensitive.data));
+    other += reverse_copy_sized_buf_in((TPM2B *)other,
+            (TPM2B *)&(in->sensitive.t.sensitive.user_auth));
+    other += reverse_copy_sized_buf_in((TPM2B *)other,
+            (TPM2B *)&(in->sensitive.t.sensitive.data));
     sensitive_size = (u8 *)other - (u8 *)sensitive_size_ptr - sizeof(u16);
     reverse_copy(sensitive_size_ptr, &sensitive_size, sizeof(u16));
 
@@ -1448,13 +1432,12 @@ static uint32_t _tpm20_create_primary(uint32_t locality, tpm_create_primary_in *
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
-    if ( ret != TPM_RC_SUCCESS )  return ret;
+    if ( ret != TPM_RC_SUCCESS )
+        return ret;
 
     other = (void *)rsp_buf + RSP_HEAD_SIZE;
 
@@ -1462,7 +1445,8 @@ static uint32_t _tpm20_create_primary(uint32_t locality, tpm_create_primary_in *
     reverse_copy_out(out->obj_handle, other);
 
     reverse_copy(&rsp_tag, rsp_buf, sizeof(rsp_tag));
-    if (rsp_tag == TPM_ST_SESSIONS)      other += sizeof(u32);
+    if (rsp_tag == TPM_ST_SESSIONS)
+        other += sizeof(u32);
 
     /* Save outPublic */
     reverse_copy_public_out(&out->public, &other);
@@ -1471,7 +1455,8 @@ static uint32_t _tpm20_create_primary(uint32_t locality, tpm_create_primary_in *
     reverse_copy_creation_data_out(&(out->creation_data), &other);
 
     /* Save creationHash */
-    other += reverse_copy_sized_buf_out((TPM2B *)&(out->creation_hash),  (TPM2B *)other);
+    other += reverse_copy_sized_buf_out((TPM2B *)&(out->creation_hash),
+            (TPM2B *)other);
 
     /* Save creationTicket */
     reverse_copy_ticket_out(&(out->creation_ticket), &other);
@@ -1484,7 +1469,9 @@ static uint32_t _tpm20_create_primary(uint32_t locality, tpm_create_primary_in *
 }
 
 
-static uint32_t _tpm20_create(uint32_t locality,    tpm_create_in *in,     tpm_create_out *out)
+static uint32_t _tpm20_create(uint32_t locality,
+                              tpm_create_in *in,
+                              tpm_create_out *out)
 {
     u32 ret;
     u32 cmd_size, rsp_size;
@@ -1524,12 +1511,8 @@ static uint32_t _tpm20_create(uint32_t locality,    tpm_create_in *in,     tpm_c
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-
-    if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-
-    if (g_tpm_family == TPM_IF_20_CRB) {
-              printk(TBOOT_INFO"_tpm20_create call CRB_INF tpm_submit_cmd_crb() with locality = 0x%x\n", locality);
-		if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1561,7 +1544,9 @@ static uint32_t _tpm20_create(uint32_t locality,    tpm_create_in *in,     tpm_c
     return ret;
 }
 
-static uint32_t _tpm20_load(uint32_t locality, tpm_load_in *in, tpm_load_out *out)
+static uint32_t _tpm20_load(uint32_t locality,
+                            tpm_load_in *in,
+                            tpm_load_out *out)
 {
     u32 ret;
     u32 cmd_size, rsp_size;
@@ -1584,17 +1569,8 @@ static uint32_t _tpm20_load(uint32_t locality, tpm_load_in *in, tpm_load_out *ou
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-
-    if (g_tpm_family == TPM_IF_20_FIFO) {
-	if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  
-	    return TPM_RC_FAILURE;
-    }
-
-    if (g_tpm_family == TPM_IF_20_CRB) {
-        if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  
-	     return TPM_RC_FAILURE;
-    }
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1636,11 +1612,8 @@ static uint32_t _tpm20_unseal(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-   // if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )        return TPM_RC_FAILURE;
-       if (g_tpm_family == TPM_IF_20_FIFO) {if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;}
-//for CRB
-    if (g_tpm_family == TPM_IF_20_CRB) {if ( !tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )  return TPM_RC_FAILURE;	}
-
+    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
+        return TPM_RC_FAILURE;
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1694,7 +1667,9 @@ static bool tpm20_pcr_read(struct tpm_if *ti, uint32_t locality,
         return false;
     }
 
-    copy_hash(out,            (tb_hash_t *)&(read_out.pcr_values.digests[0].t.buffer[0]),            ti->cur_alg);
+    copy_hash(out,
+            (tb_hash_t *)&(read_out.pcr_values.digests[0].t.buffer[0]),
+            ti->cur_alg);
 
     return true;
 }
@@ -1864,7 +1839,9 @@ static bool tpm20_nv_read(struct tpm_if *ti, uint32_t locality,
     return true;
 }
 
-static bool tpm20_nv_write(struct tpm_if *ti, uint32_t locality, uint32_t index, uint32_t offset, const uint8_t *data, uint32_t data_size)
+static bool tpm20_nv_write(struct tpm_if *ti, uint32_t locality,
+                           uint32_t index, uint32_t offset,
+                           const uint8_t *data, uint32_t data_size)
 {
     tpm_nv_write_in write_in;
     tpm_nv_write_out write_out;
@@ -1934,7 +1911,9 @@ static bool tpm20_get_nvindex_permission(struct tpm_if *ti, uint32_t locality,
     return true;
 }
 
-static bool tpm20_seal(struct tpm_if *ti, uint32_t locality, uint32_t in_data_size, const uint8_t *in_data, uint32_t *sealed_data_size, uint8_t *sealed_data)
+static bool tpm20_seal(struct tpm_if *ti, uint32_t locality,
+                       uint32_t in_data_size, const uint8_t *in_data,
+                       uint32_t *sealed_data_size, uint8_t *sealed_data)
 {
     tpm_create_in create_in; 
     tpm_create_out create_out; 
@@ -1957,9 +1936,11 @@ static bool tpm20_seal(struct tpm_if *ti, uint32_t locality, uint32_t in_data_si
     create_in.public.t.public_area.unique.keyed_hash.t.size = 0;
 
     create_in.sensitive.t.sensitive.user_auth.t.size = sizeof(auth_str) - 1;
-    memcpy(&(create_in.sensitive.t.sensitive.user_auth.t.buffer[0]),  auth_str, sizeof(auth_str)-1);
+    memcpy(&(create_in.sensitive.t.sensitive.user_auth.t.buffer[0]),
+            auth_str, sizeof(auth_str)-1);
     create_in.sensitive.t.sensitive.data.t.size = in_data_size;
-    memcpy(&(create_in.sensitive.t.sensitive.data.t.buffer[0]), in_data, in_data_size); 
+    memcpy(&(create_in.sensitive.t.sensitive.data.t.buffer[0]),
+            in_data, in_data_size); 
 
     create_in.outside_info.t.size = 0;
     create_in.creation_pcr.count = 0;
@@ -1970,14 +1951,15 @@ static bool tpm20_seal(struct tpm_if *ti, uint32_t locality, uint32_t in_data_si
         ti->error = ret;
         return false;
     }
-    printk(TBOOT_WARN"TPM: Create successful, return value = %08X\n", ret);
     *sealed_data_size = sizeof(create_out);
     memcpy(sealed_data, &create_out, *sealed_data_size); 
 
     return true;
 }
 
-static bool tpm20_unseal(struct tpm_if *ti, uint32_t locality, uint32_t sealed_data_size, const uint8_t *sealed_data, uint32_t *secret_size, uint8_t *secret)
+static bool tpm20_unseal(struct tpm_if *ti, uint32_t locality,
+                         uint32_t sealed_data_size, const uint8_t *sealed_data,
+                         uint32_t *secret_size, uint8_t *secret)
 {
     tpm_load_in load_in; 
     tpm_load_out load_out; 
@@ -2065,24 +2047,28 @@ static bool tpm20_get_random(struct tpm_if *ti, uint32_t locality,
 
     /* if TPM doesn't return all requested random bytes, try one more time */
     if ( out_size < requested_size ) {
-        printk(TBOOT_WARN"requested 0x%x random bytes but only got 0x%x\n", requested_size, out_size);
+        printk(TBOOT_WARN"requested %x random bytes but only got %x\n", requested_size,
+               out_size);
         /* we're only going to try twice */
         if ( first_attempt ) {
             first_attempt = false;
             uint32_t second_size = requested_size - out_size;
-            printk(TBOOT_WARN"trying one more time to get remaining 0x%x bytes\n", second_size);
+            printk(TBOOT_WARN"trying one more time to get remaining %x bytes\n",
+                    second_size);
             random_in.bytes_req = second_size;
 
             ret = _tpm20_get_random(locality, &random_in, &random_out);
             if ( ret != TPM_RC_SUCCESS ) {
-                printk(TBOOT_WARN"TPM: get random 0x%x bytes, return failed value = 0x%08X\n", *data_size, ret);
+                printk(TBOOT_WARN"TPM: get random %u bytes, return value = %08X\n",
+                        *data_size, ret);
                 ti->error = ret;
                 return false;
             }
-            printk(TBOOT_WARN"TPM: get random 0x%x bytes, return successful value = 0x%08X\n", *data_size, ret);
+
             out_size = random_out.random_bytes.t.size;
             if (out_size > 0)
-                memcpy(random_data+*data_size, &(random_out.random_bytes.t.buffer[0]), out_size);
+                memcpy(random_data+*data_size, 
+                        &(random_out.random_bytes.t.buffer[0]), out_size);
             *data_size += out_size;
         }
     }
@@ -2147,7 +2133,8 @@ static bool tpm20_cap_pcrs(struct tpm_if *ti, u32 locality, int pcr)
 static bool alg_is_supported(u16 alg)
 {
     for (int i=0; i<2; i++) {
-        if (alg == tboot_alg_list[i])    return true;
+        if (alg == tboot_alg_list[i])
+            return true;
     }
 
     return false;
@@ -2157,12 +2144,10 @@ static bool tpm20_init(struct tpm_if *ti)
 {
     u32 ret;
     unsigned int i;
-
-    if ( ti == NULL )  return false;
-    if (!txt_is_launched())
-		ti->cur_loc = 0;
-     else 
-	 	ti->cur_loc = 2;
+    tpm_info_list_t *info_list = get_tpm_info_list(g_sinit);
+ 
+   if ( ti == NULL )
+        return false;
 
     /* init version */
     ti->major = TPM20_VER_MAJOR;
@@ -2176,20 +2161,26 @@ static bool tpm20_init(struct tpm_if *ti)
 
     /* get pcr extend policy from cmdline */
     get_tboot_extpol();
-
-    /* init NV index */
-    ti->tb_policy_index = 0x1200001;
-    ti->lcp_own_index = 0x1400001;
-    ti->tb_err_index = 0x1200002;
-    ti->sgx_svn_index = 0x01800004;
-
+    if (info_list->capabilities.tpm_nv_index_set == 0){
+        /* init NV index */
+        ti->tb_policy_index = 0x1200001;
+        ti->lcp_own_index = 0x1400001;
+        ti->tb_err_index = 0x1200002;
+        ti->sgx_svn_index = 0x01800004;
+    }
+    else {
+        ti->tb_policy_index = 0x01c10131;
+        ti->lcp_own_index = 0x01c10106;
+        ti->tb_err_index = 0x01c10132;
+        ti->sgx_svn_index = 0x01c10104;
+    }
     /* create one common password sesson*/
     create_pw_session(&pw_session);
 
-    /* init tpm supported alg list for banks */
+    /* init supported alg list for banks */
     tpm_pcr_event_in event_in;
     tpm_pcr_event_out event_out;
-    event_in.pcr_handle = 16; //PCR16 debug pcr
+    event_in.pcr_handle = 16;
     event_in.sessions.num_sessions = 1;
     event_in.sessions.sessions[0] = pw_session;
     event_in.data.t.size = 4;
@@ -2197,12 +2188,11 @@ static bool tpm20_init(struct tpm_if *ti)
     event_in.data.t.buffer[1] = 0xff;
     event_in.data.t.buffer[2] = 0x55;
     event_in.data.t.buffer[3] = 0xaa;
-    ret = _tpm20_pcr_event(ti->cur_loc, &event_in, &event_out);
-	
+    ret = _tpm20_pcr_event(0, &event_in, &event_out);
     if (ret != TPM_RC_SUCCESS) {
-        printk(TBOOT_WARN"TPM: PcrEvent not successful, return value = %08X\n", ret);
+        printk(TBOOT_WARN"TPM: PcrEvent return value = %08X\n", ret);
         ti->error = ret;
-        //return false;
+        return false;
     }
     ti->banks = event_out.digests.count;
     printk(TBOOT_INFO"TPM: supported bank count = %d\n", ti->banks);
@@ -2219,16 +2209,17 @@ static bool tpm20_init(struct tpm_if *ti)
             ti->alg_count++;
         }
     }
-    printk(TBOOT_INFO"TPM: tboot supported TPM alg count = %d\n", ti->alg_count);
-    for (unsigned int i=0; i<ti->alg_count; i++)   printk(TBOOT_INFO"\t\t %08X\n", ti->algs[i]);
+    printk(TBOOT_INFO"TPM: supported alg count = %08X\n", ti->alg_count);
+    for (unsigned int i=0; i<ti->alg_count; i++)
+        printk(TBOOT_INFO"\t\t %08X\n", ti->algs[i]);
 
-// if handle already created, goto out
-    if (handle2048 != 0)  goto out;
+    if (handle2048 != 0)
+        goto out;
 
     /* create primary object as parent obj for seal */
     tpm_create_primary_in primary_in;
     tpm_create_primary_out primary_out;
-    primary_in.primary_handle = TPM_RH_NULL;//null hierarchy
+    primary_in.primary_handle = TPM_RH_NULL;
     primary_in.sessions.num_sessions = 1;
     primary_in.sessions.sessions[0].session_handle = TPM_RS_PW;
     primary_in.sessions.sessions[0].nonce.t.size = 0;
@@ -2261,10 +2252,10 @@ static bool tpm20_init(struct tpm_if *ti)
     primary_in.outside_info.t.size = 0;
     primary_in.creation_pcr.count = 0;
     
-    printk(TBOOT_DETA"TPM: CreatePrimary creating hierarchy handle = %08X\n", primary_in.primary_handle);
-    ret = _tpm20_create_primary(ti->cur_loc, &primary_in, &primary_out);
+    printk(TBOOT_DETA"TPM:CreatePrimary creating hierarchy handle = %08X\n", primary_in.primary_handle);
+    ret = _tpm20_create_primary(0, &primary_in, &primary_out);
     if (ret != TPM_RC_SUCCESS) {
-        printk(TBOOT_WARN"TPM: CreatePrimary not successful, return value = %08X\n", ret);
+        printk(TBOOT_WARN"TPM: CreatePrimary return value = %08X\n", ret);
         ti->error = ret;
         return false;
     }
