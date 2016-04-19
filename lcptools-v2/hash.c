@@ -172,7 +172,7 @@ void print_hash(const tb_hash_t *hash, uint16_t hash_alg)
 void copy_hash(tb_hash_t *dest_hash, const tb_hash_t *src_hash,
                uint16_t hash_alg)
 {
-    if ( dest_hash == NULL || dest_hash == NULL )
+    if ( dest_hash == NULL || src_hash == NULL )
         return;
 
     if ( hash_alg == TB_HALG_SHA1 )

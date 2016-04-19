@@ -165,7 +165,8 @@ static void post_launch(void)
     /* backup DMAR table */
     save_vtd_dmar_table();
 
-    if ( s3_flag  )    s3_launch();
+    if ( s3_flag  )    
+         s3_launch();
 
     /* remove all TXT modules before verifying modules */
     remove_txt_modules(g_ldr_ctx);
@@ -380,9 +381,8 @@ void begin_launch(void *addr, uint32_t magic)
     /* we need to make sure this is a (TXT-) capable platform before using */
     /* any of the features, incl. those required to check if the environment */
     /* has already been launched */
-// get g_sinit here
 
-   if (g_sinit == NULL) {
+    if (g_sinit == NULL) {
        find_platform_sinit_module(g_ldr_ctx, (void **)&g_sinit, NULL);
        /* check if it is newer than BIOS provided version, then copy it to BIOS reserved region */
        g_sinit = copy_sinit(g_sinit); 
@@ -392,18 +392,10 @@ void begin_launch(void *addr, uint32_t magic)
            apply_policy(TB_ERR_ACMOD_VERIFY_FAILED);
    }
 
-
-
     /* make TPM ready for measured launch */
 
-    /*
-    if (!is_launched()) {
-		if ( !tpm_detect() )        
-			apply_policy(TB_ERR_TPM_NOT_READY);
-    }
-    */
-
-   if ( !tpm_detect() ) 	apply_policy(TB_ERR_TPM_NOT_READY);
+   if (!tpm_detect()) 
+       apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* read tboot verified launch control policy from TPM-NV (will use default if none in TPM-NV) */
     err = set_policy();
@@ -559,8 +551,15 @@ void shutdown(void)
         cpu_relax();
 
     /* ensure localities 0, 1 are inactive (in case kernel used them) */
-    release_locality(0);
-    release_locality(1);
+   
+    if (g_tpm_family != TPM_IF_20_CRB ) {
+        release_locality(0);
+	 release_locality(1);
+    }
+    else {
+        tpm_relinquish_locality_crb(0);
+	 tpm_relinquish_locality_crb(1);			 
+    }
 
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
         /* restore DMAR table if needed */
@@ -583,13 +582,13 @@ void shutdown(void)
     if ( is_launched() ) {
 
         /* cap PCRs to ensure no follow-on code can access sealed data */
-        g_tpm->cap_pcrs(g_tpm, 2, -1);
+        g_tpm->cap_pcrs(g_tpm, g_tpm->cur_loc, -1);
 
         /* have TPM save static PCRs (in case VMM/kernel didn't) */
         /* per TCG spec, TPM can invalidate saved state if any other TPM
            operation is performed afterwards--so do this last */
         if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 )
-            g_tpm->save_state(g_tpm, 2);
+            g_tpm->save_state(g_tpm, g_tpm->cur_loc);
 
         /* scrub any secrets by clearing their memory, then flush cache */
         /* we don't have any secrets to scrub, however */

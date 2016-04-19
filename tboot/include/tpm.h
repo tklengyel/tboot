@@ -42,7 +42,7 @@
 #include <integrity.h>
 
 /* un-comment to enable detailed command tracing */
-//#define TPM_TRACE
+#define TPM_TRACE
 
 #define TPM_IF_12 0
 #define TPM_IF_20_FIFO 1

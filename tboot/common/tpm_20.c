@@ -80,8 +80,7 @@ static void reverse_copy_header(u32 cmd_code, TPM_CMD_SESSIONS_IN *sessions_in)
     reverse_copy(cmd_buf + CMD_CC_OFFSET, &cmd_code, sizeof(cmd_code));
 }
 
-static void reverse_copy_pcr_selection_in(void **other,
-                                          TPML_PCR_SELECTION *pcr_selection)
+static void reverse_copy_pcr_selection_in(void **other, TPML_PCR_SELECTION *pcr_selection)
 {
     u32 i, k;
 
@@ -930,9 +929,15 @@ static uint32_t _tpm20_pcr_read(u32 locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) ) {
-        return TPM_RC_FAILURE;
-    }
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))  
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -976,8 +981,15 @@ static uint32_t _tpm20_pcr_extend(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1016,8 +1028,15 @@ static uint32_t _tpm20_pcr_event(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+    
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1057,8 +1076,14 @@ static uint32_t _tpm20_pcr_reset(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1095,8 +1120,14 @@ static uint32_t _tpm20_sequence_start(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = RSP_HEAD_SIZE + sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1136,8 +1167,14 @@ static uint32_t _tpm20_sequence_update(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1178,8 +1215,14 @@ static uint32_t _tpm20_sequence_complete(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1222,8 +1265,15 @@ static uint32_t _tpm20_nv_read(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+ 
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1267,8 +1317,15 @@ static uint32_t _tpm20_nv_write(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1303,8 +1360,15 @@ static uint32_t _tpm20_nv_read_public(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1348,8 +1412,15 @@ static uint32_t _tpm20_get_random(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+ 
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1381,8 +1452,15 @@ static uint32_t _tpm20_shutdown(uint32_t locality, u16 type)
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = RSP_HEAD_SIZE; 
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     return ret;
@@ -1432,8 +1510,16 @@ static uint32_t _tpm20_create_primary(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1511,8 +1597,15 @@ static uint32_t _tpm20_create(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+    
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1569,8 +1662,15 @@ static uint32_t _tpm20_load(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -1612,8 +1712,15 @@ static uint32_t _tpm20_unseal(uint32_t locality,
     reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
 
     rsp_size = sizeof(*out);
-    if ( !tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size) )
-        return TPM_RC_FAILURE;
+
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+        }
 
     reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
     if ( ret != TPM_RC_SUCCESS )
@@ -2008,8 +2115,7 @@ static bool tpm20_unseal(struct tpm_if *ti, uint32_t locality,
     return true;
 }
 
-static bool tpm20_verify_creation(struct tpm_if *ti, uint32_t sealed_data_size,
-                                  uint8_t *sealed_data)
+static bool tpm20_verify_creation(struct tpm_if *ti, uint32_t sealed_data_size, uint8_t *sealed_data)
 {
     if ( ti == NULL || sealed_data_size == 0 || sealed_data == NULL )
         return false;
@@ -2035,7 +2141,7 @@ static bool tpm20_get_random(struct tpm_if *ti, uint32_t locality,
 
     ret = _tpm20_get_random(locality, &random_in, &random_out);
     if ( ret != TPM_RC_SUCCESS ) {
-        printk(TBOOT_WARN"TPM: get random %u bytes, return value = %08X\n", *data_size, ret);
+        printk(TBOOT_WARN"TPM: get random 0x%x bytes, return value = %08X\n", *data_size, ret);
         ti->error = ret;
         return false;
     }
@@ -2047,19 +2153,17 @@ static bool tpm20_get_random(struct tpm_if *ti, uint32_t locality,
 
     /* if TPM doesn't return all requested random bytes, try one more time */
     if ( out_size < requested_size ) {
-        printk(TBOOT_WARN"requested %x random bytes but only got %x\n", requested_size,
-               out_size);
+        printk(TBOOT_WARN"requested 0x%x random bytes but only got 0x%x\n", requested_size, out_size);
         /* we're only going to try twice */
         if ( first_attempt ) {
             first_attempt = false;
             uint32_t second_size = requested_size - out_size;
-            printk(TBOOT_WARN"trying one more time to get remaining %x bytes\n",
-                    second_size);
+            printk(TBOOT_WARN"trying one more time to get remaining 0x%x bytes\n", second_size);
             random_in.bytes_req = second_size;
 
             ret = _tpm20_get_random(locality, &random_in, &random_out);
             if ( ret != TPM_RC_SUCCESS ) {
-                printk(TBOOT_WARN"TPM: get random %u bytes, return value = %08X\n",
+                printk(TBOOT_WARN"TPM: get random 0x%x bytes, return value = %08X\n",
                         *data_size, ret);
                 ti->error = ret;
                 return false;
@@ -2148,6 +2252,12 @@ static bool tpm20_init(struct tpm_if *ti)
  
    if ( ti == NULL )
         return false;
+   
+   if (!txt_is_launched())
+                ti->cur_loc = 0;
+     else
+                ti->cur_loc = 2;
+   
 
     /* init version */
     ti->major = TPM20_VER_MAJOR;
@@ -2188,9 +2298,9 @@ static bool tpm20_init(struct tpm_if *ti)
     event_in.data.t.buffer[1] = 0xff;
     event_in.data.t.buffer[2] = 0x55;
     event_in.data.t.buffer[3] = 0xaa;
-    ret = _tpm20_pcr_event(0, &event_in, &event_out);
+    ret = _tpm20_pcr_event(ti->cur_loc, &event_in, &event_out);
     if (ret != TPM_RC_SUCCESS) {
-        printk(TBOOT_WARN"TPM: PcrEvent return value = %08X\n", ret);
+        printk(TBOOT_WARN"TPM: PcrEvent not successful, return value = %08X\n", ret);
         ti->error = ret;
         return false;
     }
@@ -2253,7 +2363,7 @@ static bool tpm20_init(struct tpm_if *ti)
     primary_in.creation_pcr.count = 0;
     
     printk(TBOOT_DETA"TPM:CreatePrimary creating hierarchy handle = %08X\n", primary_in.primary_handle);
-    ret = _tpm20_create_primary(0, &primary_in, &primary_out);
+    ret = _tpm20_create_primary(ti->cur_loc, &primary_in, &primary_out);
     if (ret != TPM_RC_SUCCESS) {
         printk(TBOOT_WARN"TPM: CreatePrimary return value = %08X\n", ret);
         ti->error = ret;

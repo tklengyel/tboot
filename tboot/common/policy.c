@@ -201,9 +201,7 @@ static const tb_policy_t* g_policy = &_def_policy;
  *
  * policy_index_size is in/out
  */
-static bool 
-read_policy_from_tpm(uint32_t index,
-                     void* policy_index, size_t *policy_index_size)
+static bool read_policy_from_tpm(uint32_t index, void* policy_index, size_t *policy_index_size)
 {
 #define NV_READ_SEG_SIZE    256
     unsigned int offset = 0;
@@ -215,7 +213,7 @@ read_policy_from_tpm(uint32_t index,
         return false;
     }
 
-    ret = g_tpm->get_nvindex_size(g_tpm, 0, index, &index_size);
+    ret = g_tpm->get_nvindex_size(g_tpm, g_tpm->cur_loc, index, &index_size);
     if ( !ret )
         return false;
 
@@ -233,7 +231,7 @@ read_policy_from_tpm(uint32_t index,
             data_size = (uint32_t)(index_size - offset);
 
         /* read! */
-        ret = g_tpm->nv_read(g_tpm, 0, index, offset,
+        ret = g_tpm->nv_read(g_tpm, g_tpm->cur_loc, index, offset,
                              (uint8_t *)policy_index + offset, &data_size);
         if ( !ret || data_size == 0 )
             break;

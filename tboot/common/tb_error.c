@@ -160,7 +160,7 @@ bool write_tb_error_code(tb_error_t error)
     if ( !g_tpm || no_err_idx )
         return false;
 
-    if ( !g_tpm->nv_write(g_tpm, 0, g_tpm->tb_err_index, 0,
+    if ( !g_tpm->nv_write(g_tpm, g_tpm->cur_loc, g_tpm->tb_err_index, 0,
 				      (uint8_t *)&error, sizeof(tb_error_t)) ) {
         printk(TBOOT_WARN"Error: write TPM error: 0x%x.\n", g_tpm->error);
         no_err_idx = true;

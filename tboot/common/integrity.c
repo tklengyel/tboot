@@ -169,8 +169,7 @@ static bool verify_sealed_data(const uint8_t *sealed_data,  uint32_t sealed_data
     bool err = true;
 
     uint32_t data_size = sizeof(blob);
-    if ( !g_tpm->unseal(g_tpm, 2, sealed_data_size, sealed_data,
-                    &data_size, (uint8_t *)&blob) ) {
+    if ( !g_tpm->unseal(g_tpm, g_tpm->cur_loc, sealed_data_size, sealed_data, &data_size, (uint8_t *)&blob) ) {
         printk(TBOOT_ERR"failed to unseal blob\n");
         return false;
     }
@@ -182,8 +181,7 @@ static bool verify_sealed_data(const uint8_t *sealed_data,  uint32_t sealed_data
     /* verify that (hash of) current data maches sealed hash */
     tb_hash_t curr_data_hash;
     memset(&curr_data_hash, 0, sizeof(curr_data_hash));
-    if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash,
-                      g_tpm->cur_alg) ) {
+    if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash, g_tpm->cur_alg) ) {
         printk(TBOOT_WARN"failed to hash state data\n");
         goto done;
     }
@@ -393,8 +391,7 @@ bool verify_integrity(void)
                              NULL, 0) )
         goto error;
 
-    if ( !g_tpm->verify_creation(g_tpm, sealed_post_k_state_size,
-                                sealed_post_k_state) ) {
+    if ( !g_tpm->verify_creation(g_tpm, sealed_post_k_state_size,  sealed_post_k_state) ) {
         printk(TBOOT_ERR"extended PCR values don't match creation values in sealed blob.\n");
         goto error;
     }
@@ -443,7 +440,7 @@ bool verify_integrity(void)
     /* since we can't leave the system without any measurments representing the
        code-about-to-execute, and yet there is no integrity of that code,
        just cap PCR 18 */
-    if ( !g_tpm->cap_pcrs(g_tpm, 2, 18) )
+    if ( !g_tpm->cap_pcrs(g_tpm, g_tpm->cur_loc, 18) )
         apply_policy(TB_ERR_FATAL);
     return false;
 }
@@ -467,8 +464,8 @@ bool seal_post_k_state(void)
     /* calculate the memory integrity hash */
     uint32_t key_size = sizeof(secrets.mac_key);
     /* key must be random and secret even though auth not necessary */
-    if ( !g_tpm->get_random(g_tpm, 2, secrets.mac_key, &key_size) ||         key_size != sizeof(secrets.mac_key) )        return false;
-    if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ,                                   secrets.mac_key) )        return false;
+    if ( !g_tpm->get_random(g_tpm, g_tpm->cur_loc, secrets.mac_key, &key_size) ||key_size != sizeof(secrets.mac_key) ) return false;
+    if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ, secrets.mac_key) ) return false;
 
     /* copy s3_key into secrets to be sealed */
     memcpy(secrets.shared_key, _tboot_shared.s3_key, sizeof(secrets.shared_key));
