@@ -357,7 +357,7 @@ struct dmar_remapping {
     u_int8_t reserved;
     u_int16_t segment_number;
     u_int8_t register_base_address[8];
-    struct device_scope deviec_scope_entry[1]; /* Device Scope starts here */
+    struct device_scope device_scope_entry[1]; /* Device Scope starts here */
 } __packed;
 
 struct acpi_dmar {
