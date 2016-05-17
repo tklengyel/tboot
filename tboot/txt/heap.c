@@ -470,8 +470,8 @@ bool verify_bios_data(const txt_heap_t *txt_heap)
     if ( bios_data->version > 4 )
         printk(TBOOT_WARN"unsupported BIOS data version (%u)\n", bios_data->version);
 
-    /* all TXT-capable CPUs support at least 2 cores */
-    if ( bios_data->num_logical_procs < 2 ) {
+    /* all TXT-capable CPUs support at least 1 core */
+    if ( bios_data->num_logical_procs < 1 ) {
         printk(TBOOT_ERR"BIOS data has incorrect num_logical_procs (%u)\n",
                bios_data->num_logical_procs);
         return false;
