@@ -1,3 +1,19 @@
+20160518: v1.9.4
+        Added TPM 2.0 CRB support
+        Increased BSP and AP stacks to avoid stack overflow 
+        Added an ACPI_RSDP structure g_rsdp in tboot to avoid potential memory overwritten issue on TPM 2.0 UEFI platforms
+        Added support to both Intel TPM nv index set and TCG TPM nv index set
+        grub2: tboot doesn't skip first argument any more
+        grub2: sanitize whitespace in command lines        
+        grub2: Allow addition of policy data in grub.cfg
+        grub2 support: allow the user to customize the command line
+        Mitigated S3 resume delay by adjusting LZ_MAX_OFFSET to 5000 in lz.c.        
+        Added SGX TPM  nv index support
+        Add 64 bit ELF object support
+        Gentoo Hardened, which uses the GRSecurity and PaX patch sets
+        Disable -fstack-check in CFLAG for compatibility with Gentoo Linux.
+        Enhanced tboot compatiblity running on non-Intel TXT platform with a fix of is_launched()
+        LCP documentation improvements
 20150506: v1.8.3
         Added verified lanuch control policy user guide
         Fixed a bug about var MTRR settings to follow the rule that each VAR MTRR base must be a multiple of that MTRR's size. 

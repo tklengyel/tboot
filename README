@@ -70,7 +70,8 @@ o  The trousers sub-project has been removed (it was using an out-of-date
 
 Instructions for Use:
 --------------------
-o  The new tboot module must be added as the 'kernel' in the grub.conf file.
+o  For Grub, the new tboot module must be added as the 'kernel' in the grub.conf file.
+   For Grub2, the new tboot module must be added as the 'multiboot' in the grub.conf file.
    The existing 'kernel' entry should follow as a 'module'.  The SINIT AC
    module must be added to the grub.conf boot config as the last module, e.g.:
        title Xen w/ Intel(R) Trusted Execution Technology
@@ -81,31 +82,13 @@ o  The new tboot module must be added as the 'kernel' in the grub.conf file.
            module /initrd-2.6.18-xen.img
            module /Q35_SINIT_17.BIN
 
-   GRUB2 does not pass the file name in the command line field of the multiboot
-   entry (module_t::string). Since the tboot code is expecting the file name as
-   the first part of the string, it tries to remove it to determine the command
-   line arguments, which will cause a verification error. The "official"
-   workaround for kernels/etc. that depend on the file name is to duplicate the 
-   file name in the grub.config file like below:
-       menuentry 'Xen w/ Intel(R) Trusted Execution Technology' {
-           recordfail
-           insmod part_msdos
-           insmod ext2
-           set root='(/dev/sda,msdos5)'
-           search --no-floppy --fs-uuid --set=root 4efb64c6-7e11-482e-8bab-07034a52de39
-           multiboot /tboot.gz /tboot.gz logging=vga,memory,serial
-           module /xen.gz /xen.gz iommu=required dom0_mem=524288 com1=115200,8n1
-           module /vmlinuz-2.6.18-xen /vmlinuz-2.6.18-xen root=/dev/VolGroup...
-           module /initrd-2.6.18-xen.img /initrd-2.6.18-xen.img
-           module /Q35_SINIT_17.BIN
-       }
+o  The appropriate SINIT AC Modules can be downloaded from this webiste:
+   https://software.intel.com/en-us/articles/intel-trusted-execution-technology/
+   The current version of tboot (both in the repository and .tar.gz) requires 
+   version 17 or greater of the SINIT AC module. It will not work with some 
+   previous SINIT ACMs nor will it work on the TEP.
 
-o  The appropriate SINIT AC Module can be downloaded from the tboot SourceForge
-   project site.  The current version of tboot (both in the repository and
-   .tar.gz) requires version 17 or greater of the SINIT AC module.  It will
-   not work with some previous SINIT ACMs nor will it work on the TEP.
-
-o  For Xen:  newer versions of Xen support the 'iommu=required' command line
+o  For Xen: newer versions of Xen support the 'iommu=required' command line
    option, which causes Xen to fail to run if there is any error in
    programming the VT-d engines.  This is the most secure configuration.
    Older versions of Xen used the param 'vtd=1' or 'iommu=1', which enables
@@ -126,7 +109,8 @@ o  Progress of the launch process is indicated via debug printk's using three
    parameter enables or disables logging levels (note that the default is all);
    any combination of "err", "warn", "info", "detail" can be used:
        loglvl=err,warn,info,detail|all|none
-   
+
+   To achieve a faster S3 resume, suggest to use loglvl=err or loglvl=none.
    The next parameter is used to configure the various logging targets; any 
    combination can be used (note that when the parameter is not set, serial 
    is the default):
