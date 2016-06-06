@@ -378,6 +378,10 @@ void begin_launch(void *addr, uint32_t magic)
         if ( !copy_e820_map(g_ldr_ctx) )  apply_policy(TB_ERR_FATAL);
     }
 
+    /* make TPM ready for measured launch */
+    if (!tpm_detect()) 
+       apply_policy(TB_ERR_TPM_NOT_READY);
+   
     /* we need to make sure this is a (TXT-) capable platform before using */
     /* any of the features, incl. those required to check if the environment */
     /* has already been launched */
@@ -390,12 +394,9 @@ void begin_launch(void *addr, uint32_t magic)
            apply_policy(TB_ERR_SINIT_NOT_PRESENT);
        if (!verify_acmod(g_sinit)) 
            apply_policy(TB_ERR_ACMOD_VERIFY_FAILED);
-   }
+    }
 
-    /* make TPM ready for measured launch */
 
-   if (!tpm_detect()) 
-       apply_policy(TB_ERR_TPM_NOT_READY);
 
     /* read tboot verified launch control policy from TPM-NV (will use default if none in TPM-NV) */
     err = set_policy();
