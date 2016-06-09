@@ -307,6 +307,9 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     printk(TBOOT_INFO"Linux cmdline placed in header: ");
     printk_long(kernel_cmdline);
     printk(TBOOT_INFO"\n");
+   
+    memset((void *)hdr->cmd_line_ptr,0,TBOOT_KERNEL_CMDLINE_SIZE);
+
     memcpy((void *)hdr->cmd_line_ptr, kernel_cmdline, strlen(kernel_cmdline));
 
     /* need to put boot_params in real mode area so it gets mapped */
