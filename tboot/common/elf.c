@@ -145,9 +145,7 @@ bool is_elf_image(const void *image, size_t size)
     return false;
 }
 
-#if 0
-static bool get_elf_image_range(const elf_header_t *elf, void **start,
-                                void **end)
+bool get_elf_image_range(const elf_header_t *elf, void **start, void **end)
 {
     uint32_t u_start, u_end;
 
@@ -188,7 +186,6 @@ static bool get_elf_image_range(const elf_header_t *elf, void **start,
         return true;
     }
 }
-#endif
 
 bool expand_elf_image(const void *image, void **entry_point)
 {

@@ -3,6 +3,7 @@
  *           binaries
  *
  * Copyright (c) 2006-2013, Intel Corporation
+ * Copyright (c) 2016 Real-Time Systems GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +65,7 @@ extern tboot_shared_t _tboot_shared;
 
 /* multiboot struct saved so that post_launch() can use it (in tboot.c) */
 extern loader_ctx *g_ldr_ctx;
-
+extern bool get_elf_image_range(const elf_header_t *elf, void **start, void **end);
 extern bool is_elf_image(const void *image, size_t size);
 extern bool expand_elf_image(const elf_header_t *elf, void **entry_point);
 extern bool expand_linux_image(const void *linux_image, size_t linux_size,
@@ -769,6 +770,98 @@ unsigned long get_mbi_mem_end_mb1(const multiboot_info_t *mbi)
     return PAGE_UP(end);
 }
 
+/*
+ * Move all mbi components/modules/mbi to end of memory
+ */
+static bool move_modules_to_high_memory(loader_ctx *lctx)
+{
+    uint64_t max_ram_base = 0,
+             max_ram_size = 0;
+    uint32_t memRequired = 0;
+
+    uint32_t module_count = get_module_count(lctx);
+
+    for ( unsigned int i = 0; i < module_count; i++ )
+    {
+        module_t *m = get_module(lctx,i);
+        memRequired += PAGE_UP(m->mod_end - m->mod_start);
+    }
+
+    get_highest_sized_ram(memRequired, 0x100000000ULL, &max_ram_base, &max_ram_size);
+    if(!max_ram_base || !max_ram_size)
+    {
+        printk(TBOOT_INFO"ERROR No suitable memory area found for image relocation!\n");
+	printk(TBOOT_INFO"required 0x%X\n", memRequired);
+        return false;
+    }
+
+    printk(TBOOT_INFO"highest suitable area @ 0x%llX (size 0x%llX)\n", max_ram_base, max_ram_size);
+
+    unsigned long target_addr =  PAGE_DOWN(max_ram_base + max_ram_size);
+
+    for ( unsigned int i = 0; i < module_count; i++ )
+    {
+        unsigned long base, size;
+        module_t *m = get_module(lctx,i);
+        base = m->mod_start;
+        size = m->mod_end - m->mod_start;
+        printk(TBOOT_INFO"moving module %u (%lu bytes) from 0x%08X ", i, size, (uint32_t)base);
+
+        //calculate target addresses
+        target_addr = PAGE_DOWN(target_addr - size);
+        printk(TBOOT_INFO"to 0x%08X\n", (uint32_t)target_addr);
+
+        memcpy((void *)target_addr, (void *)base, size);
+        m->mod_start = target_addr;
+        m->mod_end = target_addr + size;
+    }
+
+    return true;
+}
+
+/*
+ * Move any mbi components/modules/mbi that just above the kernel
+ */
+static bool move_modules_above_elf_kernel(loader_ctx *lctx, elf_header_t *kernel_image)
+{
+    if (LOADER_CTX_BAD(lctx))
+        return false;
+
+    /* get end address of loaded elf image */
+    void *elf_start=NULL, *elf_end=NULL;
+    if ( !get_elf_image_range(kernel_image, &elf_start, &elf_end) )
+    {
+        printk(TBOOT_INFO"ERROR: failed tget elf image range\n");
+    }
+
+    printk(TBOOT_INFO"ELF kernel top is at 0x%X\n", (uint32_t)elf_end);
+
+    /* keep modules page aligned */
+    uint32_t target_addr = PAGE_UP((uint32_t)elf_end);
+
+    uint32_t module_count = get_module_count(lctx);
+
+    for ( unsigned int i = 0; i < module_count; i++ )
+    {
+        unsigned long base, size;
+        module_t *m = get_module(lctx,i);
+        base = m->mod_start;
+        size = m->mod_end - m->mod_start;
+        printk(TBOOT_INFO"moving module %u (%lu bytes) from 0x%08X ", i, size, (uint32_t)base);
+
+        //calculate target addresses
+        printk(TBOOT_INFO"to 0x%08X\n", (uint32_t)target_addr);
+
+        memcpy((void *)target_addr, (void *)base, size);
+        m->mod_start = target_addr;
+        m->mod_end = target_addr + size;
+
+        target_addr = PAGE_UP(target_addr + size);
+    }
+
+    return true;
+}
+
 static void fixup_modules(loader_ctx *lctx, size_t offset)
 {
     unsigned int module_count = get_module_count(lctx);
@@ -1244,6 +1337,11 @@ bool launch_kernel(bool is_measured_launch)
         
         /* fix for GRUB2, which may load modules into memory before tboot */
         move_modules(g_ldr_ctx);
+
+        /* move modules out of the way (to top og memory below 4G) */
+        printk(TBOOT_INFO"move modules to high memory\n");
+        if(!move_modules_to_high_memory(g_ldr_ctx))
+            return false;
     }
     else {
         printk(TBOOT_INFO"assuming kernel is Linux format\n");
@@ -1262,6 +1360,11 @@ bool launch_kernel(bool is_measured_launch)
         if ( !expand_elf_image((elf_header_t *)kernel_image,
                                &kernel_entry_point) )
             return false;
+
+        /* move modules on top of expanded kernel */
+        if(!move_modules_above_elf_kernel(g_ldr_ctx, (elf_header_t *)kernel_image))
+            return false;
+
         printk(TBOOT_INFO"transfering control to kernel @%p...\n", 
                kernel_entry_point);
         /* (optionally) pause when transferring to kernel */
