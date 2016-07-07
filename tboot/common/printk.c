@@ -91,32 +91,69 @@ static void memlog_write( const char *str, unsigned int count)
     /* allocate a 32K temp buffer for compressed log  */
     static char buf[32*1024];
     char *out=buf;
-    uint32_t zip_size;
+    int zip_size;
+    uint32_t zip_pos;
+    bool log_reset_flag;
 
     if ( g_log == NULL || count > g_log->max_size )
         return;
 
-  /* do a compression of the log if curr_pos + count > max_size  */
-    if (g_log->curr_pos + count > g_log->max_size) {
-        zip_size = LZ_Compress(&g_log->buf[g_log->zip_pos[g_log->zip_count]], out, g_log->curr_pos - g_log->zip_pos[g_log->zip_count]);
-        if ((g_log->zip_pos[g_log->zip_count] + zip_size + count < g_log->max_size) && (g_log->zip_count < ZIP_COUNT_MAX)) {
-            memcpy(&g_log->buf[g_log->zip_pos[g_log->zip_count]], out, zip_size);
-            g_log->zip_size[g_log->zip_count] = zip_size;
-            g_log->zip_count++;
-            g_log->zip_pos[g_log->zip_count] = g_log->zip_pos[g_log->zip_count - 1] + zip_size;
-            g_log->curr_pos = g_log->zip_pos[g_log->zip_count];
-            if (g_log->buf[g_log->zip_pos[g_log->zip_count] - 1] !='\0')
-                g_log->buf[g_log->zip_pos[g_log->zip_count]] = '\0';
-            else {
-                  g_log->zip_pos[g_log->zip_count]--;
-                  g_log->curr_pos--;
+    /* Check if there is space for the new string and a null terminator  */
+    if (g_log->curr_pos + count + 1> g_log->max_size) {
+
+        /* If there are space issues, only then log will be reset */
+        log_reset_flag = false;
+
+        /* Check if there is space to add another compressed chunk */
+        if(g_log->zip_count >= ZIP_COUNT_MAX)
+            log_reset_flag = true;
+        else{
+            /* Get the start position of the new compressed chunk */
+            zip_pos = g_log->zip_pos[g_log->zip_count];
+
+            /*  Compress the last part of the log buffer that is not compressed,
+                and put the compressed output in out (buf) */
+            zip_size = LZ_Compress(&g_log->buf[zip_pos], out, (g_log->curr_pos - zip_pos), sizeof(buf) );
+
+            /* Check if buf was large enough for LZ_compress to succeed */
+            if( zip_size < 0 )
+                log_reset_flag = true;
+            else{
+                /*  Check if there is space to add the compressed string, the
+                    new string and a null terminator to the log */
+                if( (zip_pos + zip_size + count + 1) > g_log->max_size )
+                    log_reset_flag = true;
+                else{
+                    /*  Add the new compressed chunk to the log buffer,
+                        over-writing the last part of the log that was just
+                        compressed */
+                    memcpy(&g_log->buf[zip_pos], out, zip_size);
+                    g_log->zip_size[g_log->zip_count] = zip_size;
+                    g_log->zip_count++;
+                    g_log->curr_pos = zip_pos + zip_size;
+
+                    /*  If there was no NULL terminator at the end of the
+                        compressed chunk, add one. In either case,
+                        g_log->curr_pos should point to it */
+                    if (g_log->buf[g_log->curr_pos - 1] !='\0')
+                        g_log->buf[g_log->curr_pos] ='\0';
+                    else
+                        g_log->curr_pos--;
+
+                    /*  Only if there is space to add another compressed chunk,
+                        prepare its start position. */
+                    if( g_log->zip_count < ZIP_COUNT_MAX )
+                        g_log->zip_pos[g_log->zip_count] = g_log->curr_pos;
+                }
             }
         }
-        else {
-              g_log->curr_pos = 0;
-              for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_pos[i] = 0;
-              for ( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_size[i] = 0;
-              g_log->zip_count = 0;
+
+        /* There was some space-shortage problem. Reset the log. */
+        if ( log_reset_flag ){
+            g_log->curr_pos = 0;
+            for( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_pos[i] = 0;
+            for( uint8_t i = 0; i < ZIP_COUNT_MAX; i++ ) g_log->zip_size[i] = 0;
+            g_log->zip_count = 0;
         }
     }
 

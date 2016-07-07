@@ -113,7 +113,7 @@ static unsigned int _LZ_StringCompare( char * str1, char * str2, unsigned int mi
 * _LZ_WriteVarSize() - Write unsigned integer with variable number of
 * bytes depending on value.
 *************************************************************************/
-
+/*will write at most 5 bytes to buf*/
 static int _LZ_WriteVarSize( unsigned int x, char * buf )
 {
     unsigned int y;
@@ -184,10 +184,12 @@ static int _LZ_ReadVarSize( unsigned int * x, char * buf )
 *  out    - Output (compressed) buffer. This buffer must be 0.4% larger
 *           than the input buffer, plus one byte.
 *  insize - Number of input bytes.
-* The function returns the size of the compressed data.
+* outsize - Number of bytes that can be stored in the output buffer.
+* The function returns the size of the compressed data or (-1) if there
+* is insufficient space in the output buffer.
 *************************************************************************/
 
-int LZ_Compress( char *in, char *out, unsigned int insize )
+int LZ_Compress( char *in, char *out, unsigned int insize, unsigned int outsize)
 {
     char marker, symbol;
     unsigned int  inpos, outpos, bytesleft, i;
@@ -200,6 +202,11 @@ int LZ_Compress( char *in, char *out, unsigned int insize )
     if( insize < 1 )
     {
         return 0;
+    }
+
+    if( outsize < 1 )
+    {
+        return -1;
     }
 
     /* Create histogram */
@@ -271,6 +278,9 @@ int LZ_Compress( char *in, char *out, unsigned int insize )
             ((bestlength == 6) && (bestoffset <= 0x001fffff)) ||
             ((bestlength == 7) && (bestoffset <= 0x0fffffff)) )
         {
+            if( (outpos + 1 + 5 + 5) > outsize )
+                return -1;
+
             out[ outpos ++ ] = (char) marker;
             outpos += _LZ_WriteVarSize( bestlength, &out[ outpos ] );
             outpos += _LZ_WriteVarSize( bestoffset, &out[ outpos ] );
@@ -279,6 +289,9 @@ int LZ_Compress( char *in, char *out, unsigned int insize )
         }
         else
         {
+            if( (outpos + 2) > outsize )
+                return -1;
+
             /* Output single byte (or two bytes if marker byte) */
             symbol = in[ inpos ++ ];
             out[ outpos ++ ] = symbol;
@@ -292,6 +305,9 @@ int LZ_Compress( char *in, char *out, unsigned int insize )
     while( bytesleft > 3 );
 
     /* Dump remaining bytes, if any */
+    if( (outpos + bytesleft*2) > outsize )
+        return -1;
+
     while( inpos < insize )
     {
         if( in[ inpos ] == marker )
