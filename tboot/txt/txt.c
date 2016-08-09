@@ -240,12 +240,6 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
             evt_log->event_log_descr[i].size = 4096;
             evt_log->event_log_descr[i].pcr_events_offset = 0;
             evt_log->event_log_descr[i].next_event_offset = 0;
-            if (g_tpm->algs_banks[i] != TB_HALG_SHA1) {
-                evt_log->event_log_descr[i].pcr_events_offset =
-                        32 + sizeof(tpm20_log_descr_t);
-                evt_log->event_log_descr[i].next_event_offset =
-                        32 + sizeof(tpm20_log_descr_t);
-            }
         }
         break;
     case TB_EXTPOL_EMBEDDED:
@@ -256,12 +250,6 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
             evt_log->event_log_descr[i].size = 4096;
             evt_log->event_log_descr[i].pcr_events_offset = 0;
             evt_log->event_log_descr[i].next_event_offset = 0;
-            if (g_tpm->algs[i] != TB_HALG_SHA1) {
-                evt_log->event_log_descr[i].pcr_events_offset =
-                        32 + sizeof(tpm20_log_descr_t);
-                evt_log->event_log_descr[i].next_event_offset =
-                        32 + sizeof(tpm20_log_descr_t);
-            }
         }
         break;
     case TB_EXTPOL_FIXED:
@@ -271,12 +259,6 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
         evt_log->event_log_descr[0].size = 4096;
         evt_log->event_log_descr[0].pcr_events_offset = 0;
         evt_log->event_log_descr[0].next_event_offset = 0;
-        if (g_tpm->cur_alg != TB_HALG_SHA1) {
-            evt_log->event_log_descr[0].pcr_events_offset =
-                    32 + sizeof(tpm20_log_descr_t);
-            evt_log->event_log_descr[0].next_event_offset =
-                    32 + sizeof(tpm20_log_descr_t);
-        }
         break;
     default:
         return;

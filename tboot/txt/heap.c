@@ -302,7 +302,7 @@ static void print_evt_log_ptr_elt_2(const heap_ext_data_element_t *elt)
         printk(TBOOT_DETA"\t\t\t Log Descrption:\n");
         printk(TBOOT_DETA"\t\t\t             Alg: %u\n", log_descr->alg);
         printk(TBOOT_DETA"\t\t\t            Size: %u\n", log_descr->size);
-        printk(TBOOT_DETA"\t\t\t    EventsOffset: [%u,%u)\n",
+        printk(TBOOT_DETA"\t\t\t    EventsOffset: [%u,%u]\n",
                 log_descr->pcr_events_offset,
                 log_descr->next_event_offset);
 
@@ -317,10 +317,26 @@ static void print_evt_log_ptr_elt_2(const heap_ext_data_element_t *elt)
             return;
 
         void *curr, *next;
-        curr = (void *)(unsigned long)log_descr->phys_addr +
+
+        curr = (void *)(unsigned long)log_descr->phys_addr + 
                 log_descr->pcr_events_offset;
         next = (void *)(unsigned long)log_descr->phys_addr +
                 log_descr->next_event_offset;
+        
+        //It is required for each of the non-SHA1 event log the first entry to be the following
+        //TPM1.2 style TCG_PCR_EVENT record specifying type of the log:
+        //TCG_PCR_EVENT.PCRIndex = 0
+        //TCG_PCR_EVENT.EventType = 0x03 // EV_NO_ACTION per TCG EFI
+                                       // Platform specification
+        //TCG_PCR_EVENT.Digest = {00…00} // 20 zeros
+        //TCG_PCR_EVENT.EventDataSize = sizeof(TCG_LOG_DESCRIPTOR).
+        //TCG_PCR_EVENT.EventData = TCG_LOG_DESCRIPTOR
+        //The digest of this record MUST NOT be extended into any PCR.
+
+        if (log_descr->alg != TB_HALG_SHA1){
+            print_event_2(curr, TB_HALG_SHA1);
+            curr += 32 + sizeof(tpm20_log_descr_t);
+        }
 
         while ( curr < next ) {
             print_event_2(curr, log_descr->alg);
