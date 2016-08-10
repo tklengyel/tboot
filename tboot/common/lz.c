@@ -331,9 +331,12 @@ int LZ_Compress( char *in, char *out, unsigned int insize, unsigned int outsize)
 *  out     - Output (uncompressed) buffer. This buffer must be large
 *            enough to hold the uncompressed data.
 *  insize  - Number of input bytes.
+*  outsize - Number of bytes that can be stored in the output buffer.
+* The function returns the size of the uncompressed data or (-1) if there
+* is insufficient space in the output buffer.
 *************************************************************************/
 
-void LZ_Uncompress( char *in, char *out, unsigned int insize )
+int LZ_Uncompress( char *in, char *out, unsigned int insize, unsigned int outsize )
 {
     char marker, symbol;
     unsigned int  i, inpos, outpos, length, offset;
@@ -341,7 +344,7 @@ void LZ_Uncompress( char *in, char *out, unsigned int insize )
     /* Do we have anything to uncompress? */
     if( insize < 1 )
     {
-        return;
+        return -1;
     }
 
     /* Get marker symbol from input stream */
@@ -352,6 +355,8 @@ void LZ_Uncompress( char *in, char *out, unsigned int insize )
     outpos = 0;
     do
     {
+        if( outpos >= outsize )
+            return -1;
         symbol = in[ inpos ++ ];
         if( symbol == marker )
         {
@@ -368,6 +373,8 @@ void LZ_Uncompress( char *in, char *out, unsigned int insize )
                 inpos += _LZ_ReadVarSize( &length, &in[ inpos ] );
                 inpos += _LZ_ReadVarSize( &offset, &in[ inpos ] );
 
+                if( outpos + length > outsize )
+                    return -1;
                 /* Copy corresponding data from history window */
                 for( i = 0; i < length; ++ i )
                 {
@@ -383,4 +390,6 @@ void LZ_Uncompress( char *in, char *out, unsigned int insize )
         }
     }
     while( inpos < insize );
+
+    return outpos;
 }

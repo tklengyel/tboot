@@ -132,13 +132,8 @@ static void memlog_write( const char *str, unsigned int count)
                     g_log->zip_count++;
                     g_log->curr_pos = zip_pos + zip_size;
 
-                    /*  If there was no NULL terminator at the end of the
-                        compressed chunk, add one. In either case,
-                        g_log->curr_pos should point to it */
-                    if (g_log->buf[g_log->curr_pos - 1] !='\0')
-                        g_log->buf[g_log->curr_pos] ='\0';
-                    else
-                        g_log->curr_pos--;
+                    /*  Set a NULL ending */
+                    g_log->buf[g_log->curr_pos] ='\0';
 
                     /*  Only if there is space to add another compressed chunk,
                         prepare its start position. */

@@ -243,12 +243,20 @@ static void display_tboot_log(void *log_base)
     /* to uncompress tboot log */ 
     if (log->zip_count > 0) {
         for ( i = 0; i< log->zip_count; i++) {
-            LZ_Uncompress(&log_buf[log->zip_pos[i]], out, log->zip_size[i]);
+            int length = LZ_Uncompress(&log_buf[log->zip_pos[i]], out, log->zip_size[i], sizeof(pbuf));
+            if ( length < 0 )
+               continue;
             /* log is too big for single printk(), so break it up */
             /* print out the uncompressed log */
-            for ( unsigned int curr_pos = 0; curr_pos < 32*1024; curr_pos += sizeof(buf)-1 ) {
-                strncpy(buf, out + curr_pos, sizeof(buf)-1);
-                buf[sizeof(buf)-1] = '\0';
+            for ( int curr_pos = 0; curr_pos < length; curr_pos += sizeof(buf)-1 ) {
+                if ( length - curr_pos >= (int)sizeof(buf) - 1 ) {
+                    strncpy(buf, out + curr_pos, sizeof(buf)-1);
+                    buf[sizeof(buf)-1] = '\0';
+                }
+                else {
+                    strncpy(buf, out + curr_pos, length - curr_pos);
+                    buf[length - curr_pos] = '\0';
+                }
                 printf("%s", buf);
             }
         }
