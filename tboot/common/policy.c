@@ -444,7 +444,7 @@ static bool hash_module(hash_list_t *hl,
 
     case TB_EXTPOL_AGILE: 
     {
-        hash_list_t img_hl;
+        hash_list_t img_hl, final_hl;
         if ( !g_tpm->hash(g_tpm, 2, (const unsigned char *)cmdline,
                 strlen(cmdline), hl) ) {
             if ( !g_tpm->hash(g_tpm, 2, base, size, hl) )
@@ -464,8 +464,17 @@ static bool hash_module(hash_list_t *hl,
                     copy_hash((tb_hash_t *)buf + get_hash_size(hl->entries[i].alg),
                             &img_hl.entries[j].hash, hl->entries[i].alg);
                     if ( !g_tpm->hash(g_tpm, 2, buf,
-                            2*get_hash_size(hl->entries[i].alg), hl) )
+                            2*get_hash_size(hl->entries[i].alg), &final_hl) )
                         return false;
+
+                    for (unsigned int k=0; k<final_hl.count; k++) {
+                        if (hl->entries[i].alg == final_hl.entries[k].alg) {
+                            copy_hash(&hl->entries[i].hash,
+                                      &final_hl.entries[k].hash,
+                                      hl->entries[i].alg);
+                            break;
+                        }
+                    }
                     
                     break;
                 }
