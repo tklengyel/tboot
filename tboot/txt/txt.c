@@ -343,6 +343,11 @@ void dump_event_2(void)
         *((u64 *)(&next)) = log_descr->phys_addr +
                 log_descr->next_event_offset;
 
+        if ( log_descr->alg != TB_HALG_SHA1 ) {
+            print_event_2(curr, TB_HALG_SHA1);
+            curr += sizeof(tpm12_pcr_event_t) + sizeof(tpm20_log_descr_t);
+        }
+
         while ( curr < next ) {
             print_event_2(curr, log_descr->alg);
             data_size = *(uint32_t *)(curr + 2*sizeof(uint32_t) + hash_size);
@@ -380,7 +385,7 @@ bool evtlog_append_tpm20(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t ty
     *((u32 *)next) = type;
     next += sizeof(u32);
     memcpy((uint8_t *)next, hash, hash_size);
-    next += hash_size/sizeof(uint32_t);
+    next += hash_size;
     *((u32 *)next) = 0;
     cur_desc->next_event_offset += 3*sizeof(uint32_t) + hash_size; 
 

@@ -260,6 +260,12 @@ void print_event_2(void *evt, uint16_t alg)
 
     next += sizeof(uint32_t);
     printk(TBOOT_DETA"\t\t\t         Type: 0x%x\n", *((uint32_t *)next));
+    
+    if ( *((uint32_t *)next) > 24 && *((uint32_t *)next) != 0xFF ) {
+         printk(TBOOT_DETA"\t\t\t           Wrong Event Log.\n");
+         return;
+     }
+
     if ( *((uint32_t *)next) > 0xFFF ) {
         printk(TBOOT_DETA"\t\t\t           Wrong Event Log.\n");
         return;
@@ -331,7 +337,7 @@ static void print_evt_log_ptr_elt_2(const heap_ext_data_element_t *elt)
 
         if (log_descr->alg != TB_HALG_SHA1){
             print_event_2(curr, TB_HALG_SHA1);
-            curr += 32 + sizeof(tpm20_log_descr_t);
+            curr += sizeof(tpm12_pcr_event_t) + sizeof(tpm20_log_descr_t);
         }
 
         while ( curr < next ) {
