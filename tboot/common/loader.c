@@ -56,6 +56,7 @@
 #include <mle.h>
 #include <txt/acmod.h>
 #include <cmdline.h>
+#include <tpm.h>
 
 /* copy of kernel/VMM command line so that can append 'tboot=0x1234' */
 static char *new_cmdline = (char *)TBOOT_KERNEL_CMDLINE_ADDR;
@@ -1286,6 +1287,17 @@ bool launch_kernel(bool is_measured_launch)
 
     void *kernel_entry_point;
     uint32_t mb_type = MB_NONE;
+
+
+    if (g_tpm_family != TPM_IF_20_CRB ) {
+        if (!release_locality(g_tpm->cur_loc))
+            printk(TBOOT_ERR"Release TPM FIFO locality failed \n");
+    }
+    else {
+        if (!tpm_relinquish_locality_crb(g_tpm->cur_loc))
+            printk(TBOOT_ERR"Relinquish TPM CRB locality failed \n");
+
+    }
 
     if ( !verify_loader_context(g_ldr_ctx) )
         return false;

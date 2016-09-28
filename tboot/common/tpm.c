@@ -300,7 +300,7 @@ bool tpm_validate_locality_crb(uint32_t locality)
 }
 
 
-static bool tpm_wait_cmd_ready(uint32_t locality)
+bool tpm_wait_cmd_ready(uint32_t locality)
 {
     uint32_t            i;
     tpm_reg_access_t    reg_acc;

@@ -492,6 +492,8 @@ extern bool tpm_detect(void);
 extern void tpm_print(struct tpm_if *ti);
 extern bool tpm_submit_cmd(u32 locality, u8 *in, u32 in_size, u8 *out, u32 *out_size);
 extern bool tpm_submit_cmd_crb(u32 locality, u8 *in, u32 in_size, u8 *out, u32 *out_size);
+extern bool tpm_wait_cmd_ready(uint32_t locality);
+extern bool tpm_request_locality_crb(uint32_t locality);
 extern bool tpm_relinquish_locality_crb(uint32_t locality);
 extern bool txt_is_launched(void);
 

@@ -568,6 +568,17 @@ void shutdown(void)
 
         /* save kernel/VMM resume vector for sealing */
         g_post_k_s3_state.kernel_s3_resume_vector =  _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
+        
+        /* request locality to be active */
+        if (g_tpm_family != TPM_IF_20_CRB ) {
+            if (!tpm_wait_cmd_ready(g_tpm->cur_loc))
+                printk(TBOOT_ERR"Request TPM FIFO locality failed \n");
+        }
+        else {
+            if (!tpm_request_locality_crb(g_tpm->cur_loc)) 
+                printk(TBOOT_ERR"Request TPM CRB locality failed \n");
+               
+        }
 
         /* create and seal memory integrity measurement */
         if ( !seal_post_k_state() )   apply_policy(TB_ERR_S3_INTEGRITY);
