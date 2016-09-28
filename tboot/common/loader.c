@@ -1291,11 +1291,11 @@ bool launch_kernel(bool is_measured_launch)
 
     if (g_tpm_family != TPM_IF_20_CRB ) {
         if (!release_locality(g_tpm->cur_loc))
-            printk(TBOOT_ERR"Release TPM FIFO locality failed \n");
+            printk(TBOOT_ERR"Release TPM FIFO locality %d failed \n", g_tpm->cur_loc);
     }
     else {
         if (!tpm_relinquish_locality_crb(g_tpm->cur_loc))
-            printk(TBOOT_ERR"Relinquish TPM CRB locality failed \n");
+            printk(TBOOT_ERR"Relinquish TPM CRB locality %d failed \n", g_tpm->cur_loc);
 
     }
 

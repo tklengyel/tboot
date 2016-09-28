@@ -552,14 +552,22 @@ void shutdown(void)
         cpu_relax();
 
     /* ensure localities 0, 1 are inactive (in case kernel used them) */
-   
+    /* request TPM current locality to be active */
     if (g_tpm_family != TPM_IF_20_CRB ) {
-        release_locality(0);
-	 release_locality(1);
+        if (!release_locality(0))
+            printk(TBOOT_ERR"Release TPM FIFO locality 0 failed \n");
+        if (!release_locality(1))
+            printk(TBOOT_ERR"Release TPM FIFO locality 1 failed \n");
+        if (!tpm_wait_cmd_ready(g_tpm->cur_loc))
+            printk(TBOOT_ERR"Request TPM FIFO locality %d failed \n", g_tpm->cur_loc);
     }
     else {
-        tpm_relinquish_locality_crb(0);
-	 tpm_relinquish_locality_crb(1);			 
+        if (!tpm_relinquish_locality_crb(0))
+            printk(TBOOT_ERR"Release TPM CRB locality 0 failed \n");
+        if (!tpm_relinquish_locality_crb(1))			 
+            printk(TBOOT_ERR"Release TPM CRB locality 1 failed \n");
+        if (!tpm_request_locality_crb(g_tpm->cur_loc))
+            printk(TBOOT_ERR"Request TPM CRB locality %d failed \n", g_tpm->cur_loc);
     }
 
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
@@ -569,17 +577,6 @@ void shutdown(void)
         /* save kernel/VMM resume vector for sealing */
         g_post_k_s3_state.kernel_s3_resume_vector =  _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
         
-        /* request locality to be active */
-        if (g_tpm_family != TPM_IF_20_CRB ) {
-            if (!tpm_wait_cmd_ready(g_tpm->cur_loc))
-                printk(TBOOT_ERR"Request TPM FIFO locality failed \n");
-        }
-        else {
-            if (!tpm_request_locality_crb(g_tpm->cur_loc)) 
-                printk(TBOOT_ERR"Request TPM CRB locality failed \n");
-               
-        }
-
         /* create and seal memory integrity measurement */
         if ( !seal_post_k_state() )   apply_policy(TB_ERR_S3_INTEGRITY);
             /* OK to leave key in memory on failure since if user cared they
