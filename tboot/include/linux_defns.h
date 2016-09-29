@@ -84,14 +84,16 @@ typedef struct __attribute__ ((packed)) {
     uint32_t ramdisk_size;   /* initrd size (set by boot loader) */
     uint32_t bootsect_kludge;/* DO NOT USE - for bootsect.S use only */
     uint16_t heap_end_ptr;   /* Free memory after setup end */
-    uint16_t pad1;           /* Unused */
+    uint8_t  ext_loader_ver; /* Boot Protocol: 2.02+ */
+    uint8_t  ext_loader_type;/* Boot Protocol: 2.02+ */
     uint32_t cmd_line_ptr;   /* 32-bit pointer to the kernel command line */
     uint32_t initrd_addr_max;/* Highest legal initrd address */
     uint32_t kernel_alignment;         /* Physical addr alignment
                                           required for kernel */
     uint8_t  relocatable_kernel;       /* Whether kernel is relocatable
                                           or not */
-    uint8_t  pad2[3];                  /* Unused */
+    uint8_t  min_alignment;            /* Boot Protocol: 2.10+ */
+    uint16_t xloadflags;               /* Boot Protocol: 2.12+ */  
     uint32_t cmdline_size;             /* Maximum size of the kernel
                                           command line */
     uint32_t hardware_subarch;         /* Hardware subarchitecture */
@@ -99,6 +101,9 @@ typedef struct __attribute__ ((packed)) {
     uint32_t payload_offset;
     uint32_t payload_length;
     uint64_t setup_data;
+    uint64_t pref_address;
+    uint32_t init_size;
+    uint32_t handover_offset;
 } linux_kernel_header_t;
 
 typedef struct __attribute__ ((packed)) {
