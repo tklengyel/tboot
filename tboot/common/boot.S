@@ -96,7 +96,6 @@ multiboot2_header_end:
 
 ENTRY(start)
 ENTRY(_start)
-ENTRY(_stext)
         jmp __start
 
 

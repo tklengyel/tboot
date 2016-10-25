@@ -25,15 +25,11 @@ SECTIONS
   . = ALIGN(4096);
 	*(.mlept)
 
-  _stext = .;	                /* text */
   _mle_start = .;               /* beginning of MLE pages */
-
 	*(.text)
 	*(.fixup)
 	*(.gnu.warning)
 	} :text = 0x9090
-
-  _etext = .;			/* end of text section */
 
   .rodata : { *(.rodata) *(.rodata.*) }
   . = ALIGN(4096);
