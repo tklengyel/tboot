@@ -1296,7 +1296,8 @@ bool launch_kernel(bool is_measured_launch)
     else {
         if (!tpm_relinquish_locality_crb(g_tpm->cur_loc))
             printk(TBOOT_ERR"Relinquish TPM CRB locality %d failed \n", g_tpm->cur_loc);
-
+        if (!tpm_workaround_crb())
+            printk(TBOOT_ERR"CRB workaround failed \n");
     }
 
     if ( !verify_loader_context(g_ldr_ctx) )

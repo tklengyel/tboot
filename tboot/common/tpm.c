@@ -801,6 +801,30 @@ bool tpm_request_locality_crb(uint32_t locality){
 
 }
 
+bool tpm_workaround_crb(void)
+{
+    tpm_reg_ctrl_cmdsize_t  CmdSize;
+    tpm_reg_ctrl_cmdaddr_t  CmdAddr;
+    tpm_reg_ctrl_rspsize_t  RspSize;
+    tpm_reg_ctrl_rspaddr_t  RspAddr;
+    u32 locality = 0;
+
+    if (!tpm_request_locality_crb(locality))
+        return false;
+
+    CmdAddr.cmdladdr = TPM_LOCALITY_CRB_BASE_N(locality) | TPM_CRB_DATA_BUFFER;
+    CmdAddr.cmdhaddr = 0;
+    RspAddr.rspaddr = TPM_LOCALITY_CRB_BASE_N(locality) | TPM_CRB_DATA_BUFFER;
+    CmdSize.cmdsize = TPMCRBBUF_LEN;
+    RspSize.rspsize = TPMCRBBUF_LEN;
+
+    write_tpm_reg(locality, TPM_CRB_CTRL_CMD_ADDR, &CmdAddr);
+    write_tpm_reg(locality, TPM_CRB_CTRL_CMD_SIZE, &CmdSize);
+    write_tpm_reg(locality, TPM_CRB_CTRL_RSP_ADDR, &RspAddr);
+    write_tpm_reg(locality, TPM_CRB_CTRL_RSP_SIZE, &RspSize);
+
+    return true;
+}
 
 bool tpm_detect(void)
 {

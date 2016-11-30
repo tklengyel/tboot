@@ -496,6 +496,7 @@ extern bool tpm_wait_cmd_ready(uint32_t locality);
 extern bool tpm_request_locality_crb(uint32_t locality);
 extern bool tpm_relinquish_locality_crb(uint32_t locality);
 extern bool txt_is_launched(void);
+extern bool tpm_workaround_crb(void);
 
 
 //#define TPM_UNIT_TEST 1
