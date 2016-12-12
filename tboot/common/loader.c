@@ -837,9 +837,15 @@ static bool move_modules_above_elf_kernel(loader_ctx *lctx, elf_header_t *kernel
 
     printk(TBOOT_INFO"ELF kernel top is at 0x%X\n", (uint32_t)elf_end);
 
-    /* keep modules page aligned */
-    uint32_t target_addr = PAGE_UP((uint32_t)elf_end);
+    uint32_t target_addr = (uint32_t)elf_end;
+    
+    /* stay above tboot if elf kernel is loaded below tboot */
+    if ( target_addr < get_tboot_mem_end() )
+        target_addr = get_tboot_mem_end();
 
+    /* keep modules page aligned */
+    target_addr = PAGE_UP(target_addr);
+   
     uint32_t module_count = get_module_count(lctx);
 
     for ( unsigned int i = 0; i < module_count; i++ )
