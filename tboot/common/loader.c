@@ -1394,9 +1394,18 @@ bool launch_kernel(bool is_measured_launch)
                               MB_MAGIC : MB2_LOADER_MAGIC);
     }
     else if ( kernel_type == LINUX ) {
-        m = get_module(g_ldr_ctx,0);
-        void *initrd_image = (void *)m->mod_start;
-        size_t initrd_size = m->mod_end - m->mod_start;
+        void *initrd_image;
+        size_t initrd_size;
+
+        if ( get_module_count(g_ldr_ctx) == 0 ) {
+            initrd_size = 0;
+            initrd_image = 0;
+        }
+        else {
+            m = get_module(g_ldr_ctx,0);
+            initrd_image = (void *)m->mod_start;
+            initrd_size = m->mod_end - m->mod_start;
+        }
 
         expand_linux_image(kernel_image, kernel_size,
                            initrd_image, initrd_size,
