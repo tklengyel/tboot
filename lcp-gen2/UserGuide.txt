@@ -1,0 +1,48 @@
+#This is a UserGuide for LCP v3 Creator
+1. Introduction
+This document describes how to install and use the 2nd generation of Launch Control Policy creation tool for creating Intel® TXT launch
+control policies for use with TPM 2.0 family devices.
+This LCP tool can be used to build one or more Policy Definition (PDEF) files and, using a PDEF file,
+can create policy files for use with Intel TXT. Intel TXT launch control policy consists of NV Policy Data
+stored in the TPM NVRAM and a Policy List Structure file that is stored either in the BIOS flash ROM (for
+Platform Supplier policy) or in the boot directory of the target platform (for Platform Owner policy).
+This tool creates/edits a Policy Definition File (PDEF). The PDEF identifies files that contain the data for
+building the NV Policy Data and Data List Structure. All source data files must be in the working
+directory. The GUI updates the PDEF structure and when the user selects “BUILD”, the tool creates the
+policy files based on the information in the PDEF file.
+
+The tool allows the user to:
+- Open an existing PDEF file or create a new one.
+- Save the open definition to a new file name.
+- Build the NV Policy Data and Policy List Structure based on the open PDEF.
+
+The output files are:
+- *.txt – TPM NV Policy data in readable text format (for DOS provisioning tools)
+- *.pol – TPM NV Policy data in raw format for provisioning tools that take unformatted data.
+- *.dat – file that contains the associated Policy List Structure
+
+2. Installation
+This tool is written in Python, so Python 2.7.x installation is needed to run the tool.
+Besides Python 2.7, following Python packages installation are required as well:
+- python-wxpython28
+- M2Crypto 
+- PyAsn1
+
+3. Running the tool
+The tool provides a Graphical User Interface (GUI) to edit and create the launch control policies.
+The tool can be started by typing following command in a termainal from tool's working directory:
+./TxtPolicyGen2.py
+
+4. LCP Creation
+TBD
+
+Troubleshooting
+- The tool can only be run from its working directory
+- It is preferred to run the tool as a non-root user
+- Create a new PDEF before editing the policy in tool's GUI
+
+
+
+
+
+
