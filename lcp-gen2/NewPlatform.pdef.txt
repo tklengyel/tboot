@@ -1,0 +1,48 @@
+PDEF file:  NewPlatform.pdef.txt  written on:  Fri Dec 16 08:00:19 2016
+
+
+FileTypeSignature  =  TXT Policy Definition v2
+DefCompany  =  Intel
+StructVersion  =  2
+MaxLists  =  8
+MaxElements  =  2
+MaxHashSize  =  64
+MaxHashes  =  16
+MaxFileNameSize  =  32
+ToolDate  =  20161216
+ToolVersion = 2.0
+Rules  =  1
+Modified  =  False
+PolVersion = 3.1
+HashAlg  =  11
+PolicyType  =  1
+SinitMinVersion  =  0
+DataRevocationCounters  =  [0, 0, 0, 0, 0, 0, 0, 0]
+PolicyControl  =  8
+MaxSinitMinVersion  =  255
+MaxBiosMinVersion  =  255
+LcpHashAlgMask  =  8
+LcpSignAlgMask  =  8
+AuxHashAlgMask  =  8
+LastBuildDateStamp (YYYYMMDD) = 20000101
+LastBuildTimeStamp (HHMMSS) = 000000
+CurrentListView  =  0
+NumLists  =  0
+PolListInfo[0]  =  None
+PolListInfo[1]  =  None
+PolListInfo[2]  =  None
+PolListInfo[3]  =  None
+PolListInfo[4]  =  None
+PolListInfo[5]  =  None
+PolListInfo[6]  =  None
+PolListInfo[7]  =  None
+
+
+PlistInfo 1  =  None
+PlistInfo 2  =  None
+PlistInfo 3  =  None
+PlistInfo 4  =  None
+PlistInfo 5  =  None
+PlistInfo 6  =  None
+PlistInfo 7  =  None
+PlistInfo 8  =  None
