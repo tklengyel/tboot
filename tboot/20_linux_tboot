@@ -199,7 +199,7 @@ while [ "x${tboot_list}" != "x" ] && [ "x$linux_list" != "x" ] ; do
     tboot_dirname=`dirname ${current_tboot}`
     rel_tboot_dirname=`make_system_path_relative_to_its_root $tboot_dirname`
 #    tboot_version=`echo $tboot_basename | sed -e "s,.gz$,,g;s,^tboot-,,g"`
-    tboot_version="1.9.4"
+    tboot_version="1.9.5"
     echo "submenu \"tboot ${tboot_version}\" {"
     while [ "x$list" != "x" ] ; do
 	linux=`version_find_latest $list`
