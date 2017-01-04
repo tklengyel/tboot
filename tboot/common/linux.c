@@ -303,14 +303,17 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
 
     /* copy cmdline */
     const char *kernel_cmdline = get_cmdline(g_ldr_ctx);
+    const size_t kernel_cmdline_size = REAL_END_OFFSET - KERNEL_CMDLINE_OFFSET;
+    size_t kernel_cmdline_strlen = strlen(kernel_cmdline);
+    if (kernel_cmdline_strlen > kernel_cmdline_size - 1)
+        kernel_cmdline_strlen = kernel_cmdline_size - 1;
+    memset((void *)hdr->cmd_line_ptr, 0, kernel_cmdline_size);
+    memcpy((void *)hdr->cmd_line_ptr, kernel_cmdline, kernel_cmdline_strlen);
 
-    printk(TBOOT_INFO"Linux cmdline placed in header: ");
-    printk_long(kernel_cmdline);
-    printk(TBOOT_INFO"\n");
-   
-    memset((void *)hdr->cmd_line_ptr,0,TBOOT_KERNEL_CMDLINE_SIZE);
-
-    memcpy((void *)hdr->cmd_line_ptr, kernel_cmdline, strlen(kernel_cmdline));
+    printk(TBOOT_INFO"Linux cmdline from 0x%lx to 0x%lx:\n",
+           (unsigned long)hdr->cmd_line_ptr,
+           (unsigned long)(hdr->cmd_line_ptr + kernel_cmdline_size));
+    printk_long((void *)hdr->cmd_line_ptr);
 
     /* need to put boot_params in real mode area so it gets mapped */
     boot_params = (boot_params_t *)(real_mode_base + real_mode_size);
