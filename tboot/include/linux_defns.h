@@ -207,7 +207,7 @@ typedef struct __attribute__ ((packed)) {
 
 #define REAL_KERNEL_OFFSET      0x0000
 #define BOOT_SECTOR_OFFSET      0x0200
-#define KERNEL_CMDLINE_OFFSET   0x9000
+#define KERNEL_CMDLINE_OFFSET   0x8D00
 #define REAL_END_OFFSET         0x9100
 
 #define REAL_MODE_SIZE          REAL_END_OFFSET - REAL_KERNEL_OFFSET

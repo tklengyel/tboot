@@ -120,8 +120,8 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
 
     /* recommended layout
         0x0000 - 0x7FFF     Real mode kernel
-        0x8000 - 0x8FFF     Stack and heap
-        0x9000 - 0x90FF     Kernel command line
+        0x8000 - 0x8CFF     Stack and heap
+        0x8D00 - 0x90FF     Kernel command line
         for details, see linux_defns.h
     */
 
