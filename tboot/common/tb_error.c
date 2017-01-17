@@ -181,7 +181,7 @@ bool was_last_boot_error(void)
 
     /* check TB_LAUNCH_ERR_IDX */
     if ( read_tb_error_code(&error) ) {
-        if ( error != TB_ERR_FIXED )
+        if ( error != TB_ERR_FIXED && error != TB_ERR_NONE )
             return true;
     }
 
