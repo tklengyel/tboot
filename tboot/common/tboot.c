@@ -75,6 +75,7 @@ extern bool set_policy(void);
 extern void verify_all_modules(loader_ctx *lctx);
 extern void verify_all_nvindices(void);
 extern void apply_policy(tb_error_t error);
+extern void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr);
 void s3_launch(void);
 
 /* counter timeout for waiting for all APs to exit guests */
@@ -378,10 +379,6 @@ void begin_launch(void *addr, uint32_t magic)
         if ( !copy_e820_map(g_ldr_ctx) )  apply_policy(TB_ERR_FATAL);
     }
 
-    /* make TPM ready for measured launch */
-    if (!tpm_detect()) 
-       apply_policy(TB_ERR_TPM_NOT_READY);
-   
     /* we need to make sure this is a (TXT-) capable platform before using */
     /* any of the features, incl. those required to check if the environment */
     /* has already been launched */
@@ -395,8 +392,13 @@ void begin_launch(void *addr, uint32_t magic)
        if (!verify_acmod(g_sinit)) 
            apply_policy(TB_ERR_ACMOD_VERIFY_FAILED);
     }
+    
+    /* make TPM ready for measured launch */
+    if (!tpm_detect())
+       apply_policy(TB_ERR_TPM_NOT_READY);
 
-
+    /* verify SE enablement status */
+    verify_IA32_se_svn_status(g_sinit);
 
     /* read tboot verified launch control policy from TPM-NV (will use default if none in TPM-NV) */
     err = set_policy();

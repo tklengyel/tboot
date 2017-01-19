@@ -906,9 +906,6 @@ bool verify_acmod(const acm_hdr_t *acm_hdr)
     /* print it for debugging */
     print_acm_hdr(acm_hdr, "SINIT");
 
-    /* verify SE enablement status */
-    verify_IA32_se_svn_status(acm_hdr);
-
     /* entry point is offset from base addr so make sure it is within module */
     if ( acm_hdr->entry_point >= size ) {
         printk(TBOOT_ERR"AC mod entry (%08x) >= AC mod size (%08x)\n",
