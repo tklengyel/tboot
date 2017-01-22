@@ -650,6 +650,8 @@ bool does_acmod_match_platform(const acm_hdr_t* hdr)
 #ifndef IS_INCLUDED
 acm_hdr_t *get_bios_sinit(const void *sinit_region_base)
 {
+    if ( sinit_region_base == NULL )
+       return NULL;
     txt_heap_t *txt_heap = get_txt_heap();
     bios_data_t *bios_data = get_bios_data_start(txt_heap);
 
@@ -736,6 +738,9 @@ acm_hdr_t *copy_sinit(const acm_hdr_t *sinit)
                "SINIT (%x)\n", sinit_region_size, sinit->size*4);
         return NULL;
     }
+
+    if ( sinit_region_base == NULL )
+       return NULL;
 
     /* copy it there */
     memcpy(sinit_region_base, sinit, sinit->size*4);
