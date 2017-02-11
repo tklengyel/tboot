@@ -74,8 +74,11 @@ extern bool find_platform_sinit_module(loader_ctx *lctx, void **base,
 extern bool find_lcp_module(loader_ctx *lctx, void **base, uint32_t *size);
 
 
-
 extern bool is_kernel_linux(void);
+
+extern uint32_t find_efi_memmap(loader_ctx *lctx, uint32_t *descr_size,
+                                uint32_t *descr_vers, uint32_t *mmap_size);
+
 extern bool launch_kernel(bool is_measured_launch);
 extern bool verify_loader_context(loader_ctx *lctx);
 extern bool verify_modules(loader_ctx *lctx);

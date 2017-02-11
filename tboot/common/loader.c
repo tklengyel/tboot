@@ -1899,6 +1899,26 @@ get_loader_efi_ptr(loader_ctx *lctx, uint32_t *address, uint64_t *long_address)
     return false;
 }
 
+
+uint32_t
+find_efi_memmap(loader_ctx *lctx, uint32_t *descr_size,
+                uint32_t *descr_vers, uint32_t *mmap_size) {
+    struct mb2_tag *start = NULL, *hit = NULL;
+    struct mb2_tag_efi_mmap *efi_mmap = NULL;
+
+    start = (struct mb2_tag *)(lctx->addr + 8);
+    hit = find_mb2_tag_type(start, MB2_TAG_TYPE_EFI_MMAP);
+    if (hit == NULL) {
+       return 0;
+    }
+
+    efi_mmap = (struct mb2_tag_efi_mmap *)hit;
+    *descr_size = efi_mmap->descr_size;
+    *descr_vers = efi_mmap->descr_vers;
+    *mmap_size = efi_mmap->size;
+    return (uint32_t)(&efi_mmap->efi_mmap); 
+}
+
 bool
 is_loader_launch_efi(loader_ctx *lctx)
 {

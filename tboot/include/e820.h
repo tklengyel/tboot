@@ -89,9 +89,6 @@ extern bool get_ram_ranges(uint64_t *min_lo_ram, uint64_t *max_lo_ram,
 extern void get_highest_sized_ram(uint64_t size, uint64_t limit,
                                   uint64_t *ram_base, uint64_t *ram_size);
 
-/* EFI memory map support */
-extern efi_memory_desc_t *get_efi_memmap(uint32_t *memmap_size);
-
 /*
  * Memory map descriptor:
  */

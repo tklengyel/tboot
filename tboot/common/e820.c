@@ -60,14 +60,10 @@ uint32_t g_min_ram = 0;
 static unsigned int g_nr_map;
 static memory_map_t *g_copy_e820_map = (memory_map_t *)TBOOT_E820_COPY_ADDR;
 
-static efi_memory_desc_t *efi_memmap_addr = NULL;
-static uint32_t efi_memmap_size = 0;
-
-static inline void split64b(uint64_t val, uint32_t *val_lo, uint32_t *val_hi)
-{
-    *val_lo = (uint32_t)(val & 0xffffffff);
-    *val_hi = (uint32_t)(val >> 32);
-}
+static inline void split64b(uint64_t val, uint32_t *val_lo, uint32_t *val_hi)  {
+     *val_lo = (uint32_t)(val & 0xffffffff); 
+     *val_hi = (uint32_t)(val >> 32);
+ }
 
 static inline uint64_t combine64b(uint32_t val_lo, uint32_t val_hi)
 {
@@ -691,72 +687,6 @@ void get_highest_sized_ram(uint64_t size, uint64_t limit,
     *ram_size = last_fit_size;
 }
 
-#define PAGE_4K (1 << 12)
-
-efi_memory_desc_t
-*get_efi_memmap(uint32_t *memmap_size)
-{
-    unsigned int i;
-    memory_map_t *mp;
-    efi_memory_desc_t *ep;
-    uint32_t space_required;
-    
-    if (efi_memmap_addr == NULL){
-        /* we haven't done the conversion yet--is there room? */
-        space_required = sizeof(memory_map_t) * g_nr_map +
-            sizeof(efi_memory_desc_t) * g_nr_map + 0xf;
-        if (space_required >= TBOOT_E820_COPY_SIZE){
-            printk(TBOOT_ERR
-                   "Insufficient space to make EFI copy of E820 [%d => %d]\n",
-                   space_required, TBOOT_E820_COPY_SIZE);
-            return NULL;
-        }
-        /* for fun, we'll align the entries to 0x10 */
-        ep = efi_memmap_addr = (efi_memory_desc_t *)
-            ((TBOOT_E820_COPY_ADDR + sizeof(memory_map_t) * g_nr_map + 0xf)
-             & ~0xf);
-        /* printk(TBOOT_INFO"efi memmap base now at %p\n", ep); */
-        mp = g_copy_e820_map;
-        for (i = 0; i < g_nr_map; i++){
-            uint64_t length;
-            ep[i].phys_addr = ep[i].virt_addr = e820_base_64(mp + i);
-            ep[i].pad = 0;
-            length = e820_length_64(mp + i);
-            length += PAGE_4K - 1;
-            length &= ~(PAGE_4K - 1);
-            ep[i].num_pages = length / PAGE_4K;
-            switch (mp[i].type){
-            case E820_RAM:
-                ep[i].type = EFI_CONVENTIONAL_MEMORY;
-                ep[i].attribute |= EFI_MEMORY_WB;
-                break;
-            case E820_ACPI:
-                ep[i].type = EFI_ACPI_RECLAIM_MEMORY;
-                break;
-            case E820_NVS:
-                ep[i].type = EFI_ACPI_MEMORY_NVS;
-                break;
-            case E820_UNUSABLE:
-                ep[i].type = EFI_UNUSABLE_MEMORY;
-                break;
-            case E820_GAP:
-            case E820_MIXED:
-            case E820_RESERVED:
-            default:
-                ep[i].type = EFI_RESERVED_TYPE;
-                break;
-            }
-            /*
-              printk(TBOOT_INFO
-              "EFI entry %d at %016Lx type %d with %Lx pages\n",
-              i, ep[i].phys_addr, ep[i].type, ep[i].num_pages);
-            */
-            efi_memmap_size += sizeof(efi_memory_desc_t);
-        }
-    }
-    *memmap_size = efi_memmap_size;
-    return efi_memmap_addr;
-}
 
 /*
  * Local variables:

@@ -328,6 +328,10 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         uint32_t address = 0;
         uint64_t long_address = 0UL;
 
+        uint32_t descr_size = 0, descr_vers = 0, mmap_size = 0, efi_mmap_addr = 0;
+
+
+
         /* loader signature */
         memcpy(&efi->efi_ldr_sig, "EL64", sizeof(uint32_t));
 
@@ -346,26 +350,30 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
             }
         }
 
-        /* EFI memmap descriptor size */
-        efi->efi_memdescr_size = 0x30;
+        efi_mmap_addr = find_efi_memmap(g_ldr_ctx, &descr_size,
+                                        &descr_vers, &mmap_size);
+        if (!efi_mmap_addr) {
+            printk(TBOOT_INFO"failed to get EFI memory map\n");
+            efi->efi_memdescr_size = 0x1; // Avoid div by 0 in kernel.
+            efi->efi_memmap_size = 0;
+            efi->efi_memmap = 0;
+        } else {
+            efi->efi_memdescr_size = descr_size;
+            efi->efi_memdescr_ver = descr_vers;
+            efi->efi_memmap_size = mmap_size;
+            efi->efi_memmap = efi_mmap_addr;
+            /* From Multiboot2 spec:
+             * The bootloader must not load any part of the kernel, the modules,
+             * the Multiboot2 information structure, etc. higher than 4 GiB - 1.
+             */
+            efi->efi_memmap_hi = 0;
 
-        /* EFI memmap descriptor version */
-        efi->efi_memdescr_ver = 1;
+            printk(TBOOT_INFO "EFI memmap: memmap base: 0x%x, memmap size: 0x%x\n",
+                  efi->efi_memmap, efi->efi_memmap_size);
+            printk(TBOOT_INFO "EFI memmap: descr size: 0x%x, descr version: 0x%x\n",
+                  efi->efi_memdescr_size, efi->efi_memdescr_ver);
+         }
 
-#if 1   /* EFI memmap addr */
-        {
-            uint32_t length;
-            efi->efi_memmap = (uint32_t) get_efi_memmap(&length);
-            /* EFI memmap size */
-            efi->efi_memmap_size = length;
-        }
-#else
-        efi->efi_memmap = 0;
-        efi->efi_memmap_size = 0x70;
-#endif
-
-        /* EFI memmap high--since we're consing our own, we know this == 0 */
-        efi->efi_memmap_hi = 0;
         /* if we're here, GRUB2 probably threw a framebuffer tag at us */
         load_framebuffer_info(g_ldr_ctx, (void *)scr);
     }

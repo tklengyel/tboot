@@ -98,6 +98,8 @@
 #define MB2_TAG_TYPE_ACPI_OLD         14
 #define MB2_TAG_TYPE_ACPI_NEW         15
 #define MB2_TAG_TYPE_NETWORK          16
+#define MB2_TAG_TYPE_EFI_MMAP         17
+#define MB2_TAG_TYPE_EFI_BS           18
 
 #ifndef __ASSEMBLY__
 
@@ -313,6 +315,17 @@ struct mb2_tag_vbe
   struct mb2_vbe_info_block vbe_control_info;
   struct mb2_vbe_mode_info_block vbe_mode_info;
 };
+
+struct mb2_tag_efi_mmap
+{
+    uint32_t type;
+    uint32_t size;
+    uint32_t descr_size;
+    uint32_t descr_vers;
+    uint8_t efi_mmap[0];
+};
+
+
 
 struct mb2_fb_common
 {
