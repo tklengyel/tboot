@@ -288,6 +288,11 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     /* set cmd_line_ptr */
     hdr->cmd_line_ptr = real_mode_base + KERNEL_CMDLINE_OFFSET;
 
+    /* Save linux header struct to temp memory, in case the it is overwritten by memmove below*/
+    linux_kernel_header_t temp_hdr;
+    memmove(&temp_hdr, hdr, sizeof(temp_hdr));
+    hdr = &temp_hdr;
+
     /* load protected-mode part */
     memmove((void *)protected_mode_base, linux_image + real_mode_size,
             protected_mode_size);
