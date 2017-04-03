@@ -183,8 +183,7 @@ static bool supports_smx(void)
 
 bool use_mwait(void)
 {
-    return get_tboot_mwait() && 
-           (g_cpuid_ext_feat_info & CPUID_X86_FEATURE_XMM3);
+    return get_tboot_mwait() && (g_cpuid_ext_feat_info & CPUID_X86_FEATURE_XMM3);
 }
 
 tb_error_t supports_txt(void)

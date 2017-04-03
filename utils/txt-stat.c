@@ -62,7 +62,6 @@ typedef uint8_t multiboot_info_t;
 void print_hex(const char* prefix, const void *start, size_t len);
 #include "../include/hash.h"
 #include "../tboot/include/txt/heap.h"
-
 #include "../tboot/txt/heap.c"
 #include "../tboot/include/lz.h"
 #include "../tboot/common/lz.c"

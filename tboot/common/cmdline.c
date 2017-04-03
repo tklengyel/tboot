@@ -32,7 +32,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
+#ifndef IS_INCLUDED
 #include <config.h>
 #include <types.h>
 #include <stdbool.h>
@@ -49,7 +49,7 @@
 #include <multiboot.h>
 #include <txt/config_regs.h>
 #include <txt/heap.h>
-
+#endif
 /*
  * copy of original command line
  * part of tboot measurement (hence in .text section)

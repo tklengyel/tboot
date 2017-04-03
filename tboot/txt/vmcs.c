@@ -490,7 +490,7 @@ void vmx_vmexit_handler(void)
     unsigned int apicid = get_apicid();
 
     unsigned int exit_reason = __vmread(VM_EXIT_REASON);
-    /*printk("vmx_vmexit_handler, exit_reason=%x.\n", exit_reason);*/
+    /*printk("vmx_vmexit_handler, cpu= %d,  exit_reason=%x.\n", apicid, exit_reason);*/
 
     if ( (exit_reason & VMX_EXIT_REASONS_FAILED_VMENTRY) ) {
         print_failed_vmentry_reason(exit_reason);
@@ -511,7 +511,7 @@ void vmx_vmexit_handler(void)
         /* disable VT then jump to xen code */
         unsigned long exit_qual = __vmread(EXIT_QUALIFICATION);
         uint32_t sipi_vec = (exit_qual & 0xffUL) << PAGE_SHIFT;
-        /* printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
+        /*printk("exiting due to SIPI: vector=%x\n", sipi_vec); */
         stop_vmx(apicid);
         atomic_dec(&ap_wfs_count);
         atomic_dec((atomic_t *)&_tboot_shared.num_in_wfs);

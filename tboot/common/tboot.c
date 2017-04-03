@@ -427,7 +427,7 @@ void begin_launch(void *addr, uint32_t magic)
     /* this is being called post-measured launch */
     if ( is_launched() ){
         printk(TBOOT_INFO"Post_launch started ...\n");
-	 post_launch();
+	post_launch();
     }
 
     /* make the CPU ready for measured launch */

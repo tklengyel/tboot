@@ -35,7 +35,6 @@
 
 #ifndef __TXT_HEAP_H__
 #define __TXT_HEAP_H__
-
 /*
  * Extensible TXT heap data structure
  */
@@ -101,6 +100,66 @@ typedef struct __packed {
     uint8_t data[];
 } tpm12_pcr_event_t;
 
+
+//Event Log Header
+
+/*
+To allow parsers to identify the log format based on the content of the log, the first event
+of the log is formatted as a TCG_PCR_EVENT structure independent of the format for
+the rest of the log. A parser may read the first event of type TCG_PCR_EVENT and
+because of its fixed size, easily find the event data. The fields of the event log header are
+defined to be PCRIndex of 0, EventType of EV_NO_ACTION, Digest of 20 bytes of 0, and
+Event content defined as TCG_EfiSpecIDEventStruct. This first event is the event log
+header.
+*/
+
+typedef struct __packed {
+    uint32_t pcr_index; //pcr_index event extended to
+    uint32_t event_type;  //Type of event (see EFI specs)
+    uint8_t digest[20];//Value extended into pcr_index
+    uint32_t event_data_size; //Size of the event data 
+    uint8_t event_data[]; //The event data Structure to be added to the Event Log
+} tcg_pcr_event;
+
+typedef struct {
+    uint16_t       hash_alg;
+    uint8_t        digest[];
+} TPMT_HA_1;
+
+typedef struct {
+    uint32_t         count;
+    TPMT_HA_1     digests[5];
+} TPML_DIGEST_VALUES_1;
+
+//TCG compliant TPM event log
+typedef struct __packed {
+    uint32_t pcr_index;
+    uint32_t event_type;
+    TPML_DIGEST_VALUES_1 digest; //List of digests extended to pcr_index banks
+    uint32_t event_size;
+    uint8_t event[];
+} tcg_pcr_event2;
+
+
+typedef struct __packed {
+    uint16_t algorithm_id;
+    uint16_t digest_size;
+} tcg_efi_spec_id_event_algorithm_size;
+
+
+typedef struct __packed {
+    uint8_t signature[16];
+    uint32_t platform_class;
+    uint8_t spec_version_minor;
+    uint8_t spec_version_major;
+    uint8_t spec_errata;
+    uint8_t uintn_size;
+    uint32_t number_of_algorithms;
+    tcg_efi_spec_id_event_algorithm_size  digestSizes[5];
+    uint8_t vendor_info_size;
+    uint8_t vendor_info[];    
+} tcg_efi_specid_event_strcut;
+
 #define EVTLOG_SIGNATURE "TXT Event Container\0"
 #define EVTLOG_CNTNR_MAJOR_VER 1
 #define EVTLOG_CNTNR_MINOR_VER 0
@@ -115,7 +174,7 @@ typedef struct __packed {
     uint8_t pcr_event_ver_minor;
     uint32_t size;
     uint32_t pcr_events_offset;
-    uint32_t next_event_offset;
+    uint32_t next_event_offset; 
     tpm12_pcr_event_t pcr_events[];
 } event_log_container_t;
 
@@ -123,6 +182,7 @@ typedef struct __packed {
  * HEAP_EVENT_LOG_POINTER_ELEMENT2
  */
 #define HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2  7 
+#define HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2_1  8
 
 #define DIGEST_ALG_ID_SHA_1       0x00000001
 #define DIGEST_ALG_ID_SHA_256     0x00000002
@@ -166,6 +226,12 @@ typedef struct __packed {
     heap_event_log_descr_t event_log_descr[];
 } heap_event_log_ptr_elt2_t;
 
+typedef struct {
+	uint64_t phys_addr;
+	uint32_t allcoated_event_container_size;
+	uint32_t first_record_offset;
+	uint32_t next_record_offset;
+} heap_event_log_ptr_elt2_1_t;
 
 /*
  * data-passing structures contained in TXT heap:
