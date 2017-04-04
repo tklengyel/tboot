@@ -2319,9 +2319,9 @@ static bool tpm20_init(struct tpm_if *ti)
             ti->alg_count++;
         }
     }
-    printk(TBOOT_INFO"TPM: supported alg count = %08X\n", ti->alg_count);
+    printk(TBOOT_INFO"tboot: supported alg count = %d\n", ti->alg_count);
     for (unsigned int i=0; i<ti->alg_count; i++)
-        printk(TBOOT_INFO"\t\t %08X\n", ti->algs[i]);
+        printk(TBOOT_INFO"tboot: hash alg = %08X\n", ti->algs[i]);
 
     if (handle2048 != 0)
         goto out;
