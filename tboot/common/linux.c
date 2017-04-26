@@ -204,6 +204,19 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
         initrd_base = initrd_base & PAGE_MASK;
     }
 
+    /* check for overlap with a kernel image placed high in memory */
+    if( (initrd_base < ((uint32_t)linux_image + linux_size))
+        && ((uint32_t)linux_image < (initrd_base+initrd_size)) ){
+        /* set the starting address just below the image */
+        initrd_base = (uint32_t)linux_image - initrd_size;
+        initrd_base = initrd_base & PAGE_MASK;
+        /* make sure we're still in usable RAM and above tboot end address*/
+        if( initrd_base < max_ram_base ){
+            printk(TBOOT_ERR"no available memory for initrd\n");
+            return false;
+        }
+    }
+
     memmove((void *)initrd_base, initrd_image, initrd_size);
     printk(TBOOT_DETA"Initrd from 0x%lx to 0x%lx\n",
            (unsigned long)initrd_base,
