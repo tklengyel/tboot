@@ -160,12 +160,7 @@ static lcp_signature_t2 *read_rsa_pubkey_file(const char *file)
 
     memset(sig, 0, sizeof(lcp_rsa_signature_t) + 2*keysize);
     sig->rsa_signature.pubkey_size = keysize;
-    if ( (unsigned int)BN_num_bytes(pubkey->n) != keysize ) {
-        ERROR("Error: modulus size not match key size\n");
-        free(sig);
-        RSA_free(pubkey);
-        return NULL;
-    }
+    
     unsigned char key[keysize];
     BN_bn2bin(pubkey->n, key);
     /* openssl key is big-endian and policy requires little-endian, so reverse
