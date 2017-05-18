@@ -32,7 +32,7 @@ OBJS := $(obj-y)
 TARGET_LDS := $(CURDIR)/common/tboot.lds
 
 $(TARGET).gz : $(TARGET)
-	gzip -f -9 < $< > $@
+	gzip -n -f -9 < $< > $@
 
 $(TARGET) : $(OBJS) $(TARGET_LDS)
 	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) -o $(@D)/.$(@F).0
