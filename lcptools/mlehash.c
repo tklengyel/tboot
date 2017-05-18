@@ -336,7 +336,7 @@ int main(int argc, char* argv[])
     bool help = false;
     char *mle_file;
     extern int optind;    /* current index of get_opt() */
-    EVP_MD_CTX ctx;
+    EVP_MD_CTX *ctx = EVP_MD_CTX_create();
     const EVP_MD *md;
     char *cmdline = NULL;
 
@@ -418,10 +418,10 @@ int main(int argc, char* argv[])
 
     /* SHA-1 the MLE portion of the image */
     md = EVP_sha1();
-    EVP_DigestInit(&ctx, md);
-    EVP_DigestUpdate(&ctx, exp_start + mle_hdr->mle_start_off,
+    EVP_DigestInit(ctx, md);
+    EVP_DigestUpdate(ctx, exp_start + mle_hdr->mle_start_off,
                      mle_hdr->mle_end_off - mle_hdr->mle_start_off);
-    EVP_DigestFinal(&ctx, (unsigned char *)hash, NULL);
+    EVP_DigestFinal(ctx, (unsigned char *)hash, NULL);
     log_info("SHA-1 = ");
 
     /* we always print the hash regardless of verbose mode */
@@ -432,11 +432,13 @@ int main(int argc, char* argv[])
     }
     printf("\n");
 
+    EVP_MD_CTX_destroy(ctx);
     free(base);
     free(exp_start);
     return 0;
 
 error:
+    EVP_MD_CTX_destroy(ctx);
     free(base);
     free(exp_start);
     return 1;

@@ -101,16 +101,17 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint16_t hash_alg)
         return false;
 
     if ( hash_alg == TB_HALG_SHA1_LG ) {
-        EVP_MD_CTX ctx;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_create();
         const EVP_MD *md;
 
         memcpy(buf, &(hash1->sha1), sizeof(hash1->sha1));
         memcpy(buf + sizeof(hash1->sha1), &(hash2->sha1), sizeof(hash1->sha1));
         md = EVP_sha1();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, 2*sizeof(hash1->sha1));
-        EVP_DigestFinal(&ctx, hash1->sha1, NULL);
-        return true;
+        EVP_DigestInit(ctx, md);
+        EVP_DigestUpdate(ctx, buf, 2*sizeof(hash1->sha1));
+        EVP_DigestFinal(ctx, hash1->sha1, NULL);
+        EVP_MD_CTX_destroy(ctx); 
+        return true;  
     }
     else
         return false;

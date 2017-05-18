@@ -82,33 +82,36 @@ bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
         return false;
 
     if ( hash_alg == TB_HALG_SHA1 ) {
-        EVP_MD_CTX ctx;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_create();
         const EVP_MD *md;
 
         md = EVP_sha1();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, size);
-        EVP_DigestFinal(&ctx, hash->sha1, NULL);
+        EVP_DigestInit(ctx, md);
+        EVP_DigestUpdate(ctx, buf, size);
+        EVP_DigestFinal(ctx, hash->sha1, NULL);
+        EVP_MD_CTX_destroy(ctx);
         return true;
     }
     else if (hash_alg == TB_HALG_SHA256) {
-        EVP_MD_CTX ctx;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_create();
         const EVP_MD *md;
 
         md = EVP_sha256();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, size);
-        EVP_DigestFinal(&ctx, hash->sha256, NULL);
+        EVP_DigestInit(ctx, md);
+        EVP_DigestUpdate(ctx, buf, size);
+        EVP_DigestFinal(ctx, hash->sha256, NULL);
+        EVP_MD_CTX_destroy(ctx);
         return true;
     }
     else if (hash_alg == TB_HALG_SHA384) {
-        EVP_MD_CTX ctx;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_create();
         const EVP_MD *md;
 
         md = EVP_sha384();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, size);
-        EVP_DigestFinal(&ctx, hash->sha384, NULL);
+        EVP_DigestInit(ctx, md);
+        EVP_DigestUpdate(ctx, buf, size);
+        EVP_DigestFinal(ctx, hash->sha384, NULL);
+        EVP_MD_CTX_destroy(ctx);
         return true;
     }
     else
@@ -129,15 +132,16 @@ bool extend_hash(tb_hash_t *hash1, const tb_hash_t *hash2, uint16_t hash_alg)
         return false;
 
     if ( hash_alg == TB_HALG_SHA1 ) {
-        EVP_MD_CTX ctx;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_create();
         const EVP_MD *md;
 
         memcpy(buf, &(hash1->sha1), sizeof(hash1->sha1));
         memcpy(buf + sizeof(hash1->sha1), &(hash2->sha1), sizeof(hash1->sha1));
         md = EVP_sha1();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, 2*sizeof(hash1->sha1));
-        EVP_DigestFinal(&ctx, hash1->sha1, NULL);
+        EVP_DigestInit(ctx, md);
+        EVP_DigestUpdate(ctx, buf, 2*sizeof(hash1->sha1));
+        EVP_DigestFinal(ctx, hash1->sha1, NULL);
+        EVP_MD_CTX_destroy(ctx);
         return true;
     }
     else
