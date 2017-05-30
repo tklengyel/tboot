@@ -81,7 +81,10 @@ void print_tb_error_msg(tb_error_t error)
         case TB_ERR_VMX_NOT_SUPPORTED:
             printk(TBOOT_ERR"VMX not supported.\n");
             break;
-        case TB_ERR_TXT_NOT_SUPPORTED:
+        case TB_ERR_VTD_NOT_SUPPORTED:
+	    printk(TBOOT_ERR"DMAR table not found. Check if Vt-D is enabled in BIOS.\n");
+	    break;
+	case TB_ERR_TXT_NOT_SUPPORTED:
             printk(TBOOT_ERR"TXT not supported.\n");
             break;
         case TB_ERR_MODULES_NOT_IN_POLICY:

@@ -491,7 +491,7 @@ typedef struct acpi_mcfg acpi_table_mcfg_t;
 #define ACPI_DEV_THINKPAD "IBM0068"	/* ThinkPad support */
 
 #endif
-
+extern bool vtd_bios_enabled(void);
 extern bool save_vtd_dmar_table(void);
 extern bool restore_vtd_dmar_table(void);
 extern bool remove_vtd_dmar_table(void);

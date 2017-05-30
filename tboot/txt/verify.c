@@ -371,6 +371,10 @@ tb_error_t txt_verify_platform(void)
     if ( err != TB_ERR_NONE )
         return err;
 
+    if ( !vtd_bios_enabled() ) {
+        return TB_ERR_VTD_NOT_SUPPORTED;
+    }
+
     /* check is TXT_RESET.STS is set, since if it is SENTER will fail */
     txt_ests_t ests = (txt_ests_t)read_pub_config_reg(TXTCR_ESTS);
     if ( ests.txt_reset_sts ) {
