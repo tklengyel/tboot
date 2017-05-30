@@ -414,8 +414,11 @@ void begin_launch(void *addr, uint32_t magic)
     apply_policy(err);
 
     /* print any errors on last boot, which must be from TXT launch */
-    txt_get_error();
 
+    txt_display_errors();
+    if (txt_has_error() && get_tboot_ignore_prev_err() == false) {
+        apply_policy(TB_ERR_PREV_TXT_ERROR);
+    }
     /* need to verify that platform can perform measured launch */
     err = verify_platform();
     apply_policy(err);

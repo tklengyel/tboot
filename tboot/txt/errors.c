@@ -45,8 +45,7 @@
 #include <txt/config_regs.h>
 #include <txt/errorcode.h>
 
-
-static void display_errors(void)
+void txt_display_errors(void)
 {
     txt_errorcode_t err;
     txt_ests_t ests;
@@ -58,7 +57,7 @@ static void display_errors(void)
      * display TXT.ERRORODE error
      */
     err = (txt_errorcode_t)read_pub_config_reg(TXTCR_ERRORCODE);
-    if (err._raw == 0 || err._raw == 0xc0000001 || err._raw == 0xc0000009)
+    if (txt_has_error() == false)
         printk(TBOOT_INFO"TXT.ERRORCODE: 0x%Lx\n", err._raw);
     else
         printk(TBOOT_ERR"TXT.ERRORCODE: 0x%Lx\n", err._raw);
@@ -112,17 +111,17 @@ static void display_errors(void)
         printk(TBOOT_ERR"TXT.E2STS: 0x%Lx\n", e2sts._raw);
 }
 
-bool txt_get_error(void)
+bool txt_has_error(void)
 {
     txt_errorcode_t err;
-
-    display_errors();
-
+    
     err = (txt_errorcode_t)read_pub_config_reg(TXTCR_ERRORCODE);
-    if ( err.valid )
+    if (err._raw == 0 || err._raw == 0xc0000001 || err._raw == 0xc0000009) {
         return false;
-    else
+    } 
+    else {   
         return true;
+    }
 }
 
 #define CLASS_ACM_ENTRY 0x1

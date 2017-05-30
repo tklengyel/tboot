@@ -272,6 +272,24 @@ o  Tboot provides support to TPM2 module, and following command line option is
    It means tboot will use this algorithm to compute hash and use TPM2_PCR_Extend
    to extend it into PCRs.
 
+o  Recovering from measured launch failures.
+   When there's an error during SENTER, the system usually reboots.
+   Since the underlying cause is some sort of configuration error, the system can 
+   end up in a loop rebooting endlessly after each attempted measured launch. In 
+   some environments it make more sense to fall back to booting the kernel directly 
+   so that the system comes up and is remotely accessible. After that the issue can 
+   be diagnosed and the system power-cycled to clear the error. To enable this 
+   behavior, a command line option can be used:
+         ignore_prev_err=false|true  // defaults to true
+
+   The option defaults to true, which preserves the original behavior i.e. try a 
+   measured launch even if the previous measured launch had errors.
+   Setting the value to false will check if the previous measured launch was 
+   successful by inspecting the TXT.ERRORCODE value. If measured launch failed,
+   tboot will launch the kernel directly without trying to perform a measured launch.
+
+   Note: TXT.ERRORCODE is only cleared if the system is power cycled. A reboot is not
+   sufficient to clear the error code.
 
 PCR Usage:
 ---------

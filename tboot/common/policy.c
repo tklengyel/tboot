@@ -97,6 +97,7 @@ static const tb_policy_map_t g_policy_map[] = {
     { TB_POLTYPE_CONT_NON_FATAL,               TB_POLACT_CONTINUE,
       {
           {TB_ERR_FATAL,                       TB_POLACT_HALT},
+          {TB_ERR_PREV_TXT_ERROR,              TB_POLACT_UNMEASURED_LAUNCH}, 
           {TB_ERR_TPM_NOT_READY,               TB_POLACT_UNMEASURED_LAUNCH},
           {TB_ERR_SMX_NOT_SUPPORTED,           TB_POLACT_UNMEASURED_LAUNCH},
           {TB_ERR_VMX_NOT_SUPPORTED,           TB_POLACT_UNMEASURED_LAUNCH},

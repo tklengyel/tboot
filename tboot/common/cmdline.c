@@ -83,7 +83,8 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "min_ram", "0" },              /* size in bytes | 0 for no min */
     { "call_racm", "false" },        /* true|false|check */
     { "measure_nv", "false" },       /* true|false */
-    { "extpol",    "sha1" },        /* agile|embedded|sha1|sha256|sm3|... */
+    { "extpol",    "sha1" },         /*agile|embedded|sha1|sha256|sm3|... */
+    { "ignore_prev_err", "true"},    /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -499,10 +500,9 @@ bool get_tboot_measure_nv(void)
     return true;
 }
 
-
 void get_tboot_extpol(void)
 {
-    const char *extpol = get_option_val(g_tboot_cmdline_options,  g_tboot_param_values, "extpol");
+    const char *extpol = get_option_val(g_tboot_cmdline_options, g_tboot_param_values, "extpol");
 
     if ( extpol == NULL ) {
         g_tpm->extpol = TB_EXTPOL_FIXED;
@@ -526,6 +526,17 @@ void get_tboot_extpol(void)
         g_tpm->extpol = TB_EXTPOL_FIXED;
         g_tpm->cur_alg = TB_HALG_SM3;
     }
+}
+
+bool get_tboot_ignore_prev_err(void)
+{
+    const char *ignore_prev_err = 
+	    get_option_val(g_tboot_cmdline_options,
+			   g_tboot_param_values,
+			   "ignore_prev_err");
+    if ( ignore_prev_err == NULL || strcmp(ignore_prev_err, "true") == 0 )
+	    return true;
+    return false;
 }
 
 /*

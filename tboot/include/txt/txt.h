@@ -39,7 +39,8 @@
 // #include <multiboot.h>
 
 extern bool txt_is_launched(void);
-extern bool txt_get_error(void);
+extern void txt_display_errors(void);
+extern bool txt_has_error(void);
 extern void txt_get_racm_error(void);
 extern tb_error_t supports_txt(void);
 extern tb_error_t txt_verify_platform(void);

@@ -52,6 +52,7 @@ extern bool get_tboot_prefer_da(void);
 extern void get_tboot_min_ram(void);
 extern bool get_tboot_call_racm(void);
 extern bool get_tboot_call_racm_check(void);
+extern bool get_tboot_ignore_prev_err(void);
 extern bool get_tboot_measure_nv(void);
 extern void get_tboot_extpol(void);
 
