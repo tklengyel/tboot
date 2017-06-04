@@ -910,6 +910,36 @@ static void reverse_copy_ticket_out(TPMT_TK_CREATION *ticket, void **other)
     *other += reverse_copy_sized_buf_out((TPM2B *)&(ticket->digest), (TPM2B *)*other);
 }
 
+static void reverse_copy_context_in(void **other, TPMS_CONTEXT *context)
+{
+    if (context == NULL)
+	return;
+	
+    reverse_copy_in(*other, context->sequence);
+    
+    reverse_copy_in(*other, context->savedHandle);
+    
+    reverse_copy_in(*other, context->hierarchy);
+    
+    *other += reverse_copy_sized_buf_in((TPM2B *)*other, (TPM2B *)&context->contextBlob);
+
+}
+
+static void reverse_copy_context_out(TPMS_CONTEXT *context, void **other)
+{
+    if (context == NULL)
+        return;
+
+    reverse_copy_out(context->sequence, *other);
+    
+    reverse_copy_out(context->savedHandle, *other);
+    
+    reverse_copy_out(context->hierarchy, *other);
+
+    reverse_copy_sized_buf_out((TPM2B *)&context->contextBlob, (TPM2B *)*other);
+
+}
+
 static uint32_t _tpm20_pcr_read(u32 locality,
                                 tpm_pcr_read_in *in,
                                 tpm_pcr_read_out *out)
@@ -1466,7 +1496,7 @@ static uint32_t _tpm20_shutdown(uint32_t locality, u16 type)
     return ret;
 }
 
-static __data u32 handle2048 = 0;
+__data u32 handle2048 = 0;
 static const char auth_str[] = "test";
 static uint32_t _tpm20_create_primary(uint32_t locality,
                                      tpm_create_primary_in *in,
@@ -1737,6 +1767,139 @@ static uint32_t _tpm20_unseal(uint32_t locality,
 
     return ret;
 }
+
+static uint32_t _tpm20_context_save(uint32_t locality,
+                             tpm_contextsave_in *in,
+                             tpm_contextsave_out *out)
+{
+    u32 ret;
+    u32 cmd_size, rsp_size;
+    u16 rsp_tag;
+    void *other;
+
+    reverse_copy_header(TPM_CC_ContextSave, 0);
+    other = (void *)cmd_buf + CMD_HEAD_SIZE;
+    reverse_copy_in(other, in->saveHandle);
+
+    /* Now set the command size field, now that we know the size of the whole command */
+    cmd_size = (u8 *)other - cmd_buf;
+    reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
+
+    rsp_size = sizeof(*out);
+    
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+    }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+    }
+
+    reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
+    if ( ret != TPM_RC_SUCCESS )
+        return ret;
+
+    other = (void *)rsp_buf + RSP_HEAD_SIZE;
+    reverse_copy(&rsp_tag, rsp_buf, sizeof(rsp_tag));
+
+    if (rsp_tag == TPM_ST_SESSIONS)
+        other += sizeof(u32); /* Skip past parameter size field */
+	   
+    reverse_copy_context_out(&out->context, &other);
+
+    return ret;
+    
+}
+
+static uint32_t _tpm20_context_load(uint32_t locality,
+                             tpm_contextload_in *in,
+                             tpm_contextload_out *out)
+{
+    u32 ret;
+    u32 cmd_size, rsp_size;
+    u16 rsp_tag;
+    void *other;
+
+    reverse_copy_header(TPM_CC_ContextLoad, 0);
+    other = (void *)cmd_buf + CMD_HEAD_SIZE;
+	
+    reverse_copy_context_in(&other, &in->context);
+    
+    /* Now set the command size field, now that we know the size of the whole command */
+    cmd_size = (u8 *)other - cmd_buf;
+    reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
+
+    rsp_size = RSP_HEAD_SIZE + sizeof(*out);
+    
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+	    return TPM_RC_FAILURE;
+    }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+    }
+    
+    reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
+    if ( ret != TPM_RC_SUCCESS )
+        return ret;
+
+    other = (void *)rsp_buf + RSP_HEAD_SIZE;
+    reverse_copy(&rsp_tag, rsp_buf, sizeof(rsp_tag));
+
+    if (rsp_tag == TPM_ST_SESSIONS)
+        other += sizeof(u32); /* Skip past parameter size field */
+	   
+    reverse_copy_out(out->loadedHandle, other);
+
+    return ret;
+}
+
+static uint32_t _tpm20_context_flush(uint32_t locality,
+                             tpm_flushcontext_in *in)
+{
+    u32 ret;
+    u32 cmd_size, rsp_size;
+    u16 rsp_tag;
+    void *other;
+
+	
+    reverse_copy_header(TPM_CC_FlushContext, 0);
+    other = (void *)cmd_buf + CMD_HEAD_SIZE;
+    reverse_copy_in(other, in->flushHandle);
+	
+    /* Now set the command size field, now that we know the size of the whole command */
+    cmd_size = (u8 *)other - cmd_buf;
+    reverse_copy(cmd_buf + CMD_SIZE_OFFSET, &cmd_size, sizeof(cmd_size));
+
+    rsp_size = RSP_HEAD_SIZE;
+    
+    if (g_tpm_family == TPM_IF_20_FIFO) {
+        if (!tpm_submit_cmd(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+    }
+    if (g_tpm_family == TPM_IF_20_CRB) {
+        if (!tpm_submit_cmd_crb(locality, cmd_buf, cmd_size, rsp_buf, &rsp_size))
+            return TPM_RC_FAILURE;
+    }
+    
+    reverse_copy(&ret, rsp_buf + RSP_RST_OFFSET, sizeof(ret));
+    
+    if ( ret != TPM_RC_SUCCESS )
+        return ret;
+
+    other = (void *)rsp_buf + RSP_HEAD_SIZE;
+    
+    reverse_copy(&rsp_tag, rsp_buf, sizeof(rsp_tag));
+
+    if (rsp_tag == TPM_ST_SESSIONS)
+        other += sizeof(u32); 
+	   
+    return ret;
+    
+}
+
 
 TPM_CMD_SESSION_DATA_IN pw_session;
 static void create_pw_session(TPM_CMD_SESSION_DATA_IN *ses)
@@ -2243,6 +2406,75 @@ static bool alg_is_supported(u16 alg)
 
     return false;
 }
+__data tpm_contextsave_out tpm2_context_saved;
+
+static bool tpm20_context_save(struct tpm_if *ti, u32 locality, TPM_HANDLE handle, void *context_saved)
+{
+    tpm_contextsave_in in;
+    tpm_contextsave_out out;
+    u32 ret;
+
+    if ( ti == NULL || locality >= TPM_NR_LOCALITIES ){
+        return false;
+    }
+    if ( handle == 0 )
+	return false;
+    in.saveHandle = handle;
+    ret =_tpm20_context_save(locality, &in, &out);
+    if ( ret != TPM_RC_SUCCESS ) {
+        printk(TBOOT_WARN"TPM: tpm2 context save failed, return value = %08X\n", ret);
+        ti->error = ret;
+        return false;
+    }
+    else 
+	 printk(TBOOT_WARN"TPM: tpm2 context save successful, return value = %08X\n", ret);
+    memcpy((tpm_contextsave_out *)context_saved, &out, sizeof(tpm_contextsave_out));
+    return true;
+}	
+
+static bool tpm20_context_load(struct tpm_if *ti, u32 locality, void  *context_saved, TPM_HANDLE *handle)
+{
+    tpm_contextload_in in;
+    tpm_contextload_out out;
+    u32 ret;
+
+    if ( ti == NULL || locality >= TPM_NR_LOCALITIES )
+        return false;
+	
+    memcpy(&in, (tpm_contextsave_out *)context_saved, sizeof(tpm_contextsave_out));
+
+    ret = _tpm20_context_load(locality, &in, &out);
+    if ( ret != TPM_RC_SUCCESS ) {
+        printk(TBOOT_WARN"TPM: tpm2 context load failed, return value = %08X\n", ret);
+        ti->error = ret;
+        return false;
+    }
+    else
+	printk(TBOOT_WARN"TPM: tpm2 context load successful, return value = %08X\n", ret);
+    *handle = out.loadedHandle;
+    return true;
+}	
+
+static bool tpm20_context_flush(struct tpm_if *ti, u32 locality, TPM_HANDLE handle)
+{
+    tpm_flushcontext_in in;
+    u32 ret;
+    
+    if ( ti == NULL || locality >= TPM_NR_LOCALITIES )
+        return false;
+    if ( handle == 0 )
+        return false;
+    in.flushHandle = handle;
+        ret = _tpm20_context_flush(locality, &in);
+    if ( ret != TPM_RC_SUCCESS ) {
+        printk(TBOOT_WARN"TPM: tpm2 context flush returned , return value = %08X\n", ret);
+        ti->error = ret;
+        return false;
+    }
+    else 
+        printk(TBOOT_WARN"TPM: tpm2 context flush successful, return value = %08X\n", ret);
+    return true;
+}	
 
 static bool tpm20_init(struct tpm_if *ti)
 {
@@ -2393,6 +2625,9 @@ struct tpm_if tpm_20_if = {
     .get_random = tpm20_get_random,
     .save_state = tpm20_save_state,
     .cap_pcrs = tpm20_cap_pcrs,
+    .context_save = tpm20_context_save,
+    .context_load = tpm20_context_load,
+    .context_flush = tpm20_context_flush,
 };
 
 

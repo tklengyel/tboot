@@ -69,6 +69,7 @@
 #include <acpi.h>
 #include <integrity.h>
 #include <cmdline.h>
+#include <tpm_20.h>
 
 extern void _prot_to_real(uint32_t dist_addr);
 extern bool set_policy(void);
@@ -77,7 +78,8 @@ extern void verify_all_nvindices(void);
 extern void apply_policy(tb_error_t error);
 extern void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr);
 void s3_launch(void);
-
+extern __data u32 handle2048;
+extern __data tpm_contextsave_out tpm2_context_saved;
 /* counter timeout for waiting for all APs to exit guests */
 #define AP_GUEST_EXIT_TIMEOUT     0x01000000
 
@@ -94,6 +96,7 @@ extern struct mutex ap_lock;
 __data loader_ctx g_loader_ctx = { NULL, 0 };
 __data loader_ctx *g_ldr_ctx = &g_loader_ctx;
 __data uint32_t g_mb_orig_size = 0;
+
 
 /* MLE/kernel shared data page (in boot.S) */
 extern tboot_shared_t _tboot_shared;
@@ -169,7 +172,7 @@ static void post_launch(void)
     if ( s3_flag  )    
          s3_launch();
 
-    /* remove all TXT modules before verifying modules */
+    /* remove all TXT sinit acm modules before verifying modules */
     remove_txt_modules(g_ldr_ctx);
 
     /*
@@ -199,14 +202,16 @@ static void post_launch(void)
     size = (uint64_t)get_tboot_mem_end() - base;
     uint32_t mem_type = is_kernel_linux() ? E820_RESERVED : E820_UNUSABLE;
     printk(TBOOT_INFO"protecting tboot (%Lx - %Lx) in e820 table\n", base,      (base + size - 1));
-    if ( !e820_protect_region(base, size, mem_type) )        apply_policy(TB_ERR_FATAL);
+    if ( !e820_protect_region(base, size, mem_type) )      
+        apply_policy(TB_ERR_FATAL);
 
     /* if using memory logging, reserve log area */
     if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY ) {
         base = TBOOT_SERIAL_LOG_ADDR;
         size = TBOOT_SERIAL_LOG_SIZE;
-        printk(TBOOT_INFO"reserving tboot memory log (%Lx - %Lx) in e820 table\n", base,        (base + size - 1));
-        if ( !e820_protect_region(base, size, E820_RESERVED) )         apply_policy(TB_ERR_FATAL);
+        printk(TBOOT_INFO"reserving tboot memory log (%Lx - %Lx) in e820 table\n", base, (base + size - 1));
+        if ( !e820_protect_region(base, size, E820_RESERVED) )         
+            apply_policy(TB_ERR_FATAL);
     }
 
     /* replace map in loader context with copy */
@@ -223,14 +228,21 @@ static void post_launch(void)
     /*
      * verify nv indices against policy
      */
-    if ( (g_tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() )        verify_all_nvindices();
+    if ( (g_tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() ) 
+	verify_all_nvindices();
 
     /*
      * seal hashes of modules and VL policy to current value of PCR17 & 18
      */
-    if ( !seal_pre_k_state() )        apply_policy(TB_ERR_S3_INTEGRITY);
+    if ( !seal_pre_k_state() )        
+	apply_policy(TB_ERR_S3_INTEGRITY);
 
-    /*
+	
+    if ( g_tpm->major == TPM20_VER_MAJOR ) {
+	g_tpm->context_save(g_tpm, g_tpm->cur_loc, handle2048, &tpm2_context_saved);
+    }
+
+	/*
      * init MLE/kernel shared data page
      */
     memset(&_tboot_shared, 0, PAGE_SIZE);
@@ -414,11 +426,11 @@ void begin_launch(void *addr, uint32_t magic)
     apply_policy(err);
 
     /* print any errors on last boot, which must be from TXT launch */
-
     txt_display_errors();
     if (txt_has_error() && get_tboot_ignore_prev_err() == false) {
         apply_policy(TB_ERR_PREV_TXT_ERROR);
     }
+
     /* need to verify that platform can perform measured launch */
     err = verify_platform();
     apply_policy(err);
@@ -465,6 +477,13 @@ void s3_launch(void)
 {
     /* restore backed-up s3 wakeup page */
     restore_saved_s3_wakeup_page();
+
+	/* load saved tpm2 context for unseal */
+	if ( g_tpm->major == TPM20_VER_MAJOR ) {
+	    g_tpm->context_flush(g_tpm, g_tpm->cur_loc, handle2048);
+	    g_tpm->context_load(g_tpm, g_tpm->cur_loc, &tpm2_context_saved, &handle2048);
+	}
+
 
     /* remove DMAR table if necessary */
     remove_vtd_dmar_table();
@@ -578,12 +597,18 @@ void shutdown(void)
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
         /* restore DMAR table if needed */
         restore_vtd_dmar_table();
+	if ( g_tpm->major == TPM20_VER_MAJOR ) {
+	    g_tpm->context_flush(g_tpm, g_tpm->cur_loc, handle2048);
+	    g_tpm->context_load(g_tpm, g_tpm->cur_loc, &tpm2_context_saved, &handle2048);
+ 	}
 
-        /* save kernel/VMM resume vector for sealing */
+		
+	/* save kernel/VMM resume vector for sealing */
         g_post_k_s3_state.kernel_s3_resume_vector =  _tboot_shared.acpi_sinfo.kernel_s3_resume_vector;
         
         /* create and seal memory integrity measurement */
-        if ( !seal_post_k_state() )   apply_policy(TB_ERR_S3_INTEGRITY);
+        if ( !seal_post_k_state() )   
+	    apply_policy(TB_ERR_S3_INTEGRITY);
             /* OK to leave key in memory on failure since if user cared they
                would have policy that doesn't continue for TB_ERR_S3_INTEGRITY
                error */

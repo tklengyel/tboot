@@ -544,6 +544,11 @@ typedef u32 TPM_RH;
 #define TPM_RH_PLATFORM       (TPM_RH)(0x4000000C)    
 #define TPM_RH_LAST           (TPM_RH)(0x4000000C) 
 
+#define RC_ContextSave_saveHandle      (TPM_RC_P + TPM_RC_1)
+#define RC_ContextLoad_context         (TPM_RC_P + TPM_RC_1)
+#define RC_FlushContext_flushHandle    (TPM_RC_P + TPM_RC_1)
+
+
 // Table 29 -- TPMA_ALGORITHM Bits <I/O>
 typedef struct {
     unsigned int asymmetric : 1;
@@ -597,6 +602,10 @@ typedef struct {
     unsigned int TPM_LOC_FOUR  : 1;
     unsigned int reserved6     : 3;
 } TPMA_LOCALITY;
+// Table 47  Definition of TPMI_DH_CONTEXT Type
+typedef TPM_HANDLE TPMI_DH_CONTEXT;
+// Table 48  Definition of TPMI_RH_HIERARCHY Type
+typedef TPM_HANDLE TPMI_RH_HIERARCHY;
 
 // Table 66 -- TPMU_HA Union <I/O,S>
 typedef union {
@@ -1216,6 +1225,38 @@ typedef union {
     TPM2B           b;
 } TPM2B_NV_PUBLIC;
 
+// Table 198  Definition of TPM2B_CONTEXT_SENSITIVE Structure <  IN/OUT>
+typedef union {
+  struct {
+    u16  size;
+    u8    buffer[MAX_CONTEXT_SIZE];
+  } t;
+  TPM2B b;
+} TPM2B_CONTEXT_SENSITIVE;
+
+// Table 199  Definition of TPMS_CONTEXT_DATA Structure <  IN/OUT, S>
+typedef struct {
+  TPM2B_DIGEST             integrity;
+  TPM2B_CONTEXT_SENSITIVE  encrypted;
+} TPMS_CONTEXT_DATA;
+
+// Table 200  Definition of TPM2B_CONTEXT_DATA Structure <  IN/OUT>
+typedef union {
+  struct {
+    u16  size;
+    u8    buffer[sizeof(TPMS_CONTEXT_DATA)];
+  } t;
+  TPM2B b;
+} TPM2B_CONTEXT_DATA;
+
+// Table 201  Definition of TPMS_CONTEXT Structure
+typedef struct {
+  u64                 sequence;
+  TPMI_DH_CONTEXT     savedHandle;
+  TPMI_RH_HIERARCHY   hierarchy;
+  TPM2B_CONTEXT_DATA  contextBlob;
+} TPMS_CONTEXT;
+
 // Table 203 -- TPMS_CREATION_DATA Structure <O,S>
 typedef struct {
     TPML_PCR_SELECTION    pcr_select;
@@ -1491,6 +1532,25 @@ typedef struct {
     TPM_CMD_SESSIONS_OUT sessions;
 } tpm_unseal_out;
 
+typedef struct { 
+    TPMI_DH_CONTEXT saveHandle; 
+} tpm_contextsave_in;
+
+typedef struct { 
+    TPMS_CONTEXT context; 
+} tpm_contextsave_out;
+
+typedef struct { 
+    TPMS_CONTEXT context; 
+} tpm_contextload_in;
+
+typedef struct { 
+    TPMI_DH_CONTEXT loadedHandle; 
+} tpm_contextload_out;
+
+typedef struct {
+    TPMI_DH_CONTEXT flushHandle;
+} tpm_flushcontext_in;
 
 #endif   /* __TPM20_H__ */
 
