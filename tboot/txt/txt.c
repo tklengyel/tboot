@@ -67,7 +67,7 @@
 #include <io.h>
 
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
-#define AP_WFS_TIMEOUT     0x01000000
+#define AP_WFS_TIMEOUT     0x10000000
 
 __data struct acpi_rsdp g_rsdp;
 extern char _start[];             /* start of module */

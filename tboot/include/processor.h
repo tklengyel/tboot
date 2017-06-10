@@ -152,7 +152,15 @@ static always_inline uint32_t cpuid_ecx(unsigned int op)
 
     return regs[2];
 }
+static always_inline uint32_t cpuid_edx(unsigned int op)
+{
+     /* eax: regs[0], ebx: regs[1], ecx: regs[2], edx: regs[3] */
+    uint32_t regs[4];
 
+    do_cpuid(op, regs);
+
+    return regs[3];
+}
 #define CPUID_X86_FEATURE_XMM3   (1<<0)
 #define CPUID_X86_FEATURE_VMX    (1<<5)
 #define CPUID_X86_FEATURE_SMX    (1<<6)
@@ -238,7 +246,7 @@ static inline void halt(void)
 
 static inline unsigned int get_apicid(void)
 {
-    return cpuid_ebx(1) >> 24;
+    return cpuid_edx(0xb);
 }
 
 
