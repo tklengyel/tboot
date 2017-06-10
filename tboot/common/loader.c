@@ -774,98 +774,160 @@ unsigned long get_mbi_mem_end_mb1(const multiboot_info_t *mbi)
 /*
  * Move all mbi components/modules/mbi to end of memory
  */
-static bool move_modules_to_high_memory(loader_ctx *lctx)
+static bool move_modules_to_high_memory(loader_ctx  *lctx)
 {
-    uint64_t max_ram_base = 0,
-             max_ram_size = 0;
-    uint32_t memRequired = 0;
+    uint32_t memRequired;
+    uint64_t max_ram_base, max_ram_size, ld_ceiling;
 
-    uint32_t module_count = get_module_count(lctx);
+    uint32_t module_count, mod_i, mods_remaining;
+    module_t *m;
 
-    for ( unsigned int i = 0; i < module_count; i++ )
-    {
-        module_t *m = get_module(lctx,i);
+    if (LOADER_CTX_BAD(lctx))
+        return false;
+
+    /*  Determine the size of memory required to pack all modules together */
+    module_count = get_module_count(lctx);
+    for( memRequired=0, mod_i=0; mod_i < module_count; mod_i++ ){
+        m = get_module(lctx, mod_i);
         memRequired += PAGE_UP(m->mod_end - m->mod_start);
     }
 
-    get_highest_sized_ram(memRequired, 0x100000000ULL, &max_ram_base, &max_ram_size);
-    if(!max_ram_base || !max_ram_size)
-    {
-        printk(TBOOT_INFO"ERROR No suitable memory area found for image relocation!\n");
-	printk(TBOOT_INFO"required 0x%X\n", memRequired);
+    /*  NOTE: the e820 map has been modified already to reserve critical
+        memory regions (tboot memory, etc ...). get_highest_sized_ram
+        will return a range that excludes critical memory regions. */
+    get_highest_sized_ram(  memRequired, 0x100000000ULL,
+                            &max_ram_base, &max_ram_size);
+    if(!max_ram_base || !max_ram_size){
+        printk(TBOOT_INFO"ERROR No memory area found for image relocation!\n");
+        printk(TBOOT_INFO"required 0x%X\n", memRequired);
         return false;
     }
+    printk(TBOOT_INFO"highest suitable area @ 0x%llX (size 0x%llX)\n",
+            max_ram_base, max_ram_size);
+    ld_ceiling = PAGE_DOWN(max_ram_base + max_ram_size);
 
-    printk(TBOOT_INFO"highest suitable area @ 0x%llX (size 0x%llX)\n", max_ram_base, max_ram_size);
+    /*  Move modules below the load ceiling upto the ceiling:
+        Prevent module corruption:
+        - Move modules in order of highest to lowest.
+        - Only move modules completely below the load ceiling.
+     */
+    for( mods_remaining=module_count; mods_remaining > 0; mods_remaining--){
+        uint32_t    highest_mod_i = 0,
+                    highest_mod_base = 0,
+                    highest_mod_end = 0;
+        bool mod_found = false;
+        for( mod_i=0; mod_i<module_count; mod_i++){
+            m = get_module(lctx, mod_i);
+            if( (m->mod_start < ld_ceiling) ){
+                if( (m->mod_end > highest_mod_end) || !mod_found ){
+                    highest_mod_i   = mod_i;
+                    highest_mod_base= m->mod_start;
+                    highest_mod_end = m->mod_end;
+                    mod_found = true;
+                }
+            }
+        }
 
-    unsigned long target_addr =  PAGE_DOWN(max_ram_base + max_ram_size);
+        /* If no modules found, all modules are above ld_ceiling, We're done. */
+        if( !mod_found )
+            break;
 
-    for ( unsigned int i = 0; i < module_count; i++ )
-    {
-        unsigned long base, size;
-        module_t *m = get_module(lctx,i);
-        base = m->mod_start;
-        size = m->mod_end - m->mod_start;
-        printk(TBOOT_INFO"moving module %u (%lu bytes) from 0x%08X ", i, size, (uint32_t)base);
-
-        //calculate target addresses
-        target_addr = PAGE_DOWN(target_addr - size);
-        printk(TBOOT_INFO"to 0x%08X\n", (uint32_t)target_addr);
-
-        memcpy((void *)target_addr, (void *)base, size);
-        m->mod_start = target_addr;
-        m->mod_end = target_addr + size;
+        m = get_module(lctx, highest_mod_i);
+        /* only move the highest module if explicitly below the ceiling */
+        if(highest_mod_end < ld_ceiling){
+            uint32_t size = highest_mod_end - highest_mod_base;
+            uint32_t highest_mod_newbase = PAGE_DOWN(ld_ceiling-size);
+            printk(TBOOT_INFO"moving module %u (%u B) from 0x%08X to 0x%08X\n",
+                    highest_mod_i, size, highest_mod_base, highest_mod_newbase);
+            memcpy((void *)highest_mod_newbase, (void *)highest_mod_base, size);
+            m->mod_start= highest_mod_newbase;
+            m->mod_end  = highest_mod_newbase+size;
+        }
+        /* lower the celing to the base address of the highest module */
+        ld_ceiling = PAGE_DOWN(m->mod_start);
     }
-
     return true;
 }
 
 /*
  * Move any mbi components/modules/mbi that just above the kernel
  */
-static bool move_modules_above_elf_kernel(loader_ctx *lctx, elf_header_t *kernel_image)
+static bool move_modules_above_elf_kernel(  loader_ctx      *lctx,
+                                            elf_header_t    *kernel_image)
 {
+    void *elf_start, *elf_end;
+    uint32_t ld_floor, ld_ceiling;
+
+    uint32_t module_count, mod_i, mods_remaining;
+    module_t *m;
+
     if (LOADER_CTX_BAD(lctx))
         return false;
 
     /* get end address of loaded elf image */
-    void *elf_start=NULL, *elf_end=NULL;
-    if ( !get_elf_image_range(kernel_image, &elf_start, &elf_end) )
-    {
-        printk(TBOOT_INFO"ERROR: failed tget elf image range\n");
+    if ( !get_elf_image_range(kernel_image, &elf_start, &elf_end) ){
+        printk(TBOOT_INFO"ERROR: failed to get elf image range\n");
+        return false;
     }
-
     printk(TBOOT_INFO"ELF kernel top is at 0x%X\n", (uint32_t)elf_end);
 
-    uint32_t target_addr = (uint32_t)elf_end;
-    
-    /* stay above tboot if elf kernel is loaded below tboot */
-    if ( target_addr < get_tboot_mem_end() )
-        target_addr = get_tboot_mem_end();
-
-    /* keep modules page aligned */
-    target_addr = PAGE_UP(target_addr);
-   
-    uint32_t module_count = get_module_count(lctx);
-
-    for ( unsigned int i = 0; i < module_count; i++ )
-    {
-        unsigned long base, size;
-        module_t *m = get_module(lctx,i);
-        base = m->mod_start;
-        size = m->mod_end - m->mod_start;
-        printk(TBOOT_INFO"moving module %u (%lu bytes) from 0x%08X ", i, size, (uint32_t)base);
-
-        //calculate target addresses
-        printk(TBOOT_INFO"to 0x%08X\n", (uint32_t)target_addr);
-
-        memcpy((void *)target_addr, (void *)base, size);
-        m->mod_start = target_addr;
-        m->mod_end = target_addr + size;
-
-        target_addr = PAGE_UP(target_addr + size);
+    /*  compute the lowest base address of all the modules: the ld ceiling */
+    module_count = get_module_count(lctx);
+    for( mod_i=0, ld_ceiling=0; mod_i < module_count; mod_i++ ){
+        m = get_module(lctx,mod_i);
+        ld_ceiling = (ld_ceiling < m->mod_start)? m->mod_start : ld_ceiling;
     }
 
+    /*  set ld_floor to the highest of tboot end address or the ELF-image
+        end address, and then page align */
+    ld_floor = get_tboot_mem_end();
+    ld_floor = (ld_floor < (uint32_t)elf_end)? (uint32_t)elf_end : ld_floor;
+    ld_floor = PAGE_UP(ld_floor);
+
+    /*  Ensures all modules are above ld_floor: only move mods down, never up.
+        Failing this check is an indication ELF-loading may have corrupted one
+        of the modules. */
+    if( (uint32_t)ld_floor > ld_ceiling ){
+        printk( TBOOT_INFO"Load floor (0x%08X) > load ceiling (0x%08X)\n",
+                ld_floor, ld_ceiling);
+        return false;
+    }
+
+    /*  the i-th iteration of this loop will
+    move the i-th lowest module in memory to ld_floor
+    and raise ld_floor to the new end address of the i-th lowest module */
+    for( mods_remaining = module_count; mods_remaining > 0; mods_remaining--){
+        uint32_t    lowest_mod_i = 0,
+                    lowest_mod_base = 0,
+                    lowest_mod_end = 0;
+        bool mod_found = false;
+        /* find the lowest module above the floor */
+        for( mod_i=0; mod_i<module_count; mod_i++){
+            m = get_module(lctx, mod_i);
+            if(m->mod_start >= ld_floor){
+                if( (m->mod_start < lowest_mod_base) || !mod_found  ){
+                    lowest_mod_i   = mod_i;
+                    lowest_mod_base= m->mod_start;
+                    lowest_mod_end = m->mod_end;
+                    mod_found = true;
+                }
+            }
+        }
+        m = get_module(lctx, lowest_mod_i);
+
+        /* only move the lowest module if not already at the floor */
+        if(lowest_mod_base > ld_floor){
+            uint32_t size = lowest_mod_end - lowest_mod_base;
+            uint32_t lowest_mod_newbase = ld_floor; /* already page aligned */
+            printk(TBOOT_INFO"moving module %u (%u B) from 0x%08X to 0x%08X\n",
+                    lowest_mod_i, size, lowest_mod_base, lowest_mod_newbase);
+            memcpy((void *)lowest_mod_newbase, (void *)lowest_mod_base, size);
+            m->mod_start= lowest_mod_newbase;
+            m->mod_end  = lowest_mod_newbase+size;
+        }
+        /* raise the floor to the end address of the lowest module */
+        ld_floor = PAGE_UP(m->mod_end);
+    }
     return true;
 }
 
