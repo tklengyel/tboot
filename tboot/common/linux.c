@@ -161,67 +161,71 @@ bool expand_linux_image(const void *linux_image, size_t linux_size,
     hdr->loadflags |= FLAG_CAN_USE_HEAP;         /* can use heap */
     hdr->heap_end_ptr = KERNEL_CMDLINE_OFFSET - BOOT_SECTOR_OFFSET;
 
-    /* load initrd and set ramdisk_image and ramdisk_size */
-    /* The initrd should typically be located as high in memory as
-       possible, as it may otherwise get overwritten by the early
-       kernel initialization sequence. */
+    if ( initrd_size > 0 ) {
+        /* load initrd and set ramdisk_image and ramdisk_size */
+        /* The initrd should typically be located as high in memory as
+           possible, as it may otherwise get overwritten by the early
+           kernel initialization sequence. */
 
-    /* check if Linux command line explicitly specified a memory limit */
-    uint64_t mem_limit;
-    get_linux_mem(&mem_limit);
-    if ( mem_limit > 0x100000000ULL || mem_limit == 0 )
-        mem_limit = 0x100000000ULL;
+        /* check if Linux command line explicitly specified a memory limit */
+        uint64_t mem_limit;
+        get_linux_mem(&mem_limit);
+        if ( mem_limit > 0x100000000ULL || mem_limit == 0 )
+            mem_limit = 0x100000000ULL;
 
-    uint64_t max_ram_base, max_ram_size;
-    get_highest_sized_ram(initrd_size, mem_limit,
-                          &max_ram_base, &max_ram_size);
-    if ( max_ram_size == 0 ) {
-        printk(TBOOT_ERR"not enough RAM for initrd\n");
-        return false;
-    }
-    if ( initrd_size > max_ram_size ) {
-        printk(TBOOT_ERR"initrd_size is too large\n");
-        return false;
-    }
-    if ( max_ram_base > ((uint64_t)(uint32_t)(~0)) ) {
-        printk(TBOOT_ERR"max_ram_base is too high\n");
-        return false;
-    }
-    if ( plus_overflow_u32((uint32_t)max_ram_base,
-             (uint32_t)(max_ram_size - initrd_size)) ) {
-        printk(TBOOT_ERR"max_ram overflows\n");
-        return false;
-    }
-    initrd_base = (max_ram_base + max_ram_size - initrd_size) & PAGE_MASK;
-
-    /* should not exceed initrd_addr_max */
-    if ( initrd_base + initrd_size > hdr->initrd_addr_max ) {
-        if ( hdr->initrd_addr_max < initrd_size ) {
-            printk(TBOOT_ERR"initrd_addr_max is too small\n");
+        uint64_t max_ram_base, max_ram_size;
+        get_highest_sized_ram(initrd_size, mem_limit,
+                              &max_ram_base, &max_ram_size);
+        if ( max_ram_size == 0 ) {
+            printk(TBOOT_ERR"not enough RAM for initrd\n");
             return false;
         }
-        initrd_base = hdr->initrd_addr_max - initrd_size;
-        initrd_base = initrd_base & PAGE_MASK;
-    }
-
-    /* check for overlap with a kernel image placed high in memory */
-    if( (initrd_base < ((uint32_t)linux_image + linux_size))
-        && ((uint32_t)linux_image < (initrd_base+initrd_size)) ){
-        /* set the starting address just below the image */
-        initrd_base = (uint32_t)linux_image - initrd_size;
-        initrd_base = initrd_base & PAGE_MASK;
-        /* make sure we're still in usable RAM and above tboot end address*/
-        if( initrd_base < max_ram_base ){
-            printk(TBOOT_ERR"no available memory for initrd\n");
+        if ( initrd_size > max_ram_size ) {
+            printk(TBOOT_ERR"initrd_size is too large\n");
             return false;
         }
-    }
+        if ( max_ram_base > ((uint64_t)(uint32_t)(~0)) ) {
+            printk(TBOOT_ERR"max_ram_base is too high\n");
+            return false;
+        }
+        if ( plus_overflow_u32((uint32_t)max_ram_base,
+                 (uint32_t)(max_ram_size - initrd_size)) ) {
+            printk(TBOOT_ERR"max_ram overflows\n");
+            return false;
+        }
+        initrd_base = (max_ram_base + max_ram_size - initrd_size) & PAGE_MASK;
 
-    memmove((void *)initrd_base, initrd_image, initrd_size);
-    printk(TBOOT_DETA"Initrd from 0x%lx to 0x%lx\n",
-           (unsigned long)initrd_base,
-           (unsigned long)(initrd_base + initrd_size));
+        /* should not exceed initrd_addr_max */
+        if ( initrd_base + initrd_size > hdr->initrd_addr_max ) {
+            if ( hdr->initrd_addr_max < initrd_size ) {
+                printk(TBOOT_ERR"initrd_addr_max is too small\n");
+                return false;
+            }
+            initrd_base = hdr->initrd_addr_max - initrd_size;
+            initrd_base = initrd_base & PAGE_MASK;
+        }
 
+        /* check for overlap with a kernel image placed high in memory */
+        if( (initrd_base < ((uint32_t)linux_image + linux_size))
+            && ((uint32_t)linux_image < (initrd_base+initrd_size)) ){
+            /* set the starting address just below the image */
+            initrd_base = (uint32_t)linux_image - initrd_size;
+            initrd_base = initrd_base & PAGE_MASK;
+            /* make sure we're still in usable RAM and above tboot end address*/
+            if( initrd_base < max_ram_base ){
+                printk(TBOOT_ERR"no available memory for initrd\n");
+                return false;
+            }
+        }
+
+        memmove((void *)initrd_base, initrd_image, initrd_size);
+        printk(TBOOT_DETA"Initrd from 0x%lx to 0x%lx\n",
+               (unsigned long)initrd_base,
+               (unsigned long)(initrd_base + initrd_size));
+
+    } 
+    else
+        initrd_base = (uint32_t)initrd_image;
     hdr->ramdisk_image = initrd_base;
     hdr->ramdisk_size = initrd_size;
 
