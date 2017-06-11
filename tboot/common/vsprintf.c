@@ -404,6 +404,7 @@ handle_width:
         case 'p':
             mods.flag |= PREFIX;    /* print prefix 0x for %p */
             mods.flag_long = LONG;
+        /* FALLTHROUGH */
         case 'x':
             mods.base = 16;
             buf_pos = write_number_to_buffer(buf, size, buf_pos, mods);

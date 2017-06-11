@@ -525,11 +525,13 @@ static void shutdown_system(uint32_t shutdown_type)
             /* write our S3 resume vector to ACPI resume addr */
             set_s3_resume_vector(&_tboot_shared.acpi_sinfo,  TBOOT_S3_WAKEUP_ADDR);
             /* fall through for rest of Sx handling */
+        /* FALLTHROUGH */
         case TB_SHUTDOWN_S4:
         case TB_SHUTDOWN_S5:
             machine_sleep(&_tboot_shared.acpi_sinfo);
             /* if machine_sleep() fails, fall through to reset */
 
+        /* FALLTHROUGH */
         case TB_SHUTDOWN_REBOOT:
             if ( txt_is_powercycle_required() ) {
                 /* powercycle by writing 0x0a+0x0e to port 0xcf9 */
@@ -548,6 +550,7 @@ static void shutdown_system(uint32_t shutdown_type)
                 outb(0xcf9, 0x06);
             }
 
+        /* FALLTHROUGH */
         case TB_SHUTDOWN_HALT:
         default:
             while ( true )

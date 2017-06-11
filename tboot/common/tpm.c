@@ -116,15 +116,15 @@ static bool tpm_send_cmd_ready_status_crb(uint32_t locality)
       printk(TBOOT_INFO"1. reg_ctrl_sts.tpmsts: 0x%x\n", reg_ctrl_sts.tpmsts); 	
 #endif
 
-	if ( reg_ctrl_sts.tpmidle== 1) {
-           reg_ctrl_request._raw[0] = 0;
+	if ( reg_ctrl_sts.tpmidle == 1) {
+           memset(&reg_ctrl_request,0,sizeof(reg_ctrl_request));
            reg_ctrl_request.cmdReady = 1;
 	    write_tpm_reg(locality, TPM_CRB_CTRL_REQ, &reg_ctrl_request);
 
 	    return true;
 	}
 
-      reg_ctrl_request._raw[0] = 0;
+      memset(&reg_ctrl_request,0,sizeof(reg_ctrl_request));
       reg_ctrl_request.goIdle = 1;
       write_tpm_reg(locality, TPM_CRB_CTRL_REQ, &reg_ctrl_request);
 	  
@@ -158,7 +158,7 @@ static bool tpm_send_cmd_ready_status_crb(uint32_t locality)
        printk(TBOOT_INFO"2. reg_ctrl_sts.tpmsts: 0x%x\n", reg_ctrl_sts.tpmsts); 	
 #endif
 
-       reg_ctrl_request._raw[0] = 0;
+       memset(&reg_ctrl_request,0,sizeof(reg_ctrl_request));
        reg_ctrl_request.cmdReady = 1;
 	write_tpm_reg(locality, TPM_CRB_CTRL_REQ, &reg_ctrl_request);
 
@@ -724,7 +724,7 @@ bool tpm_relinquish_locality_crb(uint32_t locality)
     if ( reg_loc_state.loc_assigned == 0 )    return true;
 
     /* make inactive by writing a 1 */
-    reg_loc_ctrl._raw[0] = 0;
+    memset(&reg_loc_ctrl,0,sizeof(reg_loc_ctrl));
     reg_loc_ctrl.relinquish = 1;
     write_tpm_reg(locality, TPM_REG_LOC_CTRL, &reg_loc_ctrl);
 
@@ -778,7 +778,7 @@ bool tpm_request_locality_crb(uint32_t locality){
     tpm_reg_loc_state_t  reg_loc_state;
     tpm_reg_loc_ctrl_t    reg_loc_ctrl;
     /* request access to the TPM from locality N */
-    reg_loc_ctrl._raw[0] = 0;
+    memset(&reg_loc_ctrl,0,sizeof(reg_loc_ctrl));
     reg_loc_ctrl.requestAccess = 1;
     write_tpm_reg(locality, TPM_REG_LOC_CTRL, &reg_loc_ctrl);
 
