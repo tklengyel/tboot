@@ -240,22 +240,21 @@ ENTRY(_txt_wakeup)
         or      $CR4_MCE,%eax
         mov     %eax,%cr4
 
-	# get initial APIC ID for this processor
-	mov	$0x01, %eax
-	xor	%ebx, %ebx
+	# get initial 32-bit local APIC ID for this processor
+	mov	$0x0b, %eax
+	xor	%edx, %edx
 	cpuid
-	shr	$24, %ebx
 
 	# set stack as id-based offset from AP stack base
 	# spin hlt if we exceed, since C code can't handle shared stack
-	cmp	$NR_CPUS, %ebx
+	cmp	$NR_CPUS, %edx
 	jl      3f
 	# TBD: increment global counter so BSP can tell we exceeded NR_CPUS
 2:	cli
 	hlt
 	jmp     2b
 3:	mov     $AP_STACK_SIZE, %eax
-	mul	%ebx
+	mul	%edx
 	mov	$ap_stacks, %ecx
 	sub	%eax, %ecx
 	mov	%ecx, %esp
