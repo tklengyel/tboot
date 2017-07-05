@@ -44,6 +44,11 @@
 ^lcptools/lcp_crtpolelt$
 ^lcptools/lcp_crtpollist$
 ^lcptools/trousers_dep$
+^lcptools-v2/lcp2_crtpol$
+^lcptools-v2/lcp2_crtpolelt$
+^lcptools-v2/lcp2_crtpollist$
+^lcptools-v2/lcp2_mlehash$
+^lcptools-v2/trousers_dep$
 ^tb_polgen/tb_polgen$
 ^utils/acminfo$
 ^utils/txt-stat$
