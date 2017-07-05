@@ -26,6 +26,8 @@ if test -e /usr/share/grub/grub-mkconfig_lib; then
   . /usr/share/grub/grub-mkconfig_lib
 elif test -e ${libdir}/grub/grub-mkconfig_lib; then
   . ${libdir}/grub/grub-mkconfig_lib
+elif test -e /usr/share/grub2/grub-mkconfig_lib; then
+  . /usr/share/grub2/grub-mkconfig_lib
 fi
 
 if test -e ${sysconfdir}/default/grub-tboot; then
