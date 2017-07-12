@@ -1,3 +1,16 @@
+20170711: v1.9.6
+        GCC7 fix, adds generic FALLTHROUGH notations to avoid warnings appearing on GCC7
+        Ensure Tboot never overwrites modules in the process of moving them.
+        Add support to x2APIC, which uses 32 bit APIC ID.
+        Fix S3 secrets sealing/unsealing failures
+        Support OpenSSL 1.1.0+ for ECDSA signature verification.
+        Support OpenSSL 1.1.0+ for RSA key manipulation.
+        Adds additional checks to prevent the kernel image from being overwritten.
+        Added TCG TPM event log support.
+        Pass through the EFI memory map that's provided by grub2.
+        Fix a null pointer dereference bug when Intel TXT is disabled in BIOS.
+        Adjust KERNEL_CMDLINE_OFFSET from 0x9000 to 0x8D00.
+        Bounds checking on the kernel_cmdline string.
 20161216: v1.9.5
         Add 2nd generation of LCP creation tool source codes for TPM 2.0 platforms.
         Add user guide for 2nd generation LCP creation tool
