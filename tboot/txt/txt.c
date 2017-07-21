@@ -430,12 +430,15 @@ bool evtlog_append(uint8_t pcr, hash_list_t *hl, uint32_t type)
 {
     switch (g_tpm->major) {
     case TPM12_VER_MAJOR:
-        evtlog_append_tpm12(pcr, &hl->entries[0].hash, type);
+        if ( !evtlog_append_tpm12(pcr, &hl->entries[0].hash, type) )
+            return false;
         break;
     case TPM20_VER_MAJOR:
-        for (unsigned int i=0; i<hl->count; i++)
-            evtlog_append_tpm20(pcr, hl->entries[i].alg,
-                    &hl->entries[i].hash, type);
+        for (unsigned int i=0; i<hl->count; i++) {
+            if ( !evtlog_append_tpm20(pcr, hl->entries[i].alg,
+                    &hl->entries[i].hash, type))
+                return false;
+	}
         break;
     default:
         return false;
