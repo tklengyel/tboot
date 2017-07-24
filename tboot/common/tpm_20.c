@@ -2555,6 +2555,12 @@ static bool tpm20_init(struct tpm_if *ti)
     for (unsigned int i=0; i<ti->alg_count; i++)
         printk(TBOOT_INFO"tboot: hash alg = %08X\n", ti->algs[i]);
 
+    /* reset debug PCR 16 */
+    if (!tpm20_pcr_reset(ti, ti->cur_loc, 16)){
+        printk(TBOOT_WARN"TPM: tpm20_pcr_reset failed...\n");
+	return false;
+    }
+
     if (handle2048 != 0)
         goto out;
 
