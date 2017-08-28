@@ -74,13 +74,18 @@ bool hash_buffer(const unsigned char* buf, size_t size, tb_hash_t *hash,
         return false;
 
     if ( hash_alg == TB_HALG_SHA1_LG ) {
-        EVP_MD_CTX ctx;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_create();
+        if (ctx == NULL) {
+            fprintf(stderr, "%s(): EVP_MD_CTX_create() failed.\n", __func__);
+            return false;
+        }
         const EVP_MD *md;
 
         md = EVP_sha1();
-        EVP_DigestInit(&ctx, md);
-        EVP_DigestUpdate(&ctx, buf, size);
-        EVP_DigestFinal(&ctx, hash->sha1, NULL);
+        EVP_DigestInit(ctx, md);
+        EVP_DigestUpdate(ctx, buf, size);
+        EVP_DigestFinal(ctx, hash->sha1, NULL);
+        EVP_MD_CTX_destroy(ctx);
         return true;
     }
     else
