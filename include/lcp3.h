@@ -55,12 +55,15 @@
 #define LCP_POLTYPE_LIST    0
 #define LCP_POLTYPE_ANY     1
 
+#define LCP_VER_2_0  0x0200
+#define LCP_VER_3_0  0x0300
+#define LCP_VER_3_1  0x0301
+#define LCP_VER_NULL    0x0000
 
-#define LCP_DEFAULT_POLICY_VERSION     0x0300
+#define LCP_DEFAULT_POLICY_VERSION     LCP_VER_3_0
 #define LCP_DEFAULT_POLICY_CONTROL     0x00
 
 #define LCP_MAX_LISTS      8
-
 
 /*--------- with LCP_POLICY version 2.0 ------------*/
 #define SHA1_LENGTH        20
@@ -140,6 +143,22 @@ typedef struct __packed {
 #define TPM_ALG_SHA512	0x000D
 #define TPM_ALG_NULL	0x0010
 #define TPM_ALG_SM3_256	0x0012
+ 
+#define TPM_ALG_MASK_NULL	    0x0000
+#define TPM_ALG_MASK_SHA1	    0x0001
+#define TPM_ALG_MASK_SHA256	    0x0008
+#define TPM_ALG_MASK_SM3_256	    0x0020
+#define TPM_ALG_MASK_SHA384	    0x0040
+#define TPM_ALG_MASK_SHA512	    0x0080
+
+#define SIGN_ALG_MASK_NULL                  0x00000000
+#define SIGN_ALG_MASK_RSASSA_1024_SHA1      0x00000001
+#define SIGN_ALG_MASK_RSASSA_1024_SHA256    0x00000002
+#define SIGN_ALG_MASK_RSASSA_2048_SHA1      0x00000004
+#define SIGN_ALG_MASK_RSASSA_2048_SHA256    0x00000008
+#define SIGN_ALG_MASK_ECDSA_P256            0x00001000
+#define SIGN_ALG_MASK_ECDSA_P384            0x00002000
+#define SIGN_ALG_MASK_SM2                   0x00010000
 
 #define TPM_ALG_RSASSA  0x0014
 #define TPM_ALG_ECDSA   0x0018

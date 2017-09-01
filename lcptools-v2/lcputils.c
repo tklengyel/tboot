@@ -292,7 +292,7 @@ const char *sig_alg_to_str(uint16_t alg)
     }
 }
 
-extern uint16_t str_to_hash_alg(const char *str) 
+uint16_t str_to_hash_alg(const char *str) 
 {
     if (strcmp(str,"sha1") == 0)
         return TPM_ALG_SHA1;
@@ -308,12 +308,32 @@ extern uint16_t str_to_hash_alg(const char *str)
         return  TPM_ALG_NULL;
 }
 
-extern uint16_t str_to_sig_alg(const char *str, const uint16_t version)
+uint16_t str_to_lcp_hash_mask(const char *str)
+{
+    if (strcmp(str,"sha1") == 0)
+        return TPM_ALG_MASK_SHA1;
+    else if (strcmp(str,"sha256") == 0)
+        return TPM_ALG_MASK_SHA256;
+    else if (strcmp(str,"sha384") == 0)
+        return TPM_ALG_MASK_SHA384;
+    else if (strcmp(str,"sha512") == 0)
+        return TPM_ALG_MASK_SHA512;
+    else if (strcmp(str,"sm3") == 0)
+        return TPM_ALG_MASK_SM3_256;
+    else if(strncmp(str, "0X", 2) || strncmp(str, "0x", 2))
+        return strtoul(str, NULL, 0);
+    else
+        return  TPM_ALG_MASK_NULL;
+}
+
+uint16_t str_to_sig_alg(const char *str, const uint16_t version)
 {
     LOG("str_to_sig_alg:version=%x\n",version);
     if( version == LCP_TPM12_POLICY_LIST_VERSION) {
         if (strcmp(str,"rsa") == 0)
             return LCP_POLSALG_RSA_PKCS_15;
+        else if(strncmp(str, "0X", 2) || strncmp(str, "0x", 2))
+            return strtoul(str, NULL, 0);
         else 
             return LCP_POLSALG_NONE;
     }
@@ -329,8 +349,61 @@ extern uint16_t str_to_sig_alg(const char *str, const uint16_t version)
         else 
             return TPM_ALG_NULL;
     }
-    else 
+    else if(strncmp(str, "0X", 2) || strncmp(str, "0x", 2))
+        return strtoul(str, NULL, 0);
+    else
         return TPM_ALG_NULL;
+}
+uint32_t str_to_sig_alg_mask(const char *str, const uint16_t version)
+{
+    LOG("str_to_sig_alg_mask:version=%x\n",version);
+    uint16_t lcp_major_ver = version & 0xFF00;
+    if( lcp_major_ver == LCP_VER_2_0 ) {
+        //signature algorithm mask is undefined in LCPv2
+        return SIGN_ALG_MASK_NULL;
+    }
+    else if( lcp_major_ver == LCP_VER_3_0) {
+        if(strncmp(str, "0X", 2) || strncmp(str, "0x", 2)){
+            return strtoul(str, NULL, 0);
+        }
+        else{
+            //mask must be specified explicitly, no string parsing yet
+            return SIGN_ALG_MASK_NULL;
+        }
+    }
+    else 
+        return SIGN_ALG_MASK_NULL;
+}
+uint16_t str_to_pol_ver(const char *str)
+{
+    if( strcmp(str,"2.0") == 0)
+       return LCP_VER_2_0;
+    else if ( strcmp(str,"3.0") == 0)
+        return LCP_VER_3_0;
+    else if ( strcmp(str,"3.1") == 0)
+        return LCP_VER_3_1;
+    else 
+        return LCP_VER_NULL;
+}
+
+uint16_t convert_hash_alg_to_mask(uint16_t hash_alg)
+{
+    LOG("convert_hash_alg_to_mask hash_alg = 0x%x\n", hash_alg);
+    switch(hash_alg){
+    case TPM_ALG_SHA1:
+        return TPM_ALG_MASK_SHA1;
+    case TPM_ALG_SHA256:
+        return TPM_ALG_MASK_SHA256;
+    case TPM_ALG_SHA384:
+        return TPM_ALG_MASK_SHA384;
+    case TPM_ALG_SHA512:
+        return TPM_ALG_MASK_SHA512;
+    case TPM_ALG_SM3_256:
+        return TPM_ALG_MASK_SM3_256;
+    default:
+        return 0;
+    }
+    return 0;
 }
 
 size_t get_lcp_hash_size(uint16_t hash_alg)

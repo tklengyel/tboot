@@ -62,20 +62,24 @@ extern bool parse_line_hashes(const char *line, tb_hash_t *hash, uint16_t alg);
 extern bool parse_file(const char *filename,
 		       bool (*parse_line)(const char *line));
 
-extern const char *hash_alg_to_str(uint16_t alg);
+const char *hash_alg_to_str(uint16_t alg);
 
-extern const char *sig_alg_to_str(uint16_t alg);
+const char *sig_alg_to_str(uint16_t alg);
 
-extern uint16_t str_to_hash_alg(const char *str);
+uint16_t str_to_hash_alg(const char *str);
+uint16_t str_to_lcp_hash_mask(const char *str);
+uint16_t convert_hash_alg_to_mask(uint16_t hash_alg);
 
-extern uint16_t str_to_sig_alg(const char *str, const uint16_t version);
+uint16_t str_to_sig_alg(const char *str, const uint16_t version);
+uint32_t str_to_sig_alg_mask(const char *str, const uint16_t version);
 
-extern size_t get_lcp_hash_size(uint16_t hash_alg);
+uint16_t str_to_pol_ver(const char *str);
 
-extern bool verify_signature(const uint8_t *data, size_t data_size,
-                             const uint8_t *pubkey, size_t pubkey_size,
-                             const uint8_t *sig, bool is_sig_little_endian);
+size_t get_lcp_hash_size(uint16_t hash_alg);
 
+bool verify_signature(const uint8_t *data, size_t data_size,
+                      const uint8_t *pubkey, size_t pubkey_size,
+                      const uint8_t *sig, bool is_sig_little_endian);
 #endif    /* __LCPUTILS_H__ */
 
 
