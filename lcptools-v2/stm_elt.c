@@ -132,9 +132,9 @@ static struct option opts[] = {
 };
 
 static polelt_plugin_t plugin = {
-    "mle",
+    "stm",
     opts,
-    "      mle\n"
+    "      stm\n"
     "        [--alg <sha1|sha256|sha384|sha512>]    hash alg of element\n"
     "        <FILE1> [FILE2] ...         one or more files containing STM\n"
     "                                    hash(es); each file can contain\n"
