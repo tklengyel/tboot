@@ -288,8 +288,8 @@ bool verify_signature(const uint8_t *data, size_t data_size,
     #if OPENSSL_VERSION_NUMBER >= 0x10100000L
         RSA_set0_key(rsa_pubkey, modulus, exponent, NULL); 
     #else
-      	rsa_pubkey->n = modulus;
-    	rsa_pubkey->e = exponent;
+      	rsa_pubkey->n = BN_dup(modulus);
+    	rsa_pubkey->e = BN_dup(exponent);
   	rsa_pubkey->d = rsa_pubkey->p = rsa_pubkey->q = NULL;
     #endif
 
