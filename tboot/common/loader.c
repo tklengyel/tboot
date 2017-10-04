@@ -1977,8 +1977,12 @@ find_efi_memmap(loader_ctx *lctx, uint32_t *descr_size,
     efi_mmap = (struct mb2_tag_efi_mmap *)hit;
     *descr_size = efi_mmap->descr_size;
     *descr_vers = efi_mmap->descr_vers;
-    *mmap_size = efi_mmap->size;
-    return (uint32_t)(&efi_mmap->efi_mmap); 
+    *mmap_size = efi_mmap->size - sizeof(struct mb2_tag_efi_mmap);
+    if (*mmap_size % *descr_size) {
+        printk(TBOOT_WARN "EFI memmmap (0x%x) should be a multiple of descriptor size (0x%x)\n",
+	       *mmap_size, *descr_size);
+    }
+    return (uint32_t)(&efi_mmap->efi_mmap);
 }
 
 bool
