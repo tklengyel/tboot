@@ -1914,8 +1914,7 @@ static bool tpm12_check(void)
 
     return ( ret == TPM_BAD_ORDINAL );
 }
-
-struct tpm_if tpm_12_if = {
+const struct tpm_if_fp tpm_12_if_fp = {
     .init = tpm12_init,
     .pcr_read = tpm12_pcr_read,
     .pcr_extend = tpm12_pcr_extend,
@@ -1931,11 +1930,6 @@ struct tpm_if tpm_12_if = {
     .save_state = tpm12_save_state,
     .cap_pcrs = tpm12_cap_pcrs,
     .check = tpm12_check,
-    .cur_loc = 0,
-    .timeout.timeout_a = TIMEOUT_A,
-    .timeout.timeout_b = TIMEOUT_B,
-    .timeout.timeout_c = TIMEOUT_C,
-    .timeout.timeout_d = TIMEOUT_D,
 };
 
 /*

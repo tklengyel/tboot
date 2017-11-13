@@ -156,6 +156,8 @@ static void post_launch(void)
 {
     uint64_t base, size;
     tb_error_t err;
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
     extern tboot_log_t *g_log;
     extern void shutdown_entry(void);
 
@@ -228,7 +230,7 @@ static void post_launch(void)
     /*
      * verify nv indices against policy
      */
-    if ( (g_tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() ) 
+    if ( (tpm->major == TPM12_VER_MAJOR) &&  get_tboot_measure_nv() ) 
 	verify_all_nvindices();
 
     /*
@@ -238,8 +240,8 @@ static void post_launch(void)
 	apply_policy(TB_ERR_S3_INTEGRITY);
 
 	
-    if ( g_tpm->major == TPM20_VER_MAJOR ) {
-	g_tpm->context_save(g_tpm, g_tpm->cur_loc, handle2048, &tpm2_context_saved);
+    if ( tpm->major == TPM20_VER_MAJOR ) {
+	tpm_fp->context_save(tpm, tpm->cur_loc, handle2048, &tpm2_context_saved);
     }
 
 	/*
@@ -253,7 +255,7 @@ static void post_launch(void)
     _tboot_shared.tboot_base = (uint32_t)&_start;
     _tboot_shared.tboot_size = (uint32_t)&_end - (uint32_t)&_start;
     uint32_t key_size = sizeof(_tboot_shared.s3_key);
-    if ( !g_tpm->get_random(g_tpm, 2, _tboot_shared.s3_key, &key_size) || key_size != sizeof(_tboot_shared.s3_key) )
+    if ( !tpm_fp->get_random(tpm, 2, _tboot_shared.s3_key, &key_size) || key_size != sizeof(_tboot_shared.s3_key) )
         apply_policy(TB_ERR_S3_INTEGRITY);
     _tboot_shared.num_in_wfs = atomic_read(&ap_wfs_count);
     if ( use_mwait() ) {
@@ -475,15 +477,15 @@ void begin_launch(void *addr, uint32_t magic)
 
 void s3_launch(void)
 {
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
     /* restore backed-up s3 wakeup page */
     restore_saved_s3_wakeup_page();
-
-	/* load saved tpm2 context for unseal */
-	if ( g_tpm->major == TPM20_VER_MAJOR ) {
-	    g_tpm->context_flush(g_tpm, g_tpm->cur_loc, handle2048);
-	    g_tpm->context_load(g_tpm, g_tpm->cur_loc, &tpm2_context_saved, &handle2048);
-	}
-
+    /* load saved tpm2 context for unseal */
+    if ( tpm->major == TPM20_VER_MAJOR ) {
+        tpm_fp->context_flush(tpm, tpm->cur_loc, handle2048);
+        tpm_fp->context_load(tpm, tpm->cur_loc, &tpm2_context_saved, &handle2048);
+    }
 
     /* remove DMAR table if necessary */
     remove_vtd_dmar_table();
@@ -560,6 +562,9 @@ static void shutdown_system(uint32_t shutdown_type)
 
 void shutdown(void)
 {
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
+   
     /* wait-for-sipi only invoked for APs, so skip all BSP shutdown code */
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_WFS ) {
         atomic_inc(&ap_wfs_count);
@@ -585,24 +590,24 @@ void shutdown(void)
             printk(TBOOT_ERR"Release TPM FIFO locality 0 failed \n");
         if (!release_locality(1))
             printk(TBOOT_ERR"Release TPM FIFO locality 1 failed \n");
-        if (!tpm_wait_cmd_ready(g_tpm->cur_loc))
-            printk(TBOOT_ERR"Request TPM FIFO locality %d failed \n", g_tpm->cur_loc);
+        if (!tpm_wait_cmd_ready(tpm->cur_loc))
+            printk(TBOOT_ERR"Request TPM FIFO locality %d failed \n", tpm->cur_loc);
     }
     else {
         if (!tpm_relinquish_locality_crb(0))
             printk(TBOOT_ERR"Release TPM CRB locality 0 failed \n");
         if (!tpm_relinquish_locality_crb(1))			 
             printk(TBOOT_ERR"Release TPM CRB locality 1 failed \n");
-        if (!tpm_request_locality_crb(g_tpm->cur_loc))
-            printk(TBOOT_ERR"Request TPM CRB locality %d failed \n", g_tpm->cur_loc);
+        if (!tpm_request_locality_crb(tpm->cur_loc))
+            printk(TBOOT_ERR"Request TPM CRB locality %d failed \n", tpm->cur_loc);
     }
 
     if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 ) {
         /* restore DMAR table if needed */
         restore_vtd_dmar_table();
-	if ( g_tpm->major == TPM20_VER_MAJOR ) {
-	    g_tpm->context_flush(g_tpm, g_tpm->cur_loc, handle2048);
-	    g_tpm->context_load(g_tpm, g_tpm->cur_loc, &tpm2_context_saved, &handle2048);
+	if ( tpm->major == TPM20_VER_MAJOR ) {
+	    tpm_fp->context_flush(tpm, tpm->cur_loc, handle2048);
+	    tpm_fp->context_load(tpm, tpm->cur_loc, &tpm2_context_saved, &handle2048);
  	}
 
 		
@@ -624,13 +629,13 @@ void shutdown(void)
     if ( is_launched() ) {
 
         /* cap PCRs to ensure no follow-on code can access sealed data */
-        g_tpm->cap_pcrs(g_tpm, g_tpm->cur_loc, -1);
+        tpm_fp->cap_pcrs(tpm, tpm->cur_loc, -1);
 
         /* have TPM save static PCRs (in case VMM/kernel didn't) */
         /* per TCG spec, TPM can invalidate saved state if any other TPM
            operation is performed afterwards--so do this last */
         if ( _tboot_shared.shutdown_type == TB_SHUTDOWN_S3 )
-            g_tpm->save_state(g_tpm, g_tpm->cur_loc);
+            tpm_fp->save_state(tpm, tpm->cur_loc);
 
         /* scrub any secrets by clearing their memory, then flush cache */
         /* we don't have any secrets to scrub, however */

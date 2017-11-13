@@ -45,13 +45,16 @@
 #include <tpm.h>
 #include <sha1.h>
 
-__data struct tpm_if *g_tpm = NULL;
+__data uint8_t g_tpm_ver = TPM_VER_UNKNOWN;
+__data struct tpm_if g_tpm = {
+    .cur_loc = 0,
+    .timeout.timeout_a = TIMEOUT_A,
+    .timeout.timeout_b = TIMEOUT_B,
+    .timeout.timeout_c = TIMEOUT_C,
+    .timeout.timeout_d = TIMEOUT_D,
+};
+
 u16 tboot_alg_list[] = {TB_HALG_SHA1, TB_HALG_SHA256};
-
-
-
-
-
 
 /* Global variables for TPM status register */
 static tpm20_reg_sts_t       g_reg_sts, *g_reg_sts_20 = &g_reg_sts;
@@ -70,15 +73,15 @@ typedef union {
 } tpm_reg_data_crb_t;
 
 #define TPM_ACTIVE_LOCALITY_TIME_OUT    \
-          (TIMEOUT_UNIT * g_tpm->timeout.timeout_a)  /* according to spec */
+          (TIMEOUT_UNIT *get_tpm()->timeout.timeout_a)  /* according to spec */
 #define TPM_CMD_READY_TIME_OUT          \
-          (TIMEOUT_UNIT * g_tpm->timeout.timeout_b)  /* according to spec */
+          (TIMEOUT_UNIT *get_tpm()->timeout.timeout_b)  /* according to spec */
 #define TPM_CMD_WRITE_TIME_OUT          \
-          (TIMEOUT_UNIT * g_tpm->timeout.timeout_d)  /* let it long enough */
+          (TIMEOUT_UNIT *get_tpm()->timeout.timeout_d)  /* let it long enough */
 #define TPM_DATA_AVAIL_TIME_OUT         \
-          (TIMEOUT_UNIT * g_tpm->timeout.timeout_c)  /* let it long enough */
+          (TIMEOUT_UNIT *get_tpm()->timeout.timeout_c)  /* let it long enough */
 #define TPM_RSP_READ_TIME_OUT           \
-          (TIMEOUT_UNIT * g_tpm->timeout.timeout_d)  /* let it long enough */
+          (TIMEOUT_UNIT *get_tpm()->timeout.timeout_d)  /* let it long enough */
 #define TPM_VALIDATE_LOCALITY_TIME_OUT  0x100
 
 #define read_tpm_sts_reg(locality) { \
@@ -828,6 +831,8 @@ bool tpm_workaround_crb(void)
 
 bool tpm_detect(void)
 {
+    struct tpm_if *tpm;
+    const struct tpm_if_fp *tpm_fp;
     if (is_tpm_crb()) {
          printk(TBOOT_INFO"TPM: This is Intel PTT, TPM Family 0x%d\n", g_tpm_family);
          if (!txt_is_launched()) {
@@ -854,14 +859,17 @@ bool tpm_detect(void)
     	  }
     }
     else {
-		g_tpm = &tpm_12_if; /* Don't leave g_tpm as NULL*/
+		g_tpm_ver = TPM_VER_12; 
+		tpm = get_tpm(); /* Don't leave tpm and tpm_fp as NULL*/
+		tpm_fp = get_tpm_fp();
+
 		if ( tpm_validate_locality(0) )  printk(TBOOT_INFO"TPM: FIFO_INF Locality 0 is open\n");
 		else {	
 			printk(TBOOT_ERR"TPM: FIFO_INF Locality 0 is not open\n");
 			return false;
 			}
 		/* determine TPM family from command check */
-		if ( g_tpm->check() )  {
+		if ( tpm_fp->check() )  {
 			g_tpm_family = TPM_IF_12;
 			printk(TBOOT_INFO"TPM: discrete TPM1.2 Family 0x%d\n", g_tpm_family);	
 			}
@@ -871,21 +879,12 @@ bool tpm_detect(void)
 			}
 	}
    
-    if (g_tpm_family == TPM_IF_12)  g_tpm = &tpm_12_if;
-    if (g_tpm_family == TPM_IF_20_FIFO)  g_tpm = &tpm_20_if;
-    if (g_tpm_family == TPM_IF_20_CRB)  g_tpm = &tpm_20_if;
+    if (g_tpm_family == TPM_IF_12)  g_tpm_ver = TPM_VER_12;
+    if (g_tpm_family == TPM_IF_20_FIFO)  g_tpm_ver = TPM_VER_20;
+    if (g_tpm_family == TPM_IF_20_CRB)  g_tpm_ver = TPM_VER_20;
 
-   /*  if (!txt_is_launched()) 
-	   g_tpm->cur_loc = 0;
-     else 
-	   g_tpm->cur_loc = 2;
-	 	
-    g_tpm->timeout.timeout_a = TIMEOUT_A;
-    g_tpm->timeout.timeout_b = TIMEOUT_B;
-    g_tpm->timeout.timeout_c = TIMEOUT_C;
-    g_tpm->timeout.timeout_d = TIMEOUT_D;
-*/
-    return g_tpm->init(g_tpm);
+    tpm_fp = get_tpm_fp();
+    return tpm_fp->init(tpm);
 }
 
 void tpm_print(struct tpm_if *ti)
@@ -897,8 +896,23 @@ void tpm_print(struct tpm_if *ti)
     printk(TBOOT_INFO"\t extend policy: %d\n", ti->extpol);
     printk(TBOOT_INFO"\t current alg id: 0x%x\n", ti->cur_alg);
     printk(TBOOT_INFO"\t timeout values: A: %u, B: %u, C: %u, D: %u\n", ti->timeout.timeout_a, ti->timeout.timeout_b, ti->timeout.timeout_c, ti->timeout.timeout_d);
+} 
+
+struct tpm_if *get_tpm(void)
+{
+    return &g_tpm;
 }
 
+const struct tpm_if_fp *get_tpm_fp(void)
+{
+    if ( g_tpm_ver == TPM_VER_12 )
+        return &tpm_12_if_fp;
+    else if ( g_tpm_ver == TPM_VER_20)
+        return &tpm_20_if_fp;
+
+    return NULL;
+
+}
 /*
  * Local variables:
  * mode: C

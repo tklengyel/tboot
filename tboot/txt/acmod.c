@@ -834,6 +834,8 @@ bool verify_racm(const acm_hdr_t *acm_hdr)
 #ifndef IS_INCLUDED     /*  defined in utils/acminfo.c  */
 void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr)
 {
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
   
     printk(TBOOT_INFO"SGX:verify_IA32_se_svn_status is called\n");
         
@@ -847,8 +849,8 @@ void verify_IA32_se_svn_status(const acm_hdr_t *acm_hdr)
     
     if (((rdmsr(MSR_IA32_SE_SVN_STATUS)>>16) & 0xff) != acm_hdr->se_svn) {
         printk(TBOOT_INFO"se_svn is not equal to ACM se_svn\n");
-        if (!g_tpm->nv_write(g_tpm, 0, g_tpm->sgx_svn_index, 0, (uint8_t *)&(acm_hdr->se_svn), 1)) 
-            printk(TBOOT_ERR"Write sgx_svn_index 0x%x failed. \n", g_tpm->sgx_svn_index);
+        if (!tpm_fp->nv_write(tpm, 0, tpm->sgx_svn_index, 0, (uint8_t *)&(acm_hdr->se_svn), 1)) 
+            printk(TBOOT_ERR"Write sgx_svn_index 0x%x failed. \n", tpm->sgx_svn_index);
         else
             printk(TBOOT_INFO"Write sgx_svn_index with 0x%x successful.\n", acm_hdr->se_svn);
 

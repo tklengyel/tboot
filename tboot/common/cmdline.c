@@ -503,28 +503,29 @@ bool get_tboot_measure_nv(void)
 void get_tboot_extpol(void)
 {
     const char *extpol = get_option_val(g_tboot_cmdline_options, g_tboot_param_values, "extpol");
+    struct tpm_if *tpm = get_tpm();
 
     if ( extpol == NULL ) {
-        g_tpm->extpol = TB_EXTPOL_FIXED;
-        g_tpm->cur_alg = TB_HALG_SHA256;
+        tpm->extpol = TB_EXTPOL_FIXED;
+        tpm->cur_alg = TB_HALG_SHA256;
         return;
     }
 
     if ( strcmp(extpol, "agile") == 0 ) {
-        g_tpm->extpol = TB_EXTPOL_AGILE;
-        g_tpm->cur_alg = TB_HALG_SHA256;
+        tpm->extpol = TB_EXTPOL_AGILE;
+        tpm->cur_alg = TB_HALG_SHA256;
     } else if ( strcmp(extpol, "embedded") == 0 ) {
-        g_tpm->extpol = TB_EXTPOL_EMBEDDED;
-        g_tpm->cur_alg = TB_HALG_SHA256;
+        tpm->extpol = TB_EXTPOL_EMBEDDED;
+        tpm->cur_alg = TB_HALG_SHA256;
     } else if ( strcmp(extpol, "sha256") == 0 ) {
-        g_tpm->extpol = TB_EXTPOL_FIXED;
-        g_tpm->cur_alg = TB_HALG_SHA256;
+        tpm->extpol = TB_EXTPOL_FIXED;
+        tpm->cur_alg = TB_HALG_SHA256;
     } else if ( strcmp(extpol, "sha1") == 0 ) {
-        g_tpm->extpol = TB_EXTPOL_FIXED;
-        g_tpm->cur_alg = TB_HALG_SHA1;
+        tpm->extpol = TB_EXTPOL_FIXED;
+        tpm->cur_alg = TB_HALG_SHA1;
     } else if ( strcmp(extpol, "sm3") == 0 ) {
-        g_tpm->extpol = TB_EXTPOL_FIXED;
-        g_tpm->cur_alg = TB_HALG_SM3;
+        tpm->extpol = TB_EXTPOL_FIXED;
+        tpm->cur_alg = TB_HALG_SM3;
     }
 }
 

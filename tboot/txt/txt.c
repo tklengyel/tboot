@@ -247,10 +247,11 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
 {
     unsigned int i;
     os_mle_data_t *os_mle_data = get_os_mle_data_start(get_txt_heap());
-    switch (g_tpm->extpol) {
+    struct tpm_if *tpm = get_tpm();
+    switch (tpm->extpol) {
     case TB_EXTPOL_AGILE:
         for (i=0; i<evt_log->count; i++) {
-            evt_log->event_log_descr[i].alg = g_tpm->algs_banks[i];
+            evt_log->event_log_descr[i].alg = tpm->algs_banks[i];
             evt_log->event_log_descr[i].phys_addr =
                     (uint64_t)(unsigned long)(os_mle_data->event_log_buffer + i*4096);
             evt_log->event_log_descr[i].size = 4096;
@@ -260,7 +261,7 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
         break;
     case TB_EXTPOL_EMBEDDED:
         for (i=0; i<evt_log->count; i++) {
-            evt_log->event_log_descr[i].alg = g_tpm->algs[i];
+            evt_log->event_log_descr[i].alg = tpm->algs[i];
             evt_log->event_log_descr[i].phys_addr =
                     (uint64_t)(unsigned long)(os_mle_data->event_log_buffer + i*4096);
             evt_log->event_log_descr[i].size = 4096;
@@ -269,7 +270,7 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
         }
         break;
     case TB_EXTPOL_FIXED:
-        evt_log->event_log_descr[0].alg = g_tpm->cur_alg;
+        evt_log->event_log_descr[0].alg = tpm->cur_alg;
         evt_log->event_log_descr[0].phys_addr =
                     (uint64_t)(unsigned long)os_mle_data->event_log_buffer;
         evt_log->event_log_descr[0].size = 4096;
@@ -286,15 +287,16 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
     heap_ext_data_element_t* elt = elts;
     heap_event_log_ptr_elt_t* evt_log;
     txt_caps_t sinit_caps;
+    struct tpm_if *tpm = get_tpm();
 	
-    if ( g_tpm->major == TPM12_VER_MAJOR ) {
+    if ( tpm->major == TPM12_VER_MAJOR ) {
         evt_log = (heap_event_log_ptr_elt_t *)elt->data;
         evt_log->event_log_phys_addr = (uint64_t)(unsigned long)init_event_log();
         elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR;
         elt->size = sizeof(*elt) + sizeof(*evt_log);
     } 
     else 
-        if ( g_tpm->major == TPM20_VER_MAJOR ) {
+        if ( tpm->major == TPM20_VER_MAJOR ) {
        	    if (g_sinit != NULL) {
 	        sinit_caps = get_sinit_capabilities(g_sinit);
 	    }
@@ -311,11 +313,11 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
 	    }
 	    else {
 		g_elog_2 = (heap_event_log_ptr_elt2_t *)elt->data;
-		if ( g_tpm->extpol == TB_EXTPOL_AGILE )
-	    	    g_elog_2->count = g_tpm->banks;
+		if ( tpm->extpol == TB_EXTPOL_AGILE )
+	    	    g_elog_2->count = tpm->banks;
 		else 
-		    if ( g_tpm->extpol == TB_EXTPOL_EMBEDDED )
-			g_elog_2->count = g_tpm->alg_count;
+		    if ( tpm->extpol == TB_EXTPOL_EMBEDDED )
+			g_elog_2->count = tpm->alg_count;
 		    else
 			g_elog_2->count = 1;
 		init_evtlog_desc(g_elog_2);
@@ -428,7 +430,8 @@ bool evtlog_append_tpm20(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t ty
 
 bool evtlog_append(uint8_t pcr, hash_list_t *hl, uint32_t type)
 {
-    switch (g_tpm->major) {
+    struct tpm_if *tpm = get_tpm();
+    switch (tpm->major) {
     case TPM12_VER_MAJOR:
         if ( !evtlog_append_tpm12(pcr, &hl->entries[0].hash, type) )
             return false;
@@ -457,6 +460,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit, loader_ctx *
 {
     txt_heap_t *txt_heap;
     uint64_t *size;
+    struct tpm_if *tpm = get_tpm();
 
     txt_heap = get_txt_heap();
 
@@ -591,8 +595,8 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit, loader_ctx *
 
     /* PCR mapping selection MUST be zero in TPM2.0 mode
      * since D/A mapping is the only supported by TPM2.0 */
-    if ( g_tpm->major >= TPM20_VER_MAJOR ) {
-        os_sinit_data->flags = (g_tpm->extpol == TB_EXTPOL_AGILE) ? 0 : 1;
+    if ( tpm->major >= TPM20_VER_MAJOR ) {
+        os_sinit_data->flags = (tpm->extpol == TB_EXTPOL_AGILE) ? 0 : 1;
         os_sinit_data->capabilities.pcr_map_no_legacy = 0;
         os_sinit_data->capabilities.pcr_map_da = 0;
         g_using_da = 1;
@@ -782,6 +786,7 @@ bool txt_s3_launch_environment(void)
     /* so don't re-create; this is OK because it was untrusted initially */
     /* and would be untrusted now */
 	txt_caps_t sinit_caps;
+    struct tpm_if *tpm = get_tpm();
 
     /* get sinit binary loaded */
     g_sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
@@ -790,10 +795,10 @@ bool txt_s3_launch_environment(void)
     }
 	/* initialize event log in os_sinit_data, so that events will not */
 	/* repeat when s3 */
-	if ( g_tpm->major == TPM12_VER_MAJOR && g_elog )
+	if ( tpm->major == TPM12_VER_MAJOR && g_elog )
 		g_elog = (event_log_container_t *)init_event_log();
 	else 
-		if ( g_tpm->major == TPM20_VER_MAJOR ){
+		if ( tpm->major == TPM20_VER_MAJOR ){
 			sinit_caps = get_sinit_capabilities(g_sinit);		
 			if (sinit_caps.tcg_event_log_format && g_elog_2_1) 
 				init_evtlog_desc_1(g_elog_2_1);

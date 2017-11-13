@@ -48,6 +48,10 @@
 #define TPM_IF_20_FIFO 1
 #define TPM_IF_20_CRB 2
 
+#define TPM_VER_UNKNOWN 0
+#define TPM_VER_12 1
+#define TPM_VER_20 2
+
 #define TPM_INTERFACE_ID_FIFO_20  0x0
 #define TPM_INTERFACE_ID_CRB     0x1
 #define TPM_INTERFACE_ID_FIFO_13   0xF
@@ -413,6 +417,7 @@ extern tpm_pcr_value_t post_launch_pcr17;
 extern tpm_pcr_value_t post_launch_pcr18;
 
 struct tpm_if;
+struct tpm_if_fp;
 
 struct tpm_if {
 #define TPM12_VER_MAJOR   1
@@ -447,6 +452,9 @@ struct tpm_if {
     u32 tb_policy_index;
     u32 tb_err_index;
     u32 sgx_svn_index;
+};
+
+struct tpm_if_fp {
 
     bool (*init)(struct tpm_if *ti);
 
@@ -483,9 +491,10 @@ struct tpm_if {
     bool (*check)(void);
 };
 
-extern struct tpm_if tpm_12_if;
-extern struct tpm_if tpm_20_if;
-extern struct tpm_if *g_tpm;
+extern struct tpm_if_data tpm_if_data;
+extern const struct tpm_if_fp tpm_12_if_fp;
+extern const struct tpm_if_fp tpm_20_if_fp;
+extern uint8_t g_tpm_ver;
 extern uint8_t g_tpm_family;
 
 extern bool tpm_validate_locality(uint32_t locality);
@@ -501,6 +510,8 @@ extern bool tpm_request_locality_crb(uint32_t locality);
 extern bool tpm_relinquish_locality_crb(uint32_t locality);
 extern bool txt_is_launched(void);
 extern bool tpm_workaround_crb(void);
+extern struct tpm_if *get_tpm(void);
+extern const struct tpm_if_fp *get_tpm_fp(void);
 
 
 //#define TPM_UNIT_TEST 1

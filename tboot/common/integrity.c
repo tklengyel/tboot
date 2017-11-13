@@ -87,8 +87,10 @@ typedef struct {
 
 static bool extend_pcrs(void)
 {
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
     for ( int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
-        if ( !g_tpm->pcr_extend(g_tpm, 2, g_pre_k_s3_state.vl_entries[i].pcr,
+        if ( !tpm_fp->pcr_extend(tpm, 2, g_pre_k_s3_state.vl_entries[i].pcr,
                     &g_pre_k_s3_state.vl_entries[i].hl) )
             return false;
         if ( !evtlog_append(g_pre_k_s3_state.vl_entries[i].pcr,
@@ -102,13 +104,15 @@ static bool extend_pcrs(void)
 
 static void print_pre_k_s3_state(void)
 {
+    struct tpm_if *tpm = get_tpm();
+    
     printk(TBOOT_DETA"pre_k_s3_state:\n");
     printk(TBOOT_DETA"\t vtd_pmr_lo_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_lo_base);
     printk(TBOOT_DETA"\t vtd_pmr_lo_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_lo_size);
     printk(TBOOT_DETA"\t vtd_pmr_hi_base: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_base);
     printk(TBOOT_DETA"\t vtd_pmr_hi_size: 0x%Lx\n", g_pre_k_s3_state.vtd_pmr_hi_size);
     printk(TBOOT_DETA"\t pol_hash: ");
-    print_hash(&g_pre_k_s3_state.pol_hash, g_tpm->cur_alg);
+    print_hash(&g_pre_k_s3_state.pol_hash, tpm->cur_alg);
     printk(TBOOT_DETA"\t VL measurements:\n");
     for ( unsigned int i = 0; i < g_pre_k_s3_state.num_vl_entries; i++ ) {
         printk(TBOOT_DETA"\t   PCR %d (alg count %d):\n",
@@ -141,16 +145,18 @@ static bool seal_data(const void *data, size_t data_size, const void *secrets, s
         uint8_t   secrets[secrets_size];
     } blob;
     uint32_t err;
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
 
     memset(&blob, 0, sizeof(blob));
-    if ( !hash_buffer(data, data_size, &blob.data_hash, g_tpm->cur_alg) ) {
+    if ( !hash_buffer(data, data_size, &blob.data_hash, tpm->cur_alg) ) {
         printk(TBOOT_ERR"failed to hash data\n");
         return false;
     }
 
     if ( secrets != NULL && secrets_size > 0 )  memcpy(blob.secrets, secrets, secrets_size);
 
-    err = g_tpm->seal(g_tpm, 2, sizeof(blob), (const uint8_t *)&blob, sealed_data_size, sealed_data);
+    err = tpm_fp->seal(tpm, 2, sizeof(blob), (const uint8_t *)&blob, sealed_data_size, sealed_data);
     if ( !err )  printk(TBOOT_WARN"failed to seal data\n");
 
     /* since blob might contain secret, clear it */
@@ -167,9 +173,11 @@ static bool verify_sealed_data(const uint8_t *sealed_data,  uint32_t sealed_data
         uint8_t   secrets[secrets_size];
     } blob;
     bool err = true;
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
 
     uint32_t data_size = sizeof(blob);
-    if ( !g_tpm->unseal(g_tpm, g_tpm->cur_loc, sealed_data_size, sealed_data, &data_size, (uint8_t *)&blob) ) {
+    if ( !tpm_fp->unseal(tpm, tpm->cur_loc, sealed_data_size, sealed_data, &data_size, (uint8_t *)&blob) ) {
         printk(TBOOT_ERR"failed to unseal blob\n");
         return false;
     }
@@ -181,11 +189,11 @@ static bool verify_sealed_data(const uint8_t *sealed_data,  uint32_t sealed_data
     /* verify that (hash of) current data maches sealed hash */
     tb_hash_t curr_data_hash;
     memset(&curr_data_hash, 0, sizeof(curr_data_hash));
-    if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash, g_tpm->cur_alg) ) {
+    if ( !hash_buffer(curr_data, curr_data_size, &curr_data_hash, tpm->cur_alg) ) {
         printk(TBOOT_WARN"failed to hash state data\n");
         goto done;
     }
-    if ( !are_hashes_equal(&blob.data_hash, &curr_data_hash, g_tpm->cur_alg) ) {
+    if ( !are_hashes_equal(&blob.data_hash, &curr_data_hash, tpm->cur_alg) ) {
         printk(TBOOT_WARN"sealed hash does not match current hash\n");
         goto done;
     }
@@ -208,9 +216,12 @@ static bool verify_sealed_data(const uint8_t *sealed_data,  uint32_t sealed_data
  */
 bool seal_pre_k_state(void)
 {
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
+    
     /* save hash of current policy into g_pre_k_s3_state */
     memset(&g_pre_k_s3_state.pol_hash, 0, sizeof(g_pre_k_s3_state.pol_hash));
-    if ( !hash_policy(&g_pre_k_s3_state.pol_hash, g_tpm->cur_alg) ) {
+    if ( !hash_policy(&g_pre_k_s3_state.pol_hash, tpm->cur_alg) ) {
         printk(TBOOT_ERR"failed to hash policy\n");
         goto error;
     }
@@ -218,9 +229,9 @@ bool seal_pre_k_state(void)
     print_pre_k_s3_state();
 
     /* read PCR 17/18, only for tpm1.2 */
-    if ( g_tpm->major == TPM12_VER_MAJOR ) {
-        if ( !g_tpm->pcr_read(g_tpm, 2, 17, &post_launch_pcr17) ||
-             !g_tpm->pcr_read(g_tpm, 2, 18, &post_launch_pcr18) )
+    if ( tpm->major == TPM12_VER_MAJOR ) {
+        if ( !tpm_fp->pcr_read(tpm, 2, 17, &post_launch_pcr17) ||
+             !tpm_fp->pcr_read(tpm, 2, 18, &post_launch_pcr18) )
             goto error;
     }
 
@@ -371,11 +382,13 @@ static bool measure_memory_integrity(vmac_t *mac, uint8_t key[VMAC_KEY_LEN/8])
 bool verify_integrity(void)
 {
     tpm_pcr_value_t pcr17, pcr18;
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
 
     /* read PCR 17/18, only for tpm1.2 */
-    if ( g_tpm->major == TPM12_VER_MAJOR ) {
-        if ( !g_tpm->pcr_read(g_tpm, 2, 17, &pcr17) ||
-             !g_tpm->pcr_read(g_tpm, 2, 18, &pcr18) )
+    if ( tpm->major == TPM12_VER_MAJOR ) {
+        if ( !tpm_fp->pcr_read(tpm, 2, 17, &pcr17) ||
+             !tpm_fp->pcr_read(tpm, 2, 18, &pcr18) )
             goto error;
         printk(TBOOT_DETA"PCRs before unseal:\n");
         printk(TBOOT_DETA"  PCR 17: ");
@@ -391,7 +404,7 @@ bool verify_integrity(void)
                              NULL, 0) )
         goto error;
 
-    if ( !g_tpm->verify_creation(g_tpm, sealed_post_k_state_size,  sealed_post_k_state) ) {
+    if ( !tpm_fp->verify_creation(tpm, sealed_post_k_state_size,  sealed_post_k_state) ) {
         printk(TBOOT_ERR"extended PCR values don't match creation values in sealed blob.\n");
         goto error;
     }
@@ -440,7 +453,7 @@ bool verify_integrity(void)
     /* since we can't leave the system without any measurments representing the
        code-about-to-execute, and yet there is no integrity of that code,
        just cap PCR 18 */
-    if ( !g_tpm->cap_pcrs(g_tpm, g_tpm->cur_loc, 18) )
+    if ( !tpm_fp->cap_pcrs(tpm, tpm->cur_loc, 18) )
         apply_policy(TB_ERR_FATAL);
     return false;
 }
@@ -452,6 +465,8 @@ bool verify_integrity(void)
 bool seal_post_k_state(void)
 {
     sealed_secrets_t secrets;
+    struct tpm_if *tpm = get_tpm();
+    const struct tpm_if_fp *tpm_fp = get_tpm_fp();
 
     /* since tboot relies on the module it launches for resource protection,
        that module should have at least one region for itself, otherwise
@@ -464,7 +479,7 @@ bool seal_post_k_state(void)
     /* calculate the memory integrity hash */
     uint32_t key_size = sizeof(secrets.mac_key);
     /* key must be random and secret even though auth not necessary */
-    if ( !g_tpm->get_random(g_tpm, g_tpm->cur_loc, secrets.mac_key, &key_size) ||key_size != sizeof(secrets.mac_key) ) return false;
+    if ( !tpm_fp->get_random(tpm, tpm->cur_loc, secrets.mac_key, &key_size) ||key_size != sizeof(secrets.mac_key) ) return false;
     if ( !measure_memory_integrity(&g_post_k_s3_state.kernel_integ, secrets.mac_key) ) return false;
 
     /* copy s3_key into secrets to be sealed */

@@ -1355,15 +1355,15 @@ bool launch_kernel(bool is_measured_launch)
 
     void *kernel_entry_point;
     uint32_t mb_type = MB_NONE;
-
+    struct tpm_if *tpm = get_tpm();
 
     if (g_tpm_family != TPM_IF_20_CRB ) {
-        if (!release_locality(g_tpm->cur_loc))
-            printk(TBOOT_ERR"Release TPM FIFO locality %d failed \n", g_tpm->cur_loc);
+        if (!release_locality(tpm->cur_loc))
+            printk(TBOOT_ERR"Release TPM FIFO locality %d failed \n", tpm->cur_loc);
     }
     else {
-        if (!tpm_relinquish_locality_crb(g_tpm->cur_loc))
-            printk(TBOOT_ERR"Relinquish TPM CRB locality %d failed \n", g_tpm->cur_loc);
+        if (!tpm_relinquish_locality_crb(tpm->cur_loc))
+            printk(TBOOT_ERR"Relinquish TPM CRB locality %d failed \n", tpm->cur_loc);
         if (!tpm_workaround_crb())
             printk(TBOOT_ERR"CRB workaround failed \n");
     }

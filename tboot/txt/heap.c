@@ -709,30 +709,31 @@ uint64_t calc_os_sinit_data_size(uint32_t version)
             2 * sizeof(heap_ext_data_element_t) +
             sizeof(heap_event_log_ptr_elt_t)
     };
-	txt_caps_t sinit_caps;
+    txt_caps_t sinit_caps;
+    struct tpm_if *tpm = get_tpm();
 	
-    if ( g_tpm->major == TPM20_VER_MAJOR ) {
-		if (g_sinit != NULL) {
-			sinit_caps = get_sinit_capabilities(g_sinit);
-		}
+    if ( tpm->major == TPM20_VER_MAJOR ) {
+	if (g_sinit != NULL) {
+  	    sinit_caps = get_sinit_capabilities(g_sinit);
+	}
         if (sinit_caps.tcg_event_log_format) {
-			size[2] = sizeof(os_sinit_data_t) + sizeof(uint64_t) +
+	    size[2] = sizeof(os_sinit_data_t) + sizeof(uint64_t) +
             2 * sizeof(heap_ext_data_element_t) + 
             sizeof(heap_event_log_ptr_elt2_1_t);
         }
-		else {
-			u32 count;
-			if ( g_tpm->extpol == TB_EXTPOL_AGILE )
-				count = g_tpm->banks;
-			else 
-				if ( g_tpm->extpol == TB_EXTPOL_EMBEDDED )
-					count = g_tpm->alg_count;
-				else
-					count = 1;
-			size[2] = sizeof(os_sinit_data_t) + sizeof(uint64_t) +
-				2 * sizeof(heap_ext_data_element_t) +
-				4 + count*sizeof(heap_event_log_descr_t);
-		}
+	else {
+            u32 count;
+	    if ( tpm->extpol == TB_EXTPOL_AGILE )
+               count = tpm->banks;
+	    else 
+		if ( tpm->extpol == TB_EXTPOL_EMBEDDED )
+ 		    count = tpm->alg_count;
+		else
+		    count = 1;
+   	    size[2] = sizeof(os_sinit_data_t) + sizeof(uint64_t) + 
+                      2 * sizeof(heap_ext_data_element_t) + 4 + 
+                      count*sizeof(heap_event_log_descr_t);
+	}
     }
 
     if ( version >= 6 )

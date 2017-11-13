@@ -2615,7 +2615,7 @@ out:
     return true;
 }
 
-struct tpm_if tpm_20_if = {
+const struct tpm_if_fp tpm_20_if_fp = {
     .init = tpm20_init,
     .pcr_read = tpm20_pcr_read,
     .pcr_extend = tpm20_pcr_extend,
