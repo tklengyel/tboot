@@ -10,8 +10,7 @@
 ROOTDIR ?= $(CURDIR)/..
 
 include $(ROOTDIR)/Config.mk
-
-MANPATH ?= $(DISTDIR)/usr/share/man
+TBOOT_MANPATH ?= $(DISTDIR)/usr/share/man
 
 
 #
@@ -26,8 +25,8 @@ dist : install
 
 
 install :
-	[ -d $(MANPATH)/man8 ] || $(INSTALL_DIR) $(MANPATH)/man8
-	$(INSTALL_DATA) -t $(MANPATH)/man8 man/*.8*
+	[ -d $(TBOOT_MANPATH)/man8 ] || $(INSTALL_DIR) $(TBOOT_MANPATH)/man8
+	$(INSTALL_DATA) -t $(TBOOT_MANPATH)/man8 man/*.8*
 
 
 clean :

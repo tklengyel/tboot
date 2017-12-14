@@ -20,8 +20,8 @@ debug ?= n
 # for dist targets
 ifdef DESTDIR
 DISTDIR = $(DESTDIR)
-else
-DISTDIR     ?= /
+#else
+#DISTDIR     ?= /
 endif
 
 DESTDIR     ?= $(ROOTDIR)/dist
