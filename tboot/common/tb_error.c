@@ -167,8 +167,8 @@ bool write_tb_error_code(tb_error_t error)
 {
     struct tpm_if *tpm = get_tpm();
     const struct tpm_if_fp *tpm_fp = get_tpm_fp();
-
-    if ( !tpm || no_err_idx )
+    
+    if ( !tpm || !tpm_fp || no_err_idx )
         return false;
 
     if ( !tpm_fp->nv_write(tpm, tpm->cur_loc, tpm->tb_err_index, 0,
