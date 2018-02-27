@@ -61,6 +61,7 @@
 
 #define _PAGE_PRESENT                   0x01
 #define _PAGE_RW			0x02
+#define _PAGE_A				0x20
 #define _PAGE_SIZE			0x80
 
 

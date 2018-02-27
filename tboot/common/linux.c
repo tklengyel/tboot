@@ -77,6 +77,43 @@ printk_long(const char *what)
     }
 }
 
+bool is_linux_image(const void *linux_image, size_t linux_size)
+{
+    linux_kernel_header_t *hdr;
+
+    if ( linux_image == NULL ) {
+        printk(TBOOT_ERR"Error: Linux kernel image is zero.\n");
+        return false;
+    }
+
+    if ( linux_size == 0 ) {
+        printk(TBOOT_ERR"Error: Linux kernel size is zero.\n");
+        return false;
+    }
+
+    if ( linux_size < sizeof(linux_kernel_header_t) + KERNEL_HEADER_OFFSET ) {
+        printk(TBOOT_INFO"Error: Linux kernel size is too small.\n");
+        return false;
+    }
+
+    hdr = (linux_kernel_header_t *)(linux_image + KERNEL_HEADER_OFFSET);
+
+    /* compare to the magic number */
+    if ( hdr->header != HDRS_MAGIC ) {
+        /* could still be an old kernel, but that's not supported */
+        printk(TBOOT_WARN"Linux magic number not found, image is not Linux or is too old.\n");
+        return false;
+    }
+
+    if ( hdr->version < 0x0205 ) {
+        printk(TBOOT_WARN
+               "Error: Old kernel (<2.6.20) is not supported by tboot.\n");
+        return false;
+    }
+
+    return true;
+}
+
 /* expand linux kernel with kernel image and initrd image */
 bool expand_linux_image(const void *linux_image, size_t linux_size,
                         const void *initrd_image, size_t initrd_size,

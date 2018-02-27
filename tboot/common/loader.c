@@ -69,10 +69,14 @@ extern loader_ctx *g_ldr_ctx;
 extern bool get_elf_image_range(const elf_header_t *elf, void **start, void **end);
 extern bool is_elf_image(const void *image, size_t size);
 extern bool expand_elf_image(const elf_header_t *elf, void **entry_point);
+extern bool is_pe_image(const void *image, size_t size);
+extern bool expand_pe_image(const void *image, loader_ctx *lctx);
+extern bool is_linux_image(const void *image, size_t size);
 extern bool expand_linux_image(const void *linux_image, size_t linux_size,
                                const void *initrd_image, size_t initrd_size,
                                void **entry_point, bool is_measured_launch);
 extern bool jump_elf_image(const void *entry_point, uint32_t magic);
+extern bool jump_pe_image(void);
 extern bool jump_linux_image(const void *entry_point);
 extern bool is_sinit_acmod(const void *acmod_base, uint32_t acmod_size, 
                            bool quiet);
@@ -590,7 +594,7 @@ bool is_kernel_linux(void)
     void *kernel_image = (void *)m->mod_start;
     size_t kernel_size = m->mod_end - m->mod_start;
 
-    return !is_elf_image(kernel_image, kernel_size);
+    return is_linux_image(kernel_image, kernel_size);
 }
 
 static bool 
@@ -1038,6 +1042,19 @@ void fixup_loader_ctx(loader_ctx *lctx, size_t offset)
     return;
 }
 
+uint32_t get_lowest_mod_start(loader_ctx *lctx)
+{
+    uint32_t lowest = 0xffffffff;
+    unsigned int mod_count = get_module_count(lctx);
+    for ( unsigned int i = 0; i < mod_count; i++ ) {
+        module_t *m = get_module(lctx, i);
+        if ( m->mod_start < lowest)
+            lowest = m->mod_start;
+    }
+
+    return lowest;
+}
+
 static uint32_t get_lowest_mod_start_below_tboot(loader_ctx *lctx)
 {
     uint32_t lowest = 0xffffffff;
@@ -1351,7 +1368,7 @@ determine_multiboot_type(void *image)
 
 bool launch_kernel(bool is_measured_launch)
 {
-    enum { ELF, LINUX } kernel_type;
+    enum { ELF, LINUX, PE } kernel_type;
 
     void *kernel_entry_point;
     uint32_t mb_type = MB_NONE;
@@ -1424,9 +1441,17 @@ bool launch_kernel(bool is_measured_launch)
         if(!move_modules_to_high_memory(g_ldr_ctx))
             return false;
     }
-    else {
-        printk(TBOOT_INFO"assuming kernel is Linux format\n");
+    else if ( is_linux_image(kernel_image, kernel_size) ) {
+        printk(TBOOT_INFO"kernel is Linux format\n");
         kernel_type = LINUX;
+    }
+    else if ( is_pe_image(kernel_image, kernel_size) ) {
+        printk(TBOOT_INFO"kernel is PE format\n");
+        kernel_type = PE;
+    }
+    else {
+        printk(TBOOT_ERR"unknown kernel type\n");
+        return false;
     }
 
     /* print_mbi(g_mbi); */
@@ -1454,6 +1479,18 @@ bool launch_kernel(bool is_measured_launch)
         return jump_elf_image(kernel_entry_point, 
                               mb_type == MB1_ONLY ?
                               MB_MAGIC : MB2_LOADER_MAGIC);
+    }
+    else if ( kernel_type == PE ) {
+        if ( is_measured_launch )
+            adjust_kernel_cmdline(g_ldr_ctx, &_tboot_shared);
+        if ( !expand_pe_image(kernel_image, g_ldr_ctx) )
+            return false;
+
+        printk(TBOOT_INFO"transfering control to kernel...\n");
+        /* (optionally) pause when transferring to kernel */
+        if ( g_vga_delay > 0 )
+            delay(g_vga_delay * 1000);
+        return jump_pe_image();
     }
     else if ( kernel_type == LINUX ) {
         void *initrd_image;
