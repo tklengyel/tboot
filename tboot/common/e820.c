@@ -673,12 +673,17 @@ void get_highest_sized_ram(uint64_t size, uint64_t limit,
             uint64_t base = e820_base_64(entry);
             uint64_t length = e820_length_64(entry);
 
-            /* over 4GB so use the last region that fit */
-            if ( base + length > limit )
+            /* region starts too high */
+            if ( base + size > limit )
                 break;
             if ( size <= length ) {
                 last_fit_base = base;
                 last_fit_size = length;
+                /* region ends too high, crop it */
+                if ( base + length > limit ) {
+                    last_fit_size = limit - base;
+                    break;
+                }
             }
         }
     }
