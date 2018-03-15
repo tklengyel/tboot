@@ -274,9 +274,9 @@ bool verify_signature(const uint8_t *data, size_t data_size,
         ERROR("Error: failed to allocate key\n");
         return false;
     }
-    BIGNUM *modulus = BN_new();
+    
+    BIGNUM *modulus = BN_bin2bn(key, pubkey_size, NULL);
     BIGNUM *exponent = BN_new();
-    modulus = BN_bin2bn(key, pubkey_size, NULL);
 
     /* uses fixed exponent (LCP_SIG_EXPONENT) */
     char exp[32];
@@ -288,8 +288,8 @@ bool verify_signature(const uint8_t *data, size_t data_size,
     #if OPENSSL_VERSION_NUMBER >= 0x10100000L
         RSA_set0_key(rsa_pubkey, modulus, exponent, NULL); 
     #else
-      	rsa_pubkey->n = BN_dup(modulus);
-    	rsa_pubkey->e = BN_dup(exponent);
+      	rsa_pubkey->n = modulus;
+    	rsa_pubkey->e = exponent;
   	rsa_pubkey->d = rsa_pubkey->p = rsa_pubkey->q = NULL;
     #endif
 
@@ -297,8 +297,6 @@ bool verify_signature(const uint8_t *data, size_t data_size,
     tb_hash_t digest;
     if ( !hash_buffer(data, data_size, &digest, TB_HALG_SHA1_LG) ) {
         ERROR("Error: failed to hash list\n");
-        BN_free(modulus);
-	BN_free(exponent);
         RSA_free(rsa_pubkey);
         return false;
     }
@@ -339,14 +337,10 @@ bool verify_signature(const uint8_t *data, size_t data_size,
         ERROR("Error: failed to verify list: %s\n", 
               ERR_error_string(ERR_get_error(), NULL));
         ERR_free_strings();
-        BN_free(modulus);
-	BN_free(exponent);
 	RSA_free(rsa_pubkey);
         return false;
     }
     
-    BN_free(modulus);
-    BN_free(exponent);
     RSA_free(rsa_pubkey);
     return true;
 }

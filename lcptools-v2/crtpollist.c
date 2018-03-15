@@ -132,6 +132,7 @@ static lcp_signature_t2 *read_rsa_pubkey_file(const char *file)
     if ( fp == NULL ) {
         ERROR("Error: failed to open .pem file %s: %s\n", file,
                 strerror(errno));
+        fclose(fp);
         return NULL;
     }
 
@@ -141,6 +142,7 @@ static lcp_signature_t2 *read_rsa_pubkey_file(const char *file)
         ERROR("Error: failed to read .pem file %s: %s\n", file,
                 ERR_error_string(ERR_get_error(), NULL));
         ERR_free_strings();
+        fclose(fp);
         return NULL;
     }
 
@@ -148,6 +150,7 @@ static lcp_signature_t2 *read_rsa_pubkey_file(const char *file)
     if ( keysize == 0 ) {
         ERROR("Error: public key size is 0\n");
         RSA_free(pubkey);
+        fclose(fp);
         return NULL;
     }
 
@@ -155,19 +158,19 @@ static lcp_signature_t2 *read_rsa_pubkey_file(const char *file)
     if ( sig == NULL ) {
         ERROR("Error: failed to allocate sig\n");
         RSA_free(pubkey);
+        fclose(fp);
         return NULL;
     }
-
+    const BIGNUM *modulus = NULL;
     memset(sig, 0, sizeof(lcp_rsa_signature_t) + 2*keysize);
     sig->rsa_signature.pubkey_size = keysize;
 
     /* OpenSSL Version 1.1.0 and later don't allow direct access to RSA 
        stuct */    
     #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        BIGNUM *modulus = BN_new();
-        RSA_get0_key(pubkey, (const BIGNUM **)&modulus, NULL, NULL); 
+        RSA_get0_key(pubkey, &modulus, NULL, NULL);
     #else
-        BIGNUM *modulus = BN_dup(pubkey->n);
+        modulus = pubkey->n;
     #endif
 
     unsigned char key[keysize];
@@ -183,8 +186,8 @@ static lcp_signature_t2 *read_rsa_pubkey_file(const char *file)
     }
 
     LOG("read rsa pubkey succeed!\n");
-    BN_free(modulus);
     RSA_free(pubkey);
+    fclose(fp);
     return sig;
 }
 
@@ -386,13 +389,13 @@ static bool ecdsa_sign_tpm20_list_data(lcp_policy_list_t2 *pollist, EC_KEY *ecke
             return false;
         }
 
-        BIGNUM *r = BN_new();
-        BIGNUM *s = BN_new();
-        
+        const BIGNUM *r = NULL;
+        const BIGNUM *s = NULL; 
+
 	/* OpenSSL Version 1.1.0 and later don't allow direct access to 
 	   ECDSA_SIG stuct */ 
         #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-      	    ECDSA_SIG_get0(ecdsasig, (const BIGNUM **)&r, (const BIGNUM **)&s);
+            ECDSA_SIG_get0(ecdsasig, &r, &s);
         #else
     	    r = ecdsasig->r;
     	    s = ecdsasig->s;
@@ -415,8 +418,7 @@ static bool ecdsa_sign_tpm20_list_data(lcp_policy_list_t2 *pollist, EC_KEY *ecke
             display_tpm20_signature("    ", sig, pollist->sig_alg, false);
         }
 
-	BN_free(r);
-	BN_free(s);
+        ECDSA_SIG_free(ecdsasig);
         return true;
     }
     return false;

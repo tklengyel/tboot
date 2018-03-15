@@ -156,13 +156,14 @@ static lcp_signature_t *read_pubkey_file(const char *file)
     memset(sig, 0, sizeof(*sig) + 2*keysize);
     sig->pubkey_size = keysize;
 
+    const BIGNUM *modulus = NULL;
+
     /* OpenSSL Version 1.1.0 and later don't allow direct access to RSA 
        stuct */ 
     #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        BIGNUM *modulus = BN_new();
-        RSA_get0_key(pubkey, (const BIGNUM **)&modulus, NULL, NULL); 
+        RSA_get0_key(pubkey, &modulus, NULL, NULL); 
     #else
-        BIGNUM *modulus = BN_dup(pubkey->n);
+        modulus = pubkey->n;
     #endif
     unsigned char key[keysize];
     BN_bn2bin(modulus, key);
@@ -176,7 +177,6 @@ static lcp_signature_t *read_pubkey_file(const char *file)
         display_signature("    ", sig, false);
     }
  
-    BN_free(modulus);
     RSA_free(pubkey);
     return sig;
 }
