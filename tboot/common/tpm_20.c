@@ -2481,15 +2481,14 @@ static bool tpm20_init(struct tpm_if *ti)
     u32 ret;
     unsigned int i;
     tpm_info_list_t *info_list = get_tpm_info_list(g_sinit);
- 
-   if ( ti == NULL )
+
+    if ( ti == NULL )
         return false;
    
-   if (!txt_is_launched())
-                ti->cur_loc = 0;
-     else
-                ti->cur_loc = 2;
-   
+    if (!txt_is_launched())
+        ti->cur_loc = 0;
+    else
+        ti->cur_loc = 2;
 
     /* init version */
     ti->major = TPM20_VER_MAJOR;

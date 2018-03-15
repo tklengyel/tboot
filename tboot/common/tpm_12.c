@@ -1671,6 +1671,11 @@ static bool tpm12_init(struct tpm_if *ti)
     if ( ti == NULL )
         return false;
 
+    if (!txt_is_launched())
+        ti->cur_loc = 0;
+    else
+        ti->cur_loc = 2;
+
     locality = ti->cur_loc;
     if ( !tpm_validate_locality(locality) ) {
         printk(TBOOT_WARN"TPM is not available.\n");
