@@ -224,6 +224,22 @@ o  Tboot support EFI boot via grub2 multiboot2 protocol.
 
        Reboot to choose tboot grub option for TXT launch.
 
+   In Centos 7, the OS should be installed and booted in EFI mode first,
+   then:
+       Under tboot code root folder: make; make install
+
+       Copy appropriate SINIT for platform into /boot.
+
+       Run: grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+
+       Create directory /boot/efi/EFI/centos/x86_64-efi, and copy
+       multiboot2.mod and relocator.mod from /usr/lib/grub/x86_64-efi into it.
+
+       If there aren't multiboot2.mod and relocator.mod in directory /usr/lib/grub/x86_64-efi,
+       Run: yum install grub2-efi-modules
+
+       Reboot to choose tboot grub option for TXT launch.
+
    Linux launch works already. Xen for trad BIOS still work and Xen EFI is not
    going to work until we can get a version with Daniel Kiper's multiboot2
    changes in it -- and then we'll need to make some trivial changes to the
