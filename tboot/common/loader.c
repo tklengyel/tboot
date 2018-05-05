@@ -76,7 +76,7 @@ extern bool jump_elf_image(const void *entry_point, uint32_t magic);
 extern bool jump_linux_image(const void *entry_point);
 extern bool is_sinit_acmod(const void *acmod_base, uint32_t acmod_size, 
                            bool quiet);
-
+extern void apply_policy(tb_error_t error);
 extern uint32_t g_mb_orig_size;
 
 #define LOADER_CTX_BAD(xctx) \
@@ -1367,6 +1367,20 @@ bool launch_kernel(bool is_measured_launch)
         if (!tpm_workaround_crb())
             printk(TBOOT_ERR"CRB workaround failed \n");
     }
+
+    /* if using memory logging, reserve log area */
+    if ( g_log_targets & TBOOT_LOG_TARGET_MEMORY ) {
+        uint64_t base = TBOOT_SERIAL_LOG_ADDR;
+        uint64_t size = TBOOT_SERIAL_LOG_SIZE;
+        printk(TBOOT_INFO"reserving tboot memory log (%Lx - %Lx) in e820 table\n", base, (base + size - 1));
+        if ( !e820_protect_region(base, size, E820_RESERVED) )
+            apply_policy(TB_ERR_FATAL);
+    }
+
+    /* replace map in loader context with copy */
+    replace_e820_map(g_ldr_ctx);
+    printk(TBOOT_DETA"adjusted e820 map:\n");
+    print_e820_map();
 
     if ( !verify_loader_context(g_ldr_ctx) )
         return false;
