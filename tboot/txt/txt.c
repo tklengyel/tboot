@@ -69,6 +69,12 @@
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
 #define AP_WFS_TIMEOUT     0x10000000
 
+/* TPM event log types */
+#define EVTLOG_UNKNOWN       0
+#define EVTLOG_TPM12         1
+#define EVTLOG_TPM2_LEGACY   2
+#define EVTLOG_TPM2_TCG      3
+
 __data struct acpi_rsdp g_rsdp;
 extern char _start[];             /* start of module */
 extern char _end[];               /* end of module */
@@ -87,7 +93,7 @@ extern void apply_policy(tb_error_t error);
 extern void cpu_wakeup(uint32_t cpuid, uint32_t sipi_vec);
 extern void print_event(const tpm12_pcr_event_t *evt);
 extern void print_event_2(void *evt, uint16_t alg);
-
+extern uint32_t print_event_2_1(void *evt);
 
 /*
  * this is the structure whose addr we'll put in TXT heap
@@ -282,6 +288,26 @@ static void init_evtlog_desc(heap_event_log_ptr_elt2_t *evt_log)
     }
 }
 
+int get_evtlog_type(void)
+{
+    struct tpm_if *tpm = get_tpm();
+
+    if (tpm->major == TPM12_VER_MAJOR) {
+        return EVTLOG_TPM12;
+    } else if (tpm->major == TPM20_VER_MAJOR) {
+        if (g_sinit) {
+            txt_caps_t sinit_caps = get_sinit_capabilities(g_sinit);
+            return sinit_caps.tcg_event_log_format ? EVTLOG_TPM2_TCG : EVTLOG_TPM2_LEGACY;
+        } else {
+            printk(TBOOT_ERR"SINIT not found\n");
+        }
+    } else {
+        printk(TBOOT_ERR"Unknown TPM major version: %d\n", tpm->major);
+    }
+    printk(TBOOT_ERR"Unable to determine log type\n");
+    return EVTLOG_UNKNOWN;
+}
+
 static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
 {
     heap_ext_data_element_t* elt = elts;
@@ -391,7 +417,7 @@ void dump_event_2(void)
     }
 }
 
-bool evtlog_append_tpm20(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t type)
+bool evtlog_append_tpm2_legacy(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t type)
 {
     heap_event_log_descr_t *cur_desc = NULL;
     uint32_t hash_size; 
@@ -428,20 +454,77 @@ bool evtlog_append_tpm20(uint8_t pcr, uint16_t alg, tb_hash_t *hash, uint32_t ty
     return true;
 }
 
+bool evtlog_append_tpm2_tcg(uint8_t pcr, uint32_t type, hash_list_t *hl)
+{
+    uint32_t i, event_size;
+    unsigned int hash_size;
+    tcg_pcr_event2 *event;
+    uint8_t *hash_entry;
+    tcg_pcr_event2 dummy;
+
+    /*
+     * Dont't use sizeof(tcg_pcr_event2) since that has TPML_DIGESTV_VALUES_1.digests
+     * set to 5. Compute the static size as pcr_index + event_type +
+     * digest.count + event_size. Then add the space taken up by the hashes.
+     */
+    event_size = sizeof(dummy.pcr_index) + sizeof(dummy.event_type) +
+        sizeof(dummy.digest.count) + sizeof(dummy.event_size);
+
+    for (i = 0; i < hl->count; i++) {
+        hash_size = get_hash_size(hl->entries[i].alg);
+        if (hash_size == 0) {
+            return false;
+        }
+        event_size += sizeof(uint16_t); // hash_alg field
+        event_size += hash_size;
+    }
+
+    // Check if event will fit in buffer.
+    if (event_size + g_elog_2_1->next_record_offset >
+        g_elog_2_1->allcoated_event_container_size) {
+        return false;
+    }
+
+    event = (tcg_pcr_event2*)(void *)(unsigned long)g_elog_2_1->phys_addr +
+        g_elog_2_1->next_record_offset;
+    event->pcr_index = pcr;
+    event->event_type = type;
+    event->event_size = 0;  // No event data passed by tboot.
+    event->digest.count = hl->count;
+
+    hash_entry = (uint8_t *)&event->digest.digests[0];
+    for (i = 0; i < hl->count; i++) {
+        // Populate individual TPMT_HA_1 structs.
+        *((uint16_t *)hash_entry) = hl->entries[i].alg; // TPMT_HA_1.hash_alg
+        hash_entry += sizeof(uint16_t);
+        hash_size = get_hash_size(hl->entries[i].alg);  // already checked above
+        memcpy(hash_entry, &(hl->entries[i].hash), hash_size);
+        hash_entry += hash_size;
+    }
+
+    g_elog_2_1->next_record_offset += event_size;
+    print_event_2_1(event);
+    return true;
+}
+
 bool evtlog_append(uint8_t pcr, hash_list_t *hl, uint32_t type)
 {
-    struct tpm_if *tpm = get_tpm();
-    switch (tpm->major) {
-    case TPM12_VER_MAJOR:
+    int log_type = get_evtlog_type();
+    switch (log_type) {
+    case EVTLOG_TPM12:
         if ( !evtlog_append_tpm12(pcr, &hl->entries[0].hash, type) )
             return false;
         break;
-    case TPM20_VER_MAJOR:
+    case EVTLOG_TPM2_LEGACY:
         for (unsigned int i=0; i<hl->count; i++) {
-            if ( !evtlog_append_tpm20(pcr, hl->entries[i].alg,
-                    &hl->entries[i].hash, type))
+            if ( !evtlog_append_tpm2_legacy(pcr, hl->entries[i].alg,
+                &hl->entries[i].hash, type))
                 return false;
-	}
+	    }
+        break;
+    case EVTLOG_TPM2_TCG:
+        if ( !evtlog_append_tpm2_tcg(pcr, type, hl) )
+            return false;
         break;
     default:
         return false;
