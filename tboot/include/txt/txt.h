@@ -38,6 +38,12 @@
 
 // #include <multiboot.h>
 
+/* TPM event log types */
+#define EVTLOG_UNKNOWN       0
+#define EVTLOG_TPM12         1
+#define EVTLOG_TPM2_LEGACY   2
+#define EVTLOG_TPM2_TCG      3
+
 extern bool txt_is_launched(void);
 extern void txt_display_errors(void);
 extern bool txt_has_error(void);
@@ -54,6 +60,7 @@ extern bool txt_s3_launch_environment(void);
 extern void txt_shutdown(void);
 extern bool txt_is_powercycle_required(void);
 extern void ap_wait(unsigned int cpuid);
+extern int get_evtlog_type(void);
 
 extern uint32_t g_using_da;
 #endif      /* __TXT_TXT_H__ */

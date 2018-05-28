@@ -307,6 +307,14 @@ o  Recovering from measured launch failures.
    Note: TXT.ERRORCODE is only cleared if the system is power cycled. A reboot is not
    sufficient to clear the error code.
 
+o  Force TPM2 legacy log format.
+   Some SINITs have a bug where they don't extend the MLE hash to the event log.
+   This makes it impossible to verify the measurement chain for PCR 17. However,
+   if we force them to use the legacy (not TCG standardized) TPM2 log format,
+   the SINITs in question log all the inputs to PCR 17 to the event log. This
+   setting provides a way to force use of the legacy log format for TPM 2 systems:
+           force_tpm2_legacy_log=false|true  // defaults to false
+
 PCR Usage:
 ---------
 o  Legacy PCR mapping

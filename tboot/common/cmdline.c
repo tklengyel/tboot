@@ -85,6 +85,8 @@ static const cmdline_option_t g_tboot_cmdline_options[] = {
     { "measure_nv", "false" },       /* true|false */
     { "extpol",    "sha1" },         /*agile|embedded|sha1|sha256|sm3|... */
     { "ignore_prev_err", "true"},    /* true|false */
+    { "force_tpm2_legacy_log", "false"}, /* true|false */
+    { "force_tpm2_legacy_log", "false"}, /* true|false */
     { NULL, NULL }
 };
 static char g_tboot_param_values[ARRAY_SIZE(g_tboot_cmdline_options)][MAX_VALUE_LEN];
@@ -527,6 +529,17 @@ void get_tboot_extpol(void)
         tpm->extpol = TB_EXTPOL_FIXED;
         tpm->cur_alg = TB_HALG_SM3;
     }
+}
+
+bool get_tboot_force_tpm2_legacy_log(void)
+{
+    const char *force_legacy_log =
+       get_option_val(g_tboot_cmdline_options,
+              g_tboot_param_values,
+              "force_tpm2_legacy_log");
+    if ( force_legacy_log != NULL && strcmp(force_legacy_log, "true") == 0 )
+       return true;
+    return false;
 }
 
 bool get_tboot_ignore_prev_err(void)

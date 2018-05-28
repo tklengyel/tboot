@@ -69,12 +69,6 @@
 /* counter timeout for waiting for all APs to enter wait-for-sipi */
 #define AP_WFS_TIMEOUT     0x10000000
 
-/* TPM event log types */
-#define EVTLOG_UNKNOWN       0
-#define EVTLOG_TPM12         1
-#define EVTLOG_TPM2_LEGACY   2
-#define EVTLOG_TPM2_TCG      3
-
 __data struct acpi_rsdp g_rsdp;
 extern char _start[];             /* start of module */
 extern char _end[];               /* end of module */
@@ -295,6 +289,13 @@ int get_evtlog_type(void)
     if (tpm->major == TPM12_VER_MAJOR) {
         return EVTLOG_TPM12;
     } else if (tpm->major == TPM20_VER_MAJOR) {
+        /*
+         * Force use of legacy TPM2 log format to deal with a bug in some SINIT
+         * ACMs that where they don't log the MLE hash to the event log.
+         */
+        if (get_tboot_force_tpm2_legacy_log()) {
+            return EVTLOG_TPM2_LEGACY;
+        }
         if (g_sinit) {
             txt_caps_t sinit_caps = get_sinit_capabilities(g_sinit);
             return sinit_caps.tcg_event_log_format ? EVTLOG_TPM2_TCG : EVTLOG_TPM2_LEGACY;
@@ -312,47 +313,37 @@ static void init_os_sinit_ext_data(heap_ext_data_element_t* elts)
 {
     heap_ext_data_element_t* elt = elts;
     heap_event_log_ptr_elt_t* evt_log;
-    txt_caps_t sinit_caps;
     struct tpm_if *tpm = get_tpm();
-	
-    if ( tpm->major == TPM12_VER_MAJOR ) {
+ 
+    int log_type = get_evtlog_type();
+    if ( log_type == EVTLOG_TPM12 ) {
         evt_log = (heap_event_log_ptr_elt_t *)elt->data;
         evt_log->event_log_phys_addr = (uint64_t)(unsigned long)init_event_log();
         elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR;
         elt->size = sizeof(*elt) + sizeof(*evt_log);
-    } 
-    else 
-        if ( tpm->major == TPM20_VER_MAJOR ) {
-       	    if (g_sinit != NULL) {
-	        sinit_caps = get_sinit_capabilities(g_sinit);
-	    }
-	    else 
-		return;
-            if (sinit_caps.tcg_event_log_format) {
-		g_elog_2_1 = (heap_event_log_ptr_elt2_1_t *)elt->data;
-		init_evtlog_desc_1(g_elog_2_1);
-		elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2_1;
-		elt->size = sizeof(*elt) + sizeof(heap_event_log_ptr_elt2_1_t);
-		printk(TBOOT_DETA"heap_ext_data_element TYPE = %d \n", elt->type);
-		printk(TBOOT_DETA"heap_ext_data_element SIZE = %d \n", elt->size);
-				
-	    }
-	    else {
-		g_elog_2 = (heap_event_log_ptr_elt2_t *)elt->data;
-		if ( tpm->extpol == TB_EXTPOL_AGILE )
-	    	    g_elog_2->count = tpm->banks;
-		else 
-		    if ( tpm->extpol == TB_EXTPOL_EMBEDDED )
-			g_elog_2->count = tpm->alg_count;
-		    else
-			g_elog_2->count = 1;
-		init_evtlog_desc(g_elog_2);
-                elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2;
-                elt->size = sizeof(*elt) + sizeof(u32) +
-                g_elog_2->count * sizeof(heap_event_log_descr_t);
-		printk(TBOOT_DETA"INTEL TXT LOG elt SIZE = %d \n", elt->size);
-           }
-       }
+    } else if ( log_type == EVTLOG_TPM2_TCG ) {
+        g_elog_2_1 = (heap_event_log_ptr_elt2_1_t *)elt->data;
+        init_evtlog_desc_1(g_elog_2_1);
+        elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2_1;
+        elt->size = sizeof(*elt) + sizeof(heap_event_log_ptr_elt2_1_t);
+        printk(TBOOT_DETA"heap_ext_data_element TYPE = %d \n", elt->type);
+        printk(TBOOT_DETA"heap_ext_data_element SIZE = %d \n", elt->size);
+    }  else if ( log_type == EVTLOG_TPM2_LEGACY ) {
+        g_elog_2 = (heap_event_log_ptr_elt2_t *)elt->data;
+        if ( tpm->extpol == TB_EXTPOL_AGILE )
+            g_elog_2->count = tpm->banks;
+        else
+            if ( tpm->extpol == TB_EXTPOL_EMBEDDED )
+                g_elog_2->count = tpm->alg_count;
+            else
+                g_elog_2->count = 1;
+        init_evtlog_desc(g_elog_2);
+        elt->type = HEAP_EXTDATA_TYPE_TPM_EVENT_LOG_PTR_2;
+        elt->size = sizeof(*elt) + sizeof(u32) +
+            g_elog_2->count * sizeof(heap_event_log_descr_t);
+        printk(TBOOT_DETA"INTEL TXT LOG elt SIZE = %d \n", elt->size);
+    }
+
     elt = (void *)elt + elt->size;
     elt->type = HEAP_EXTDATA_TYPE_END;
     elt->size = sizeof(*elt);
@@ -618,6 +609,8 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit, loader_ctx *
     caps_mask.rlp_wake_getsec = 1;
     caps_mask.rlp_wake_monitor = 1;
     caps_mask.pcr_map_da = 1;
+    caps_mask.tcg_event_log_format = 1;
+    caps_mask.tcg_event_log_format = 1;
     os_sinit_data->capabilities._raw = MLE_HDR_CAPS & ~caps_mask._raw;
     if ( sinit_caps.rlp_wake_monitor )
         os_sinit_data->capabilities.rlp_wake_monitor = 1;
@@ -627,8 +620,7 @@ static txt_heap_t *init_txt_heap(void *ptab_base, acm_hdr_t *sinit, loader_ctx *
         printk(TBOOT_ERR"SINIT capabilities are incompatible (0x%x)\n", sinit_caps._raw);
         return NULL;
     }
-    
-    if ( sinit_caps.tcg_event_log_format ){
+    if ( get_evtlog_type() == EVTLOG_TPM2_TCG ) {
         printk(TBOOT_INFO"SINIT ACM supports TCG compliant TPM 2.0 event log format, tcg_event_log_format = %d \n", 
               sinit_caps.tcg_event_log_format);
         os_sinit_data->capabilities.tcg_event_log_format = 1;
@@ -868,9 +860,7 @@ bool txt_s3_launch_environment(void)
     /* initial launch's TXT heap data is still in place and assumed valid */
     /* so don't re-create; this is OK because it was untrusted initially */
     /* and would be untrusted now */
-	txt_caps_t sinit_caps;
-    struct tpm_if *tpm = get_tpm();
-
+    int log_type = get_evtlog_type();
     /* get sinit binary loaded */
     g_sinit = (acm_hdr_t *)(uint32_t)read_pub_config_reg(TXTCR_SINIT_BASE);
     if ( g_sinit == NULL ){
@@ -878,16 +868,13 @@ bool txt_s3_launch_environment(void)
     }
 	/* initialize event log in os_sinit_data, so that events will not */
 	/* repeat when s3 */
-	if ( tpm->major == TPM12_VER_MAJOR && g_elog )
+	if ( log_type == EVTLOG_TPM12 && g_elog ) {
 		g_elog = (event_log_container_t *)init_event_log();
-	else 
-		if ( tpm->major == TPM20_VER_MAJOR ){
-			sinit_caps = get_sinit_capabilities(g_sinit);		
-			if (sinit_caps.tcg_event_log_format && g_elog_2_1) 
-				init_evtlog_desc_1(g_elog_2_1);
-			if(!sinit_caps.tcg_event_log_format && g_elog_2) 
-				init_evtlog_desc(g_elog_2);
-		}
+    } else if ( log_type == EVTLOG_TPM2_TCG && g_elog_2_1)  {
+        init_evtlog_desc_1(g_elog_2_1);
+    } else if ( log_type == EVTLOG_TPM2_LEGACY && g_elog_2)  {
+        init_evtlog_desc(g_elog_2);
+    }
 
     /* set MTRRs properly for AC module (SINIT) */
     set_mtrrs_for_acmod(g_sinit);
